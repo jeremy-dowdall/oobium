@@ -1,0 +1,29 @@
+targets:
+  $default:
+    builders:
+      oobium|builders_library:
+        enabled: true
+      oobium|models_library:
+        enabled: true
+      oobium|scaffolding_library:
+        enabled: true
+
+builders:
+  builders_library:
+    import: 'package:oobium_client_gen/builder.dart'
+    builder_factories: ['buildersLibraryBuilder']
+    build_extensions: {".schema.dart": [".initializers.dart"]}
+    auto_apply: dependents
+    build_to: source
+  models_library:
+    import: 'package:oobium_client_gen/builder.dart'
+    builder_factories: ['modelsLibraryBuilder']
+    build_extensions: {".schema.dart": [".models.dart"]}
+    auto_apply: dependents
+    build_to: source
+  scaffolding_library:
+    import: 'package:oobium_client_gen/builder.dart'
+    builder_factories: ['scaffoldingLibraryBuilder']
+    build_extensions: {".schema.dart": [".scaffolding.dart"]}
+    auto_apply: dependents
+    build_to: source
