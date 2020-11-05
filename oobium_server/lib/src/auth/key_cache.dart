@@ -1,0 +1,17 @@
+import 'package:http_parser/http_parser.dart';
+
+class KeyCache {
+
+  static final _instance = KeyCache._();
+  factory KeyCache() => _instance;
+  KeyCache._();
+
+  Map<String, String> _keys;
+  DateTime _expiresAt;
+  bool get isExpired => _expiresAt == null || _expiresAt.isBefore(DateTime.now());
+  Map<String, String> get keys => _keys;
+  void setKeys(Map data, String expires) {
+    _keys = data?.map((k,v) => MapEntry(k.toString(), v.toString())) ?? {};
+    _expiresAt = parseHttpDate(expires);
+  }
+}
