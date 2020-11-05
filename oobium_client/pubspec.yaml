@@ -1,0 +1,29 @@
+name: oobium_client
+description: A simple client persistence framework.
+version: 0.0.1
+author:
+#homepage:
+
+publish_to: 'none'
+
+environment:
+  sdk: ">=2.7.0 <3.0.0"
+  flutter: ">=1.17.0 <2.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  oobium_common:
+    path: ../oobium_common
+  provider: ^4.3.2
+  path_provider: ^1.6.11
+  shared_preferences: '>=0.5.10 <2.0.0'
+  google_sign_in: ^4.5.1
+  firebase_core: ^0.4.5
+  firebase_auth: ^0.16.1
+  cloud_firestore: ^0.13.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mockito: ^4.1.2
