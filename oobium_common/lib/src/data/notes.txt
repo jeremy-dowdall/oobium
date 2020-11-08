@@ -1,0 +1,6 @@
+files:
+ <path> (active journal)
+ <path>.init (initial setup as a replicant of another db)
+ <path>.sync (replicants: uid, rid and timestamp; 1st line is self)
+ <path>.sync.<rid> (deletes since last sync. limit via time and size?)
+ <path>.temp (used during compacting)

@@ -22,33 +22,33 @@ final routes = AppRoutes()
   ..add<AuthorsRoute>(
       path: '/authors',
       onParse: (data) => AuthorsRoute(),
-      onBuild: (state) => [HomePage()],
+      onBuild: (route) => [HomePage()],
       children: AppRoutes()
         ..add<AuthorsListRoute>(
             path: '/',
             onParse: (data) => AuthorsListRoute(),
-            onBuild: (state) => [AuthorsListPage()]
+            onBuild: (route) => [AuthorsListPage()]
         )
         ..add<AuthorsDetailRoute>(
             path: '/<id>',
             onParse: (data) => AuthorsDetailRoute(data['id']),
-            onBuild: (state) => [AuthorsListPage(), AuthorsDetailPage(state.route['id'])]
+            onBuild: (route) => [AuthorsListPage(), AuthorsDetailPage(route['id'])]
         )
   )
   ..add<BooksRoute>(
       path: '/books',
       onParse: (data) => BooksRoute(),
-      onBuild: (state) => [HomePage()],
+      onBuild: (route) => [HomePage()],
       children: AppRoutes()
         ..add<BooksListRoute>(
             path: '/',
             onParse: (data) => BooksListRoute(),
-            onBuild: (state) => [BooksListPage()]
+            onBuild: (route) => [BooksListPage()]
         )
         ..add<BooksDetailRoute>(
             path: '/<id>',
             onParse: (data) => BooksDetailRoute(data['id']),
-            onBuild: (state) => [BooksListPage(), BooksDetailPage(state.route['id'])]
+            onBuild: (route) => [BooksListPage(), BooksDetailPage(route['id'])]
         )
   )
   ..add<SettingsRoute>(

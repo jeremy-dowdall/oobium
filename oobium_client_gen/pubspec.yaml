@@ -10,7 +10,6 @@ environment:
   sdk: ">=2.7.0 <3.0.0"
 
 dependencies:
-  source_gen: ^0.9.6
   oobium_common:
     path: ../oobium_common
 
@@ -18,6 +17,4 @@ dev_dependencies:
   oobium_common_test:
     path: ../oobium_common_test
   test: ^1.15.3
-  build_runner: ^1.10.2
-  build_test: ^1.2.2
   mockito: ^4.1.2

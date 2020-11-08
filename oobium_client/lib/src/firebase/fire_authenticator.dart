@@ -1,15 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart' hide AuthResult;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:oobium_client/src/auth.dart';
+import 'package:oobium_common/oobium_common.dart';
 
-class FireAuthenticator implements Authenticator {
-
-  @override bool get canSignInWithEmailAndPassword => true;
-  @override bool get canSignInWithEmailAndLink => false;
-  @override bool get canSignInWithGoogle => true;
-  @override bool get canSignInWithApple => true;
-  @override bool get canSignInWithFacebook => false;
-  @override bool get canSignInWithPhone => false;
+class FireAuthenticator extends Authenticator {
 
   @override
   Stream<AuthUser> get onAuthStateChanged => FirebaseAuth.instance.onAuthStateChanged.map((user) => user.authUser);
@@ -18,9 +11,14 @@ class FireAuthenticator implements Authenticator {
   Future<AuthUser> getCurrentUser() async => (await FirebaseAuth.instance.currentUser()).authUser;
 
   @override
-  Future<String> getAuthToken({bool refresh = false}) async {
-    return 'Token ${await getIdToken(refresh: refresh)}';
-  }
+  String get type => 'FireToken';
+
+  @override bool get canSignInWithEmailAndPassword => true;
+  @override bool get canSignInWithEmailAndLink => false;
+  @override bool get canSignInWithGoogle => true;
+  @override bool get canSignInWithApple => true;
+  @override bool get canSignInWithFacebook => false;
+  @override bool get canSignInWithPhone => false;
 
   @override
   Future<String> getIdToken({bool refresh = false}) async {
@@ -79,7 +77,7 @@ class FireAuthenticator implements Authenticator {
 
 extension FirebaseUserExt on FirebaseUser {
   AuthUser get authUser => AuthUser(
-    uid: this?.uid ?? '',
+    id: this?.uid ?? '',
     name: this?.displayName ?? '',
     avatar: this?.photoUrl ?? '',
   );

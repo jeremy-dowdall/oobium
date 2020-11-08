@@ -1,8 +1,8 @@
-import 'package:oobium_client_gen/generators/util/initializers_builder.dart';
-import 'package:oobium_client_gen/generators/util/model.dart';
+import 'package:oobium_client_gen/src/util/initializers_builder.dart';
+import 'package:oobium_client_gen/src/util/model.dart';
+import 'package:oobium_client_gen/src/util/schema_builder.dart';
+import 'package:oobium_client_gen/src/util/schema_library.dart';
 import 'package:test/test.dart';
-
-import 'utils.dart';
 
 void main() {
   group('test build', () {
@@ -20,10 +20,10 @@ void main() {
     });
 
     test('Foo<P>, with expanded types', () {
-      final schema = schemaDef([
-        classDef('@owner Foo', ['HasMany<Bar> bars']),
-        classDef('@model Bar<P>', ['Link<P> foo']),
-      ]);
+      final schema = SchemaBuilder(SchemaLibrary.parse([
+        'Foo(owner)', '  bars HasMany<Bar>',
+        'Bar<P>', '  foo Link<P>',
+      ])).build();
       final lines = (InitializersBuilder(imports: [], models: schema.models)).build().split('\n');
       var index = lines.indexWhere((line) => line.trim() == 'void addSchemaBuilders() {');
       expect(lines[++index].trim(), 'addBuilder<Foo>((context, data) => Foo.fromJson(context, data));');

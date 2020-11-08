@@ -1,0 +1,7 @@
+User(owner)
+  name String
+
+Message
+  from User
+  to User
+  message String

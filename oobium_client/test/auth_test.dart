@@ -1,8 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:oobium_client/src/auth.dart';
+import 'package:oobium_client/oobium_client.dart';
 import 'package:oobium_client/src/models.dart';
+import 'package:oobium_common/oobium_common.dart';
 
 class TestAuthenticator extends Mock implements Authenticator { }
 class TestPersistor extends Mock implements Persistor { }
@@ -15,10 +16,10 @@ class TestUser extends Model<TestUser, TestUser> {
 void main() {
   group('test authId', () {
     test('test that Models.authId is set when Auth user is set', () async {
-      final auth = Auth(TestAuthenticator());
+      final auth = ClientAuth(TestAuthenticator());
       final context = ModelContext(auth);
 
-      auth.setAuthUser(AuthUser(uid: 'test-uid-01', name: 'Test User'));
+      auth.setAuthUser(AuthUser(id: 'test-uid-01', name: 'Test User'));
 
       expect(context.uid, 'test-uid-01');
     });
@@ -32,7 +33,7 @@ void main() {
     });
 
     test('test failed signin: email=null and password=null', () async {
-      final state = Auth(authenticator);
+      final state = ClientAuth(authenticator);
 
       final result = await state.signInOrCreate(email: null, password: null);
 
@@ -44,7 +45,7 @@ void main() {
     });
 
     test('test failed signin: email="notnull" and password=null', () async {
-      final state = Auth(authenticator);
+      final state = ClientAuth(authenticator);
 
       final result = await state.signInOrCreate(email: 'notnull', password: null);
 
@@ -57,7 +58,7 @@ void main() {
 
     test('test failed signin: email="found" and password="incorrect"', () async {
       final error = AuthError.PasswordIncorrect;
-      final state = Auth(authenticator);
+      final state = ClientAuth(authenticator);
       when(authenticator.signInWithEmailAndPassword('found', 'incorrect')).thenThrow(PlatformException(code: error.code));
 
       final result = await state.signInOrCreate(email: 'found', password: 'incorrect');
@@ -71,7 +72,7 @@ void main() {
 
     test('test failed signin: email="disabled" and password="correct"', () async {
       final error = AuthError.AccountDisabled;
-      final state = Auth(authenticator);
+      final state = ClientAuth(authenticator);
       when(authenticator.signInWithEmailAndPassword('disabled', 'correct')).thenThrow(PlatformException(code: error.code));
 
       final result = await state.signInOrCreate(email: 'disabled', password: 'correct');
@@ -84,31 +85,31 @@ void main() {
     });
 
     test('test successful signin: email="found" and password="correct"', () async {
-      final state = Auth(authenticator);
-      when(authenticator.signInWithEmailAndPassword('found', 'correct')).thenAnswer((_) async => AuthResult.success(AuthUser(uid: 'found')));
+      final state = ClientAuth(authenticator);
+      when(authenticator.signInWithEmailAndPassword('found', 'correct')).thenAnswer((_) async => AuthResult.success(AuthUser(id: 'found')));
 
       final result = await state.signInOrCreate(email: 'found', password: 'correct');
 
       expect(result.success, isTrue);
       expect(result.user, isNotNull);
-      expect(result.user.uid, 'found');
+      expect(result.user.id, 'found');
       verify(authenticator.signInWithEmailAndPassword(any, any)).called(1);
       verifyNever(authenticator.createUserWithEmailAndPassword(any, any));
 
       expect(state.user, result.user);
-      expect(state.uid, result.user.uid);
+      expect(state.uid, result.user.id);
     });
 
     test('test successful create account: email="notfound" and password="valid"', () async {
-      final state = Auth(authenticator);
+      final state = ClientAuth(authenticator);
       when(authenticator.signInWithEmailAndPassword('notfound', 'valid')).thenThrow(PlatformException(code: AuthError.AccountNotFound.code));
-      when(authenticator.createUserWithEmailAndPassword('notfound', 'valid')).thenAnswer((_) async => AuthResult.success(AuthUser(uid: 'notfound')));
+      when(authenticator.createUserWithEmailAndPassword('notfound', 'valid')).thenAnswer((_) async => AuthResult.success(AuthUser(id: 'notfound')));
 
       final result = await state.signInOrCreate(email: 'notfound', password: 'valid');
 
       expect(result.success, isTrue);
       expect(result.user, isNotNull);
-      expect(result.user.uid, 'notfound');
+      expect(result.user.id, 'notfound');
       verify(authenticator.signInWithEmailAndPassword(any, any)).called(1);
       verify(authenticator.createUserWithEmailAndPassword(any, any)).called(1);
     });

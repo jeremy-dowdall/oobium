@@ -1,0 +1,10 @@
+User
+  name String
+  avatar String
+  token Token
+  referredBy User
+  path String
+  role String
+
+Token
+  user User

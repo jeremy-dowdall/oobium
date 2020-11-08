@@ -1,0 +1,29 @@
+client connects
+auto-syncs any changes while connected (bi-di)
+last write always recorded
+  timestamp, installation
+maintains heartbeat
+
+client1 connects to server
+  sync: if client1 was the last one to modify the server... nothing to do, right?
+
+each user has a separate file on the server... (separate databases, or a single multi-file database?)
+users don't work on a shared pool of data, they each have their own? and they send messages to and from others... hmmm...
+
+bob sends a message to joe:
+  bobClient create a message (from: bob, to: joe)
+    message is marked to be sent to joe
+  bobClient syncs message to server
+  bob server sends message to joe server
+next time joe client is online, it gets the new message from joe server
+
+live data (single instance data, may be private or shared, with permissions on who can edit and/or delete)
+sent data (a message I sent to someone)
+received data (a message I received from someone)
+
+lots of replication of data this way..., but everyone has their own copy, like with email and IM
+
+users
+installs (device / installation)
+groups
+

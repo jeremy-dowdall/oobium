@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:oobium_client/src/auth.dart';
+import 'package:oobium_client/src/client_auth.dart';
 import 'package:oobium_client/src/models.dart';
 
 void main() {
@@ -335,7 +335,7 @@ abstract class Observer<T> {
 }
 class TestObserver<T> extends Mock implements Observer<T> { }
 
-class TestAuth extends Mock implements Auth { }
+class TestAuth extends Mock implements ClientAuth { }
 class TestContext extends Mock implements ModelContext { }
 class TestPersistor extends Mock implements Persistor { }
 

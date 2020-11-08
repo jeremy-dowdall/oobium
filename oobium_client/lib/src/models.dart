@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:oobium_client/src/auth.dart';
 import 'package:oobium_common/oobium_common.dart';
 
 abstract class Access implements JsonString {
@@ -267,11 +266,6 @@ class SaveResult {
   String get message => _validation?.message;
 }
 
-abstract class ModelBuilder {
-  Map<Type, Function(ModelContext context, Map data)> builders;
-  Map<Type, Function(ModelContext context, List<Map> data)> listBuilders;
-}
-
 abstract class Persistor {
   Future<bool> any<T>(ModelContext context, Iterable<Where> conditions);
   Future<bool> exists<T>(ModelContext context, String id);
@@ -298,11 +292,11 @@ class ModelContext {
   ModelContext(this.auth);
   String get uid => auth.uid;
   AuthUser get authUser => auth.user;
-  Future<String> getAuthToken() => auth.getAuthToken();
-  Future<String> getIdToken() => auth.getIdToken();
+  Future<String> getAuthToken() => auth.authenticator.getAuthToken();
+  Future<String> getIdToken() => auth.authenticator.getIdToken();
 
-  final Map<Type, Function(ModelContext context, Map data)> _builders = {};
-  final Map<Type, Persistor> _persistors = {};
+  final _builders = <Type, Function(ModelContext context, Map data)>{};
+  final _persistors = <Type, Persistor>{};
 
   void addBuilder<T>(T builder(ModelContext context, Map data)) {
     _builders[T] = builder;

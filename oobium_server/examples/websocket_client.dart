@@ -1,20 +1,30 @@
 import 'dart:io';
 
-import 'package:oobium_server/oobium_server.dart';
+import 'package:oobium_common/oobium_common.dart';
 
 void main() async {
-  // final file = File('//Users/jeremydowdall/CocoaV/2pc-assortments-fireplace.jpg');
-  final file = File('/Users/jeremydowdall/Downloads/MVI_0096.MP4');
-  // final file = File('examples/data.txt');
-  final url = 'ws://${InternetAddress.loopbackIPv4.address}:4040/ws';
-  final socket = await ClientWebSocket.connect(url);
+
+  final file = File('<TODO>');
+  final fileName = file.path.substring(file.parent.path.length);
+  final fileSize = (await file.stat()).size;
+
+  final socket = await ClientWebSocket.connect(address: '127.0.0.1', port: 4040, path: '/ws');
   socket.start();
-  final result = await socket.addTask(FileSendTask(
-    file: file,
-    onReplace: () => true,
-    onResume: () => Resolution.resume,
-    onStatus: (status) => print('progress: ${status.percent}%')
-  ));
-  print('result: $result');
+
+  final result = await socket.get('/files/$fileName/stat');
+  if(result.isSuccess) {
+    final data = result.data as Map<String, dynamic>;
+    final size = data['size'] as int;
+    final lastModified = data['lastModified'] as int;
+    if(size < fileSize) {
+      // final uploadResult = await socket.put('/files/$fileName',
+      //   {'file': fileName, 'size': fileSize, 'start': size, 'resume': true},
+      //
+      // );
+    }
+  } else {
+    print('error: ${result.code}');
+  }
+
   socket.close();
 }

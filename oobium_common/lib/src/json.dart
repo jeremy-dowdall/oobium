@@ -1,4 +1,5 @@
 import 'dart:convert' show jsonDecode, jsonEncode;
+import 'package:oobium_common/src/string.extensions.dart';
 
 abstract class Json implements JsonString {
 
@@ -41,13 +42,16 @@ abstract class Json implements JsonString {
 
   static DateTime toDateTime(data, String field, [DateTime builder(v)]) {
     if(data is Map) {
-      final value = data[field];
+      var value = data[field];
+      if(value is String) {
+        value = DateTime.parse(value).millisecondsSinceEpoch;
+      }
       if(value is num) {
         final dt = DateTime.fromMillisecondsSinceEpoch(value.toInt());
-        if(field.endsWith('Date') || field.endsWith('On')) {
+        if(field == 'date' || field.endsWith('Date') || field.endsWith('On')) {
           return DateTime(dt.year, dt.month, dt.day);
         }
-        if(field.endsWith('Time')) {
+        if(field == 'time' || field.endsWith('Time') || field.endsWith('At')) {
           return DateTime(0, 0, 0, dt.hour, dt.minute, dt.second);
         }
         return dt;
@@ -82,9 +86,11 @@ abstract class Json implements JsonString {
 
   static from(field) {
     if(field == null) return null;
+    if(field is JsonModel) return field.id;
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
     if(field is List) return fromList(field);
+    if(field is Set)  return fromSet(field);
     if(field is String || field is num || field is bool) return field;
     if(field is JsonString) return field.toJsonString();
     if(field is DateTime) return field.millisecondsSinceEpoch;
@@ -104,6 +110,8 @@ abstract class Json implements JsonString {
     return map;
   }
 
+  static Map<String, dynamic> fromSet(Set set) => { for(var id in set ?? {}) id: true };
+
   static String _fromEnum(data) {
     final split = data.toString().split('.');
     return (split.length > 1 && split[0] == data.runtimeType.toString()) ? split[1] : null;
@@ -120,6 +128,18 @@ abstract class JsonModel extends Json {
   Map<String, dynamic> toJson() => Map<String, dynamic>()
     ..['id'] = Json.from(id)
   ;
+
+  bool get isNew => id == null || id.isBlank;
+  bool get isNotNew => !isNew;
+
+  bool isSameAs(other) => !isNotSameAs(other);
+  bool isNotSameAs(other) {
+    if(runtimeType == other?.runtimeType && id == other?.id) {
+      final json1 = toJson(), json2 = other.toJson();
+      return json1.keys.any((k) => json1[k] != json2[k]);
+    }
+    return true;
+  }
 }
 
 abstract class JsonString {

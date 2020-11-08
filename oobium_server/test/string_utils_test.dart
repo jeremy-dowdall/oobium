@@ -1,6 +1,6 @@
 import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:test/test.dart';
-import 'package:oobium_server/src/utils.dart';
+import 'package:oobium_common/src/router.extensions.dart';
 
 void main() {
   group('test verifiedSegments', () {

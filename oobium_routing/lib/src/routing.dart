@@ -55,7 +55,7 @@ class AppRoutes<E extends AppRouterState> {
     this.state._routes = this;
   }
 
-  final Map<Type, _RouteDef<E>> definitions = {};
+  final Map<Type, _RouteDef> definitions = {};
 
   AppRoute _currentConfiguration;
   AppRoute get currentConfiguration => _currentConfiguration;
@@ -102,7 +102,8 @@ class AppRoutes<E extends AppRouterState> {
   add<T extends AppRoute>({
     @required String path,
     @required T onParse(Map<String, String> data),
-    @required List<Page> onBuild(E state),
+    @required List<Page> onBuild(T route),
+    AppRoute onGuard(E state),
     void onPop(E state),
     AppRoutes children
   }) {
@@ -117,7 +118,7 @@ class AppRoutes<E extends AppRouterState> {
     final shadowPath = _getPaths(path)?.join();
     assert(shadowPath == null, 'duplicate path: $path${(path != shadowPath) ? ' shadows $shadowPath' : ''}');
 
-    definitions[T] = _RouteDef<E>(path: path, onParse: onParse, onBuild: onBuild, onPop: onPop, children: children);
+    definitions[T] = _RouteDef<E, T>(path: path, onParse: onParse, onBuild: onBuild, onGuard: onGuard, onPop: onPop, children: children);
 
     if(path == _homePath) {
       state._route = homeRoute;
@@ -135,7 +136,7 @@ class AppRoutes<E extends AppRouterState> {
   AppRouterDelegate createRouterDelegate() => AppRouterDelegate(this);
 
   AppRoute get homeRoute {
-    final route = _getDefinition(_homePath)?.onParse({});
+    final route = _getDefinition(_homePath)?.parse({});
     assert(route != null, 'home is not set correctly (home == \'$_homePath\', but no route is defined at that location)');
     route._parent = _parent?.state?.route;
     route._isHome = true;
@@ -147,23 +148,28 @@ class AppRoutes<E extends AppRouterState> {
     final sa = path.split('/');
     if(sa.length > 1) {
       final newPath = sa.sublist(0, sa.length - 1).join('/');
-      final onParse = _getDefinition(newPath)?.onParse;
-      if(onParse != null) {
-        return onParse(route._data);
-      }
+      return _getDefinition(newPath)?.parse(route._data);
     }
     return null;
   }
 
   List<Page> getPages() {
     assert(state.route != null, 'tried to build pages before setting a route');
-    return definitions[state.route.runtimeType].onBuild(state);
+    return getPagesFor(state.route);
+  }
+  List<Page> getPagesFor(AppRoute route) {
+    if(route == null) {
+      return [];
+    } else {
+      final routeDef = definitions[route.runtimeType];
+      return [...routeDef.build(route), ...getPagesFor(routeDef.guard(state))];
+    }
   }
 
   bool popPage() {
-    final onPop = definitions[state.route.runtimeType].onPop;
-    if(onPop != null) {
-      onPop(state);
+    final routeDef = definitions[state.route.runtimeType];
+    if(routeDef.canPop) {
+      routeDef.pop(state);
     } else {
       state.route = getParentRoute(state.route) ?? homeRoute;
     }
@@ -172,18 +178,18 @@ class AppRoutes<E extends AppRouterState> {
 
   Future<AppRoute> parseRouteInformation(RouteInformation routeInformation) async {
     final uri = Uri.parse(routeInformation.location);
-    final paths = _getPaths(uri.path);
+    final paths = _getPaths(uri.path, home: _homePath);
     if(paths.isEmpty) {
       // TODO route not found handler
       return null;
     }
     final data = _getData(paths.join(), uri.path);
     if(paths.length == 1) {
-      return _getDefinition(paths[0]).onParse(data);
+      return _getDefinition(paths[0]).parse(data);
     } else {
       var route;
       for(var i = 0; i < paths.length; i++) {
-        route = _findDefinition(this, paths.sublist(0, i + 1)).onParse(data)..parent = route;
+        route = _findDefinition(this, paths.sublist(0, i + 1)).parse(data)..parent = route;
       }
       return route;
     }
@@ -216,8 +222,8 @@ class AppRoutes<E extends AppRouterState> {
     return (index == paths.length - 1) ? def : _findDefinition(def.children, paths, index + 1);
   }
 
-  List<String> _getPaths(String path) {
-    final s = (path != '/') ? path : _homePath;
+  List<String> _getPaths(String path, {String home}) {
+    final s = ((path != '/') ? path : home) ?? path;
     final sa = _segments(s);
     for(var t in definitions.keys) {
       final k = definitions[t].path;
@@ -254,7 +260,7 @@ class AppRoutes<E extends AppRouterState> {
   List<String> _segments(String s) => s.split('/').where((e) => e.isNotEmpty).toList();
 
   bool _matches(List<String> s1, List<String> s2) {
-    for(var i = 0; i < s2.length; i++) {
+    for(var i = 0; i < s1.length && i < s2.length; i++) {
       if(s1[i] != s2[i] && _isNotVariable(s1[i]) && _isNotVariable(s2[i])) {
         return false;
       }
@@ -404,18 +410,25 @@ class _ChildRouterState<T extends AppRoute> extends State<ChildRouter> {
   }
 }
 
-class _RouteDef<E extends AppRouterState> {
+class _RouteDef<E extends AppRouterState, T extends AppRoute> {
   final String path;
   final AppRoute Function(Map<String, String> data) onParse;
-  final List<Page> Function(E state) onBuild;
+  final List<Page> Function(T route) onBuild;
+  final AppRoute Function(E state) onGuard;
   final void Function(E state) onPop;
   final AppRoutes children;
   _RouteDef({
     @required this.path,
     @required this.onParse,
     @required this.onBuild,
+    this.onGuard,
     this.onPop,
     this.children
   });
+  bool get canPop => onPop != null;
+  List<Page> build(AppRoute route) => onBuild(route as T);
+  AppRoute guard(AppRouterState state) => onGuard?.call(state as E);
+  AppRoute parse(Map<String, String> data) => onParse(data);
+  void pop(AppRouterState state) => onPop?.call(state as E);
 }
 

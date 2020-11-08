@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oobium_routing/src/routing.dart';
 
@@ -57,6 +58,12 @@ void main() {
         ;
       }, 'duplicate path: /paths/<id> shadows /paths/1');
     });
+    test('expect no error; root as second', () {
+      AppRoutes()
+        ..add<TestRoute2>(path: '/first', onParse: (_) => TestRoute2(), onBuild: (_) => [])
+        ..add<TestRoute1>(path: '/', onParse: (_) => TestRoute1(), onBuild: (_) => [])
+      ;
+    });
     test('expect no error; root mixed', () {
       AppRoutes()
         ..add<TestRoute1>(path: '/', onParse: (_) => TestRoute1(), onBuild: (_) => [])
@@ -75,9 +82,43 @@ void main() {
       ;
     });
   });
+  group('test guards', () {
+    test('guard, 1 level', () {
+      final routes = AppRoutes()
+        ..add<TestRoute1>(path: '/first', onParse: (_) => TestRoute1(), onBuild: (_) => [page('first')],
+          onGuard: (_) => TestRoute2()
+        )
+        ..add<TestRoute2>(path: '/second', onParse: (_) => TestRoute2(), onBuild: (_) => [page('second')])
+      ;
+      routes.state.route = TestRoute1();
+      final pages = routes.getPages();
+      expect(pages.length, 2);
+      expect(pages[0].name, 'first');
+      expect(pages[1].name, 'second');
+    });
+    test('guard, 2 levels', () {
+      final routes = AppRoutes()
+        ..add<TestRoute1>(path: '/first', onParse: (_) => TestRoute1(), onBuild: (_) => [page('first')],
+          onGuard: (_) => TestRoute2()
+        )
+        ..add<TestRoute2>(path: '/second', onParse: (_) => TestRoute2(), onBuild: (_) => [page('second')],
+          onGuard: (_) => TestRoute3()
+        )
+        ..add<TestRoute3>(path: '/third', onParse: (_) => TestRoute3(), onBuild: (_) => [page('third')])
+      ;
+      routes.state.route = TestRoute1();
+      final pages = routes.getPages();
+      expect(pages.length, 3);
+      expect(pages[0].name, 'first');
+      expect(pages[1].name, 'second');
+      expect(pages[2].name, 'third');
+    });
+  });
 }
 
 class TestRoute1 extends AppRoute { TestRoute1([Map<String, String> data]) : super(data); }
 class TestRoute2 extends AppRoute { TestRoute2([Map<String, String> data]) : super(data); }
 class TestRoute3 extends AppRoute { }
 class TestRoute4 extends AppRoute { }
+
+Page page(String name) => MaterialPage(name: name, child: Container());

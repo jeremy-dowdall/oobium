@@ -1,5 +1,10 @@
 import 'package:meta/meta.dart';
+import 'package:oobium_common/oobium_common.dart';
 import 'package:oobium_server/src/server_settings.dart';
+
+abstract class PageBuilder<T extends Json> {
+  Page build(T data);
+}
 
 class Page {
   final Page layout;
@@ -153,7 +158,7 @@ Block content({bool optional=false}) => Block('content', optional: optional);
 Block scripts({bool optional=true}) => Block('scripts', optional: optional);
 Block styles({bool optional=true}) => Block('styles', optional: optional);
 Html head(List<Element> children) => Html(tag: 'head', children: children);
-Html body(List<Element> children) => Html(tag: 'body', children: children);
+Html body({String id, List<String> classes, String style, Map<String, dynamic> data, List<Element> children}) => Html(tag: 'body', attributes: _attrs(id, classes, style, data, null), children: children);
 Html meta(Map<String, String> attributes) => Html(tag: 'meta', attributes: attributes);
 Html title(String text) => Html(tag: 'title', text: text);
 Link link({String rel = 'stylesheet', String media, String type, String href, String content}) => Link(href: href, media: media, rel: rel, type: type);
@@ -162,9 +167,19 @@ Style style({String media, String type, String content}) => Style(media: media, 
 Html iframe({String src, int frameborder, int width, int height, bool allowFullScreen, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'iframe', attributes: _attrs(id, classes, style, data, {'src': src, 'frameborder': frameborder, 'width': width, 'height': height, 'allowFullScreen': allowFullScreen}), text: text, children: children);
 Html div({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'div', attributes: _attrs(id, classes, style, data), text: text, children: children);
 Html span({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'span', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html a({@required String href, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'a', attributes: _attrs(id, classes, style, data, {'href': href}), text: text, children: children);
+Html h1({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h1', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h2({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h2', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h3({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h3', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h4({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h4', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h5({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h5', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h6({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h6', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html p({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'p', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html ol({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'ol', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html ul({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'ul', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html li({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'li', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html a({@required String href, String rel, String target, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'a', attributes: _attrs(id, classes, style, data, {'href': href, 'rel': rel, 'target': target}), text: text, children: children);
 Html i({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'i', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html img({@required String src, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'img', attributes: _attrs(id, classes, style, data, {'src': src}), text: text, children: children);
+Html img({String src, String alt, List<String> srcSet, List<String> sizes, int width, int height, String loading, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'img', attributes: _attrs(id, classes, style, data, {'src': src, 'alt': alt, 'srcset': srcSet?.join(','), 'sizes': sizes?.join(','), 'width': width, 'height': height, 'loading': loading}), text: text, children: children);
 Html form({String action, bool autocomplete, String enctype, String method, String name, bool novalidate, String rel, String target, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'form', attributes: _attrs(id, classes, style, data, {
   'action': action, 'autocomplete': (autocomplete == false) ? 'off' : null, 'enctype': enctype, 'method': method, 'name': name, 'novalidate': (novalidate == true) ? 'novalidate' : null, 'rel': rel, 'target': target}), text: text, children: children
 );
@@ -183,6 +198,8 @@ Html audio({
   String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'audio', attributes: _attrs(id, classes, style, data,
     {'autoplay': (autoplay == true) ? 'autoplay' : null, 'controls': (controls == true) ? 'controls' : null, 'loop': (loop == true) ? 'loop' : null, 'muted': (muted == true) ? 'muted' : null, 'preload': preload, 'src': src,}), text: text, children: children
 );
+
+Html icon(String name) => i(classes: ['material-icons'], text: name);
 
 Html jquery({bool defer=false, String version='3.5.1'}) => Html(children: [
   script(defer: defer, src: 'https://ajax.googleapis.com/ajax/libs/jquery/$version/jquery.min.js')

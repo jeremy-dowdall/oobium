@@ -1,10 +1,8 @@
-import 'package:oobium_client_gen/generators/initializers_library_generator.dart';
-import 'package:oobium_client_gen/generators/models_library_generator.dart';
-import 'package:oobium_client_gen/generators/scaffolding_library_generator.dart';
-import 'package:oobium_client_gen/generators/util/schema.dart';
+import 'package:oobium_client_gen/src/generators.dart';
+import 'package:oobium_client_gen/src/util/schema.dart';
+import 'package:oobium_client_gen/src/util/schema_builder.dart';
+import 'package:oobium_client_gen/src/util/schema_library.dart';
 import 'package:test/test.dart';
-
-import 'utils.dart';
 
 void main() {
   group('test bible-study', () {
@@ -28,31 +26,31 @@ void main() {
 
     test('initializers', () {
       final schema = loadBibleStudySchema();
-      final library = InitializersLibraryGenerator().generateLibrary(schema);
+      final library = generateInitializersLibrary(schema, 'models.dart');
       print(library);
     });
 
     test('models', () {
       final schema = loadBibleStudySchema();
-      final library = ModelsLibraryGenerator().generateLibrary(schema);
+      final library = generateModelsLibrary(schema);
       print(library);
     });
 
     test('scaffolding', () {
       final schema = loadBibleStudySchema();
-      final library = ScaffoldingLibraryGenerator().generateLibrary(schema);
+      final library = generateScaffoldingLibrary(schema, 'models.dart');
       print(library);
     });
   });
 }
 
-Schema loadBibleStudySchema() => schemaDef([
-  classDef('@owner @scaffold User', ['String name', 'String avatar']),
-  classDef('@model @scaffold Account', ['String languageId', 'List<String> bibleIds', '@resolve Link<Marker<Account>> bookmark', 'HasMany<Marker> bookmarks']),
-  classDef('@model @scaffold Group', ['String name', 'String avatar', 'String description', 'int memberCount', 'Link<Membership> single', 'HasMany<Membership> memberships']),
-  classDef('@model @scaffold Membership', ['@resolve Link<Group> group', '@resolve Link<User> user',]),
-  classDef('@model @scaffold Message<P>', ['String title', 'String content', 'int color', 'Link<P> parent', 'Access messageAccess', 'HasMany<Marker> markers', 'HasMany<Message> messages',]),
-  classDef('@model @scaffold Marker<P>', ['@resolve Link<Bible> bible', '@resolve ChildLink<Book> book', '@resolve ChildLink<Chapter> chapter', '@resolve ChildLink<Verse> verse', 'bool asVerse', 'Link<P> parent',]),
-  classDef('@model @scaffold Plan', ['String avatar', 'String name', 'String description', 'Link<Plan> source', 'HasMany<Reading> readings',]),
-  classDef('@model @scaffold Reading', ['String title', 'String description', 'String content', 'ReadingResult result', 'Access messageAccess', 'Link<Plan> plan', 'int day', 'int lastDay', 'int index', 'int lastIndex', 'HasMany<Marker> markers', 'HasMany<Message> messages']),
-]);
+Schema loadBibleStudySchema() => SchemaBuilder(SchemaLibrary.parse([
+  'User(owner, scaffold)', '  name String', '  avatar String',
+  'Account(scaffold)', '  languageId String', '  bibleIds List<String>', '  bookmark Link<Marker<Account>>(resolve)', '  bookmarks HasMany<Marker>',
+  'Group(scaffold)', '  name String', '  avatar String', '  description String', '  memberCount int', '  single Link<Membership>', '  memberships HasMany<Membership>',
+  'Membership(scaffold)', '  group Link<Group>(resolve)', '  user Link<User>(resolve)',
+  'Message<P>(scaffold)', '  title String', '  content String', '  color int', '  parent Link<P>', '  messageAccess Access', '  markers HasMany<Marker>', '  messages HasMany<Message>',
+  'Marker<P>(scaffold)', '  bible Link<Bible>(resolve)', '  book ChildLink<Book>(resolve)', '  chapter ChildLink<Chapter>(resolve)', '  verse ChildLink<Verse>(resolve)', '  asVerse bool', '  parent Link<P>',
+  'Plan(scaffold)', '  avatar String', '  name String', '  description String', '  source Link<Plan>', '  readings HasMany<Reading>',
+  'Reading(scaffold)', '  title String', '  description String', '  content String', '  result ReadingResult', '  messageAccess Access', '  plan Link<Plan>', '  day int', '  lastDay int', '  index int', '  lastIndex int', '  markers HasMany<Marker>', '  messages HasMany<Message>',
+])).build();
