@@ -58,12 +58,59 @@ class Server {
     }
   }
 
-  Future<void> start() async {
-    var server = await HttpServer.bind(InternetAddress.loopbackIPv4, 8080);
-    print('Listening on http://${server.address.address}:${server.port}/');
+  
+  HttpServer http;
+  HttpServer https;
+  StreamSubscription httpSubscription;
+  StreamSubscription httpsSubscription;
 
-    await for(HttpRequest request in server) {
-      await _handle(request);
+  void pause() {
+    httpSubscription?.pause();
+    httpsSubscription?.pause();
+  }
+
+  void resume() {
+    httpSubscription?.resume();
+    httpsSubscription?.resume();
+  }
+
+  Future<void> start() async {
+    if(http == null) {
+      await _createServers();
+    }
+    await httpSubscription?.cancel();
+    await httpsSubscription?.cancel();
+    if(https == null) {
+      httpSubscription = http.listen((httpRequest) async => await _handle(httpRequest));
+      print('Listening on http://${http.address.host}:${http.port}/');
+    } else {
+      httpSubscription = http.listen((httpRequest) async => await _handleHttp(httpRequest));
+      httpsSubscription = https.listen((httpRequest) async => await _handle(httpRequest));
+      print('Listening on https://${https.address.host}:${https.port}/ with redirect from http on port 80');
+    }
+  }
+
+  Future<void> stop() async {
+    await httpSubscription?.cancel();
+    await httpsSubscription?.cancel();
+    httpSubscription = null;
+    httpsSubscription = null;
+  }
+
+  Future<void> close({bool force = false}) async {
+    await stop();
+    await http?.close(force: force);
+    await https?.close(force: force);
+    http = null;
+    https = null;
+  }
+
+  Future<void> _createServers() async {
+    if(settings.isSecure) {
+      http = await HttpServer.bind(settings.address, 80);
+      https = await HttpServer.bindSecure(settings.address, settings.port, settings.securityContext);
+    } else {
+      http = await HttpServer.bind(settings.address, settings.port);
     }
   }
 
@@ -80,6 +127,7 @@ class Server {
     _handlers[route] = handlers;
     if(logger != null) _loggers[route] = logger;
     if(method == 'GET') options(path, [_corsHandler]);
+    print('added route: $route');
   }
 
   RequestHandler get _corsHandler => (req, res) => res.send(data: 'sure', headers: {
@@ -129,6 +177,16 @@ class Server {
     if(httpRequest.response.statusCode >= 400) {
       print('status ${httpRequest.response.statusCode}');
     }
+  }
+
+  Future<void> _handleHttp(HttpRequest request) async {
+    final uri = Uri.https(request.requestedUri.authority, request.requestedUri.path);
+    request.response.statusCode = 301;
+    request.response.headers.add(HttpHeaders.locationHeader, uri);
+    request.response.headers.add(HttpHeaders.serverHeader, 'oobium');
+    request.response.write('Moved Permanently');
+    await request.response.flush();
+    await request.response.close();
   }
 }
 
@@ -255,7 +313,7 @@ class Response {
         }
         final condition = _request.header[HttpHeaders.ifRangeHeader];
         if(condition == null || condition == etag) {
-          return send(code: 206, data: FileContent(file, stat.size, start, end), headers: {
+          return send(code: 206, data: FileContent(file, stat.size, start, end + 1), headers: {
             HttpHeaders.contentRangeHeader: 'bytes $start-$end/${stat.size}',
             HttpHeaders.contentTypeHeader: file.contentType.toString(),
           });

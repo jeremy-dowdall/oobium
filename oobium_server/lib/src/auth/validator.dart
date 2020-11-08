@@ -26,8 +26,13 @@ class Validator {
         projectId: projectId,
         publicKeys: await _fetchKeys()
     );
-    print('user: ${fireToken.name} - ${fireToken.email} (${fireToken.uid})');
-    return fireToken.isValid();
+    if(fireToken.isValid()) {
+      print('user: ${fireToken.name} - ${fireToken.email} (${fireToken.uid})');
+      return true;
+    } else {
+      print('invalid fireToken: ${fireToken.errors.join('\n')}');
+      return false;
+    }
   }
 
   Future<Map<String, String>> _fetchKeys() async {
