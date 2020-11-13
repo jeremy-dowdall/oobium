@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:oobium_common/oobium_common.dart';
@@ -25,6 +26,8 @@ class Server {
     _logger = value;
   }
 
+  bool livePages = false;
+  
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => _add('GET', path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => _add('HEAD', path, handlers, logger: logger);
   void options(String path, List<RequestHandler> handlers, {Logger logger}) => _add('OPTIONS', path, handlers, logger: logger);
@@ -33,31 +36,42 @@ class Server {
   void put(String path, List<RequestHandler> handlers, {Logger logger}) => _add('PUT', path, handlers, logger: logger);
   void delete(String path, List<RequestHandler> handlers, {Logger logger}) => _add('DELETE', path, handlers, logger: logger);
 
-  void static(String directoryPath, {String as = '', String Function(String path) pathBuilder, Logger logger, optional = false}) {
+  void static(String directoryPath, {String at, String Function(String path) pathBuilder, Logger logger, optional = false}) {
+    final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
+    get(path, [(req, res) {
+      final filePath = '$directoryPath/${req.path.substring(path.length-1)}';
+      return res.sendFile(File(filePath));
+    }], logger: logger);
+    // TODO canonical paths?
+    // for(var file in _getFiles(directoryPath)) {
+    //   final filePath = file.path;
+    //   final basePath = filePath.substring(directoryPath.length);
+    //   final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
+    //   final routePath = builtPath.replaceAll(RegExp(r'/+'), '/');
+    //   get(routePath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
+    //   if(routePath.endsWith('index.html')) {
+    //     final impliedPath = routePath.substring(0, routePath.length - 10);
+    //     get(impliedPath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
+    //   }
+    // }
+  }
+
+  Iterable<File> _getFiles(String directoryPath, {optional = false}) {
     assert(directoryPath != null || optional, 'directoryPath cannot be null, unless optional is true');
     if(directoryPath == null) {
       print('directory not specified... skipping.');
-      return;
-    }
-    final directory = Directory(directoryPath);
-    final exists = directory.existsSync();
-    assert(exists || optional, '${directory.absolute} not found. Directory must exist unless optional is true');
-    if(exists) {
-      directory.listSync(recursive: true).whereType<File>().map((f) => f.path).forEach((filepath) {
-        final basePath = filepath.substring(directoryPath.length);
-        final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : '$as/$basePath';
-        final routePath = builtPath.replaceAll(RegExp(r'/+'), '/');
-        get(routePath, [(req, res) => res.sendFile(File(filepath))], logger: logger);
-        if(routePath.endsWith('index.html')) {
-          final impliedPath = routePath.substring(0, routePath.length - 10);
-          get(impliedPath, [(req, res) => res.sendFile(File(filepath))], logger: logger);
-        }
-      });
     } else {
-      print('${directory.absolute} not found... skipping.');
+      final directory = Directory(directoryPath);
+      final exists = directory.existsSync();
+      assert(exists || optional, '${directory.absolute} not found. Directory must exist unless optional is true');
+      if(exists) {
+        return directory.listSync(recursive: true).whereType<File>();
+      } else {
+        print('${directory.absolute} not found... skipping.');
+      }
     }
+    return [];
   }
-
   
   HttpServer http;
   HttpServer https;
@@ -127,26 +141,26 @@ class Server {
     _handlers[route] = handlers;
     if(logger != null) _loggers[route] = logger;
     if(method == 'GET') options(path, [_corsHandler]);
-    print('added route: $route');
   }
 
-  RequestHandler get _corsHandler => (req, res) => res.send(data: 'sure', headers: {
+  RequestHandler get _corsHandler => (req, res) {
     // TODO
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'POST,GET,DELETE,PUT,OPTIONS'
-  });
+    res.headers['Access-Control-Allow-Origin'] = '*';
+    res.headers['Access-Control-Allow-Headers'] = '*';
+    res.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
+    return res.send(data: 'sure');
+  };
 
   Future<void> _handle(HttpRequest httpRequest) async {
     final lookupMethod = (httpRequest.method == 'HEAD') ? 'GET' : httpRequest.method;
-    final requestPath = '$lookupMethod${httpRequest.uri.path}';
+    final requestPath = '$lookupMethod${httpRequest.requestedUri.path}';
     final routePath = _handlers.containsKey(requestPath) ? requestPath : requestPath.findRouterPath(_handlers.keys);
+    final request = Request(this, httpRequest, routePath);
+    final response = Response(request);
     final handlers = _handlers[routePath] ?? _notFoundHandlers ?? [];
     print(requestPath);
     if(handlers.isNotEmpty) {
       final logger = _loggers[routePath] ?? this.logger;
-      final request = Request(this, httpRequest, requestPath.parseParams(routePath));
-      final response = Response(request);
       try {
         await runZoned(() async {
           for(var handler in handlers) {
@@ -171,12 +185,24 @@ class Server {
         await response.close();
       }
     } else {
-      httpRequest.response.statusCode = 404;
-      await httpRequest.response.close();
+      await _handleError(request, response, 404);
     }
     if(httpRequest.response.statusCode >= 400) {
       print('status ${httpRequest.response.statusCode}');
     }
+  }
+
+  RequestHandler error404Handler;
+  RequestHandler error500Handler;
+
+  Future<void> _handleError(Request req, Response res, int code) {
+    if(code == 404 && error404Handler != null) {
+      return error404Handler(req, res);
+    }
+    if(code >= 500 && error500Handler != null) {
+      return error500Handler(req, res);
+    }
+    return res.send(code: code);
   }
 
   Future<void> _handleHttp(HttpRequest request) async {
@@ -218,19 +244,21 @@ typedef RequestHandler = Future<void> Function(Request request, Response respons
 class Request {
   final Server _server;
   final HttpRequest _httpRequest;
-  final Map<String, String> _params;
-  Request(this._server, this._httpRequest, this._params);
+  final String routePath;
+  Request(this._server, this._httpRequest, this.routePath);
   Response _response;
 
   String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]]);
 
-  String operator [](String name) => _params[name] ?? query[name];
-  operator []=(String name, String value) => _params[name] = value;
+  Map<String, String> _params;
+  String operator [](String name) => params[name] ?? query[name];
+  operator []=(String name, String value) => params[name] = value;
 
   HeaderValues get header => HeaderValues(headers);
   HttpHeaders get headers => _httpRequest.headers;
-  Map<String, String> get params => _params;
+  Map<String, String> get params => _params ??= path.parseParams(routePath);
   Map<String, String> get query => _httpRequest.uri.queryParameters;
+  String get path => _httpRequest.requestedUri.path;
 
   bool get isHead => method == 'HEAD';
   bool get isNotHead => !isHead;
@@ -271,21 +299,30 @@ class Response {
   void add(List<int> data) => _httpResponse.add(data);
   void write(data) => _httpResponse.write(data);
 
-  int get status => _httpResponse.statusCode;
-  set status(int value) => _httpResponse.statusCode = value;
+  int get statusCode => _httpResponse.statusCode;
+  set statusCode(int value) => _httpResponse.statusCode = value;
 
-  Future<void> render(Page page) => sendHtml(page.render());
+  bool get _livePages => _request._server.livePages && _request._server.settings.isDebug;
 
-  Future<void> send({int code, data, Map<String, dynamic> headers}) async {
+  Future<void> render<T extends Json>(PageBuilder<T> builder, T data) async {
+    if(_livePages) {
+      final source = await _findSource(builder.runtimeType.toString(), T.toString());
+      if(source != null) {
+        return _renderSource(source, data);
+      }
+    }
+    return sendPage(builder.build(data));
+  }
+
+  Future<void> send({int code, data}) async {
     assert(isOpen, 'called send after response has already been closed');
     _closed = true;
-    final statusCode = code ?? 200;
-    final content = _getContent(statusCode, data);
-    for(var header in (headers ?? this.headers).entries) {
+    statusCode = code ?? 200;
+    final content = _getContent(data);
+    for(var header in (headers).entries) {
       _httpResponse.headers.add(header.key, header.value);
     }
     _httpResponse.headers.add(HttpHeaders.serverHeader, 'oobium');
-    _httpResponse.statusCode = statusCode;
     _httpResponse.contentLength = content.length;
     if(_httpRequest.method != 'HEAD') {
       await _httpResponse.addStream(content.stream);
@@ -313,41 +350,54 @@ class Response {
         }
         final condition = _request.header[HttpHeaders.ifRangeHeader];
         if(condition == null || condition == etag) {
-          return send(code: 206, data: FileContent(file, stat.size, start, end + 1), headers: {
-            HttpHeaders.contentRangeHeader: 'bytes $start-$end/${stat.size}',
-            HttpHeaders.contentTypeHeader: file.contentType.toString(),
-          });
+          headers[HttpHeaders.contentRangeHeader] =  'bytes $start-$end/${stat.size}';
+          headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();
+          return send(code: 206, data: FileContent(file, stat.size, start, end + 1));
         }
       }
-      return send(code: 200, data: FileContent(file, stat.size), headers: {
-        HttpHeaders.acceptRangesHeader: 'bytes',
-        HttpHeaders.contentTypeHeader: file.contentType.toString()
-      });
-    } else {
-      return send(code: 404);
+      headers[HttpHeaders.acceptRangesHeader] = 'bytes';
+      headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();
+      return send(code: 200, data: FileContent(file, stat.size));
     }
+    return send(code: 404);
   }
 
-  Future<void> sendJson(FutureOr<dynamic> data) async => send(data: Json.encode(await data), headers: {
-    HttpHeaders.contentTypeHeader: ContentType.json.toString(),
-    // TODO
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': 'POST,GET,DELETE,PUT,OPTIONS'
-  });
+  Future<void> sendHtml(data) {
+    headers[HttpHeaders.contentTypeHeader] = ContentType.html.toString();
+    return send(data: data);
+  }
 
-  Future<void> sendHtml(data) => send(data: data, headers: {
-    HttpHeaders.contentTypeHeader: ContentType.html.toString()
-  });
+  Future<void> sendJson(FutureOr<dynamic> data) async {
+    headers[HttpHeaders.contentTypeHeader] = ContentType.json.toString();
+    // TODO
+    headers['Access-Control-Allow-Origin'] = '*';
+    headers['Access-Control-Allow-Headers'] = '*';
+    headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
+    return send(data: Json.encode(await data));
+  }
+
+  Future<void> sendPage(Page page) => sendHtml(page.render());
 
   Future<void> close() async {
     await _httpResponse.flush();
     await _httpResponse.close();
   }
 
-  Content _getContent(int code, data) {
+  Future<String> _findSource(String builderType, String dataType) async {
+    final classDeclaration = 'class $builderType extends PageBuilder<$dataType>';
+    final views = Directory('lib/www/views');
+    for(var file in (await views.list(recursive: true).toList())) {
+      final source = await File(file.path).readAsString();
+      if(source.contains(classDeclaration)) {
+        return source;
+      }
+    }
+    return null;
+  }
+
+  Content _getContent(data) {
     if(data == null) {
-      switch(code) {
+      switch(statusCode) {
         case HttpStatus.notFound: return StringContent('Not Found');
         case HttpStatus.forbidden: return StringContent('Forbidden');
         case HttpStatus.internalServerError: return StringContent('Internal Server Error');
@@ -358,6 +408,40 @@ class Response {
       return data;
     }
     return StringContent(data.toString());
+  }
+
+  Future<void> _renderSource(String source, Json data) async {
+
+    // TODO really just need the imports... it re-compiles / builds everything
+
+    final matches = RegExp(r'class (\w+) extends PageBuilder<(\w+)>').firstMatch(source);
+    final builder = matches.group(1);
+    final dataType = matches.group(2);
+
+    final content = '''
+      import 'dart:convert';
+      import 'dart:isolate';
+  
+      $source
+  
+      void main(args, SendPort port) {
+        final data = $dataType.fromJson(jsonDecode(args[0]));
+        final page = $builder().build(data);
+        final html = page.render();
+        port.send(html);
+      }
+    ''';
+    print(content);
+
+    final uri = Uri.dataFromString(content, mimeType: 'application/dart');
+    final port = ReceivePort();
+    final isolate = await Isolate.spawnUri(uri, [data.toJsonString()], port.sendPort);
+    final String html = await port.first;
+
+    port.close();
+    isolate.kill();
+
+    return sendHtml(html);
   }
 }
 

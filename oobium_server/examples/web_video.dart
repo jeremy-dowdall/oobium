@@ -5,7 +5,7 @@ import 'package:oobium_server/oobium_server.dart';
 void main() {
   final server = Server();
 
-  server.get('/video', [(req, res) => res.render(
+  server.get('/video', [(req, res) => res.sendPage(
       Page(content: [ video(autoplay: true, controls: true, src: '/video/src') ]))
   ]);
 

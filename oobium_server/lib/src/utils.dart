@@ -2,12 +2,16 @@ import 'dart:io';
 
 extension ServerStringsExtensions on List<String> {
 
-  bool matches(List<String> s2) {
-    if(length != s2.length) {
+  bool get isWildCard => length > 0 && this[length-1] == '*';
+
+  bool matches(List<String> routerPath) {
+    final s1 = routerPath.isWildCard ? take(routerPath.length-1).toList() : this;
+    final s2 = routerPath.isWildCard ? routerPath.sublist(0, routerPath.length - 1) : routerPath;
+    if(s1.length != s2.length) {
       return false;
     }
-    for(var i = 0; i < length; i++) {
-      if(this[i] != s2[i] && this[i].isNotVariable && s2[i].isNotVariable) {
+    for(var i = 0; i < s1.length; i++) {
+      if(s1[i] != s2[i] && s1[i].isNotVariable && s2[i].isNotVariable) {
         return false;
       }
     }
@@ -19,9 +23,9 @@ extension ServerStringExtensions on String {
 
   String findRouterPath(Iterable<String> routerPaths) {
     final sa = segments;
-    for(var path in routerPaths) {
-      if(sa.matches(path.segments)) {
-        return path;
+    for(var routerPath in routerPaths) {
+      if(sa.matches(routerPath.segments)) {
+        return routerPath;
       }
     }
     return null;
@@ -35,7 +39,7 @@ extension ServerStringExtensions on String {
     final data = <String, String>{};
     final sa = segments;
     final ra = routerPath.segments;
-    for(var i = 0; i < sa.length; i++) {
+    for(var i = 0; i < sa.length && i < ra.length; i++) {
       if(ra[i].isVariable) {
         data[ra[i].variable] = Uri.decodeComponent(sa[i]);
       }

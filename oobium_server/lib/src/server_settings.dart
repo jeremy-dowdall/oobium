@@ -36,6 +36,11 @@ class ServerSettings {
   dynamic operator [](String key) => _settings[key];
   operator []=(String key, dynamic value) => _settings[key] = value;
 
+  bool get isDebug => isNotProduction;
+  bool get isNotDebug => !isDebug;
+  bool get isProduction => _settings['mode'] == 'production';
+  bool get isNotProduction => !isProduction;
+
   bool get isSecure => (certPath != null) && (keyPath != null) && File(certPath).existsSync() && File(keyPath).existsSync();
   bool get isNotSecure => !isSecure;
   String get certPath => _settings['server']['certPath'];
