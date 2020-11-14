@@ -48,6 +48,7 @@ class ServerSettings {
 
   String get protocol => _settings['server']['protocol'] ?? (isSecure ? 'https' : 'http');
   String get address => _settings['server']['address'] ?? '127.0.0.1';
+  String get host => _settings['server']['host'];
   int get port => _settings['server']['port'] ?? (isSecure ? 443 : 8080);
   SecurityContext get securityContext => isSecure ? (SecurityContext()..useCertificateChain(certPath)..usePrivateKey(keyPath)) : null;
   String get cachePath => _settings['server']['cachePath'] ?? 'cache';
@@ -55,6 +56,10 @@ class ServerSettings {
 
   String get projectId => (_settings['firebase'] ?? {})['projectId']; // TODO special case: firebase
   String get bibleApiKey => (_settings['bibleApi'] ?? {})['apiKey']; // TODO special case: bible api
+}
+
+class HostSettings {
+
 }
 
 class FirebaseConfig {

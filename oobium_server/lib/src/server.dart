@@ -12,12 +12,14 @@ import 'package:oobium_server/src/websocket/websocket.dart';
 import 'package:oobium_server/src/utils.dart';
 import 'package:oobium_server/src/server_settings.dart';
 
-class Server {
+class Host {
 
-  final ServerSettings settings;
+  final Server _server;
   final _handlers = <String, List<RequestHandler>>{};
   final _loggers = <String, Logger>{};
-  Server([ServerSettings settings]) : settings = settings ?? ServerSettings();
+  Host._(this._server);
+
+  ServerSettings get settings => _server.settings;
 
   Logger _logger = Logger();
   Logger get logger => _logger;
@@ -26,8 +28,11 @@ class Server {
     _logger = value;
   }
 
+  RequestHandler error404Handler;
+  RequestHandler error500Handler;
+
   bool livePages = false;
-  
+
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => _add('GET', path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => _add('HEAD', path, handlers, logger: logger);
   void options(String path, List<RequestHandler> handlers, {Logger logger}) => _add('OPTIONS', path, handlers, logger: logger);
@@ -38,11 +43,11 @@ class Server {
 
   void static(String directoryPath, {String at, String Function(String path) pathBuilder, Logger logger, optional = false}) {
     final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
+    // TODO canonical paths? if not, lock down the directory
     get(path, [(req, res) {
       final filePath = '$directoryPath/${req.path.substring(path.length-1)}';
       return res.sendFile(File(filePath));
     }], logger: logger);
-    // TODO canonical paths?
     // for(var file in _getFiles(directoryPath)) {
     //   final filePath = file.path;
     //   final basePath = filePath.substring(directoryPath.length);
@@ -72,12 +77,97 @@ class Server {
     }
     return [];
   }
-  
+
+  List<RequestHandler> get _notFoundHandlers => null;
+
+  void _add(String method, String path, List<RequestHandler> handlers, {Logger logger}) {
+    final route = '$method$path';
+    final sa = route.verifiedSegments;
+    for(var handlerRoute in _handlers.keys) {
+      if(sa.matches(handlerRoute.segments)) {
+        throw Exception('duplicate route: $route');
+      }
+    }
+    _handlers[route] = handlers;
+    if(logger != null) _loggers[route] = logger;
+    if(method == 'GET') options(path, [_handleCors]); // TODO cors handler
+  }
+
+  Future<void> _handle(HttpRequest httpRequest) async {
+    final lookupMethod = (httpRequest.method == 'HEAD') ? 'GET' : httpRequest.method;
+    final requestPath = '$lookupMethod${httpRequest.requestedUri.path}';
+    final routePath = _handlers.containsKey(requestPath) ? requestPath : requestPath.findRouterPath(_handlers.keys);
+    final request = Request(this, httpRequest, routePath);
+    final response = Response(request);
+    final handlers = _handlers[routePath] ?? _notFoundHandlers ?? [];
+    print(requestPath);
+    if(handlers.isNotEmpty) {
+      final logger = _loggers[routePath] ?? this.logger;
+      try {
+        await runZoned(() async {
+          for(var handler in handlers) {
+            await handler(request, response);
+            if(response.isClosed) {
+              return;
+            }
+          }},
+            zoneSpecification: ZoneSpecification(
+                print: (self, parent, zone, message) {
+                  final logMessage = logger.convertMessage(request, response, message);
+                  if(logMessage != null) {
+                    parent.print(self, logMessage);
+                  }
+                }
+            )
+        );
+      } catch(error, stackTrace) {
+        print(logger.convertError(request, response, error, stackTrace));
+      }
+      if(response.isNotClosed) {
+        await response.close();
+      }
+    } else {
+      await _handleError(request, response, 404);
+    }
+    if(httpRequest.response.statusCode >= 400) {
+      print('status ${httpRequest.response.statusCode}');
+    }
+  }
+
+  Future<void> _handleCors(req, res) {
+    // TODO
+    res.headers['Access-Control-Allow-Origin'] = '*';
+    res.headers['Access-Control-Allow-Headers'] = '*';
+    res.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
+    return res.send(data: 'sure');
+  }
+
+  Future<void> _handleError(Request req, Response res, int code) {
+    if(code == 404 && error404Handler != null) {
+      return error404Handler(req, res);
+    }
+    if(code >= 500 && error500Handler != null) {
+      return error500Handler(req, res);
+    }
+    return res.send(code: code);
+  }
+}
+
+class Server {
+
+  final ServerSettings settings;
+  final _hosts = <String, Host>{};
+  Server([ServerSettings settings]) : settings = settings ?? ServerSettings();
+
   HttpServer http;
   HttpServer https;
   StreamSubscription httpSubscription;
   StreamSubscription httpsSubscription;
 
+  Host host(String hostName) {
+    return _hosts.putIfAbsent(hostName, () => Host._(this));
+  }
+  
   void pause() {
     httpSubscription?.pause();
     httpsSubscription?.pause();
@@ -98,7 +188,7 @@ class Server {
       httpSubscription = http.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on http://${http.address.host}:${http.port}/');
     } else {
-      httpSubscription = http.listen((httpRequest) async => await _handleHttp(httpRequest));
+      httpSubscription = http.listen((httpRequest) async => await _redirectToHttps(httpRequest));
       httpsSubscription = https.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on https://${https.address.host}:${https.port}/ with redirect from http on port 80');
     }
@@ -128,84 +218,29 @@ class Server {
     }
   }
 
-  List<RequestHandler> get _notFoundHandlers => null;
-
-  void _add(String method, String path, List<RequestHandler> handlers, {Logger logger}) {
-    final route = '$method$path';
-    final sa = route.verifiedSegments;
-    for(var handlerRoute in _handlers.keys) {
-      if(sa.matches(handlerRoute.segments)) {
-        throw Exception('duplicate route: $route');
-      }
+  Future<void> _handle(HttpRequest request) async {
+    final hostName = request.headers[HttpHeaders.hostHeader];
+    if(hostName == null || hostName.isEmpty || hostName.length > 1) {
+      request.response.statusCode = 400;
+      request.response.headers.add(HttpHeaders.serverHeader, 'oobium');
+      request.response.write('Bad Request - Invalid Host Provided');
+      await request.response.flush();
+      await request.response.close();
+      return;
     }
-    _handlers[route] = handlers;
-    if(logger != null) _loggers[route] = logger;
-    if(method == 'GET') options(path, [_corsHandler]);
+    final host = _hosts[hostName] ?? _hosts[null];
+    if(host == null) {
+      request.response.statusCode = 400;
+      request.response.headers.add(HttpHeaders.serverHeader, 'oobium');
+      request.response.write('Bad Request - Invalid Host');
+      await request.response.flush();
+      await request.response.close();
+      return;
+    }
+    return host._handle(request);
   }
 
-  RequestHandler get _corsHandler => (req, res) {
-    // TODO
-    res.headers['Access-Control-Allow-Origin'] = '*';
-    res.headers['Access-Control-Allow-Headers'] = '*';
-    res.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
-    return res.send(data: 'sure');
-  };
-
-  Future<void> _handle(HttpRequest httpRequest) async {
-    final lookupMethod = (httpRequest.method == 'HEAD') ? 'GET' : httpRequest.method;
-    final requestPath = '$lookupMethod${httpRequest.requestedUri.path}';
-    final routePath = _handlers.containsKey(requestPath) ? requestPath : requestPath.findRouterPath(_handlers.keys);
-    final request = Request(this, httpRequest, routePath);
-    final response = Response(request);
-    final handlers = _handlers[routePath] ?? _notFoundHandlers ?? [];
-    print(requestPath);
-    if(handlers.isNotEmpty) {
-      final logger = _loggers[routePath] ?? this.logger;
-      try {
-        await runZoned(() async {
-          for(var handler in handlers) {
-            await handler(request, response);
-            if(response.isClosed) {
-              return;
-            }
-          }},
-          zoneSpecification: ZoneSpecification(
-            print: (self, parent, zone, message) {
-              final logMessage = logger.convertMessage(request, response, message);
-              if(logMessage != null) {
-                parent.print(self, logMessage);
-              }
-            }
-          )
-        );
-      } catch(error, stackTrace) {
-        print(logger.convertError(request, response, error, stackTrace));
-      }
-      if(response.isNotClosed) {
-        await response.close();
-      }
-    } else {
-      await _handleError(request, response, 404);
-    }
-    if(httpRequest.response.statusCode >= 400) {
-      print('status ${httpRequest.response.statusCode}');
-    }
-  }
-
-  RequestHandler error404Handler;
-  RequestHandler error500Handler;
-
-  Future<void> _handleError(Request req, Response res, int code) {
-    if(code == 404 && error404Handler != null) {
-      return error404Handler(req, res);
-    }
-    if(code >= 500 && error500Handler != null) {
-      return error500Handler(req, res);
-    }
-    return res.send(code: code);
-  }
-
-  Future<void> _handleHttp(HttpRequest request) async {
+  Future<void> _redirectToHttps(HttpRequest request) async {
     final uri = Uri.https(request.requestedUri.authority, request.requestedUri.path);
     request.response.statusCode = 301;
     request.response.headers.add(HttpHeaders.locationHeader, uri);
@@ -242,10 +277,10 @@ class Logger {
 typedef RequestHandler = Future<void> Function(Request request, Response response);
 
 class Request {
-  final Server _server;
+  final Host _host;
   final HttpRequest _httpRequest;
   final String routePath;
-  Request(this._server, this._httpRequest, this.routePath);
+  Request(this._host, this._httpRequest, this.routePath);
   Response _response;
 
   String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]]);
@@ -302,7 +337,7 @@ class Response {
   int get statusCode => _httpResponse.statusCode;
   set statusCode(int value) => _httpResponse.statusCode = value;
 
-  bool get _livePages => _request._server.livePages && _request._server.settings.isDebug;
+  bool get _livePages => _request._host.livePages && _request._host.settings.isDebug;
 
   Future<void> render<T extends Json>(PageBuilder<T> builder, T data) async {
     if(_livePages) {
@@ -479,10 +514,10 @@ class ServerWebSocket extends BaseWebSocket {
 
 RequestHandler auth = (req, res) async {
   final authHeader = req.header[HttpHeaders.authorizationHeader];
-  if(authHeader == 'Test 127.0.0.1' && req._server.settings.address == '127.0.0.1') {
+  if(authHeader == 'Test 127.0.0.1' && req._host.settings.address == '127.0.0.1') {
     return;
   }
-  final validator = Validator(req._server.settings.projectId);
+  final validator = Validator(req._host.settings.projectId);
   final validated = await validator.validate(authHeader);
   if(validated != true) {
     await res.send(code: HttpStatus.forbidden);
