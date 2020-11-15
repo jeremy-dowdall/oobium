@@ -15,18 +15,16 @@ import 'package:oobium_server/src/server_settings.dart';
 class Host {
 
   final Server _server;
+  final String _name;
   final _handlers = <String, List<RequestHandler>>{};
   final _loggers = <String, Logger>{};
-  Host._(this._server);
+  Host._(this._server, this._name);
 
   ServerSettings get settings => _server.settings;
 
-  Logger _logger = Logger();
-  Logger get logger => _logger;
-  set logger(Logger value) {
-    assert(logger != null, 'logger must not be null');
-    _logger = value;
-  }
+  Logger _logger;
+  Logger get logger => _logger ?? _server._logger;
+  set logger(Logger value) => _logger = value;
 
   RequestHandler error404Handler;
   RequestHandler error500Handler;
@@ -42,24 +40,31 @@ class Host {
   void delete(String path, List<RequestHandler> handlers, {Logger logger}) => _add('DELETE', path, handlers, logger: logger);
 
   void static(String directoryPath, {String at, String Function(String path) pathBuilder, Logger logger, optional = false}) {
-    final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
-    // TODO canonical paths? if not, lock down the directory
-    get(path, [(req, res) {
-      final filePath = '$directoryPath/${req.path.substring(path.length-1)}';
-      return res.sendFile(File(filePath));
-    }], logger: logger);
-    // for(var file in _getFiles(directoryPath)) {
-    //   final filePath = file.path;
-    //   final basePath = filePath.substring(directoryPath.length);
-    //   final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
-    //   final routePath = builtPath.replaceAll(RegExp(r'/+'), '/');
-    //   get(routePath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
-    //   if(routePath.endsWith('index.html')) {
-    //     final impliedPath = routePath.substring(0, routePath.length - 10);
-    //     get(impliedPath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
-    //   }
-    // }
+    if(livePages) {
+      final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
+      get(path, [(req, res) {
+        if(req.path.contains('..')) {
+          return res.send(code: 400);
+        }
+        final filePath = '$directoryPath/${req.path.substring(path.length-1)}';
+        return res.sendFile(File(filePath));
+      }], logger: logger);
+    } else {
+      for(var file in _getFiles(directoryPath)) {
+        final filePath = file.path;
+        final basePath = filePath.substring(directoryPath.length);
+        final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
+        final routePath = builtPath.replaceAll(RegExp(r'/+'), '/');
+        get(routePath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
+        if(routePath.endsWith('index.html')) {
+          final impliedPath = routePath.substring(0, routePath.length - 10);
+          get(impliedPath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
+        }
+      }
+    }
   }
+
+  void subdomain(String name) => _server._hosts['$name.$_name'] = this;
 
   Iterable<File> _getFiles(String directoryPath, {optional = false}) {
     assert(directoryPath != null || optional, 'directoryPath cannot be null, unless optional is true');
@@ -153,19 +158,37 @@ class Host {
   }
 }
 
+class Redirect {
+  final String host;
+  final bool temporary;
+  Redirect(this.host, this.temporary);
+}
+
 class Server {
 
   final ServerSettings settings;
   final _hosts = <String, Host>{};
+  final _redirects = <String, Redirect>{};
   Server([ServerSettings settings]) : settings = settings ?? ServerSettings();
+
+  Logger _logger = Logger();
+  Logger get logger => _logger;
+  set logger(Logger value) {
+    assert(logger != null, 'logger must not be null');
+    _logger = value;
+  }
 
   HttpServer http;
   HttpServer https;
   StreamSubscription httpSubscription;
   StreamSubscription httpsSubscription;
 
-  Host host(String hostName) {
-    return _hosts.putIfAbsent(hostName, () => Host._(this));
+  Host host([String name]) {
+    return _hosts.putIfAbsent(name, () => Host._(this, name));
+  }
+
+  void hostRedirect({String from, String to, bool temporary = false}) {
+    _redirects[from] = Redirect(to, temporary);
   }
   
   void pause() {
@@ -188,7 +211,7 @@ class Server {
       httpSubscription = http.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on http://${http.address.host}:${http.port}/');
     } else {
-      httpSubscription = http.listen((httpRequest) async => await _redirectToHttps(httpRequest));
+      httpSubscription = http.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
       httpsSubscription = https.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on https://${https.address.host}:${https.port}/ with redirect from http on port 80');
     }
@@ -219,36 +242,69 @@ class Server {
   }
 
   Future<void> _handle(HttpRequest request) async {
-    final hostName = request.headers[HttpHeaders.hostHeader];
-    if(hostName == null || hostName.isEmpty || hostName.length > 1) {
-      request.response.statusCode = 400;
-      request.response.headers.add(HttpHeaders.serverHeader, 'oobium');
-      request.response.write('Bad Request - Invalid Host Provided');
-      await request.response.flush();
-      await request.response.close();
-      return;
+    final hostName = _hostName(request);
+    if(hostName == null) {
+      return _send(request, code: 400, data: 'Bad Request - Invalid Host Provided');
+    }
+    final redirect = _redirects[hostName];
+    if(redirect != null) {
+      return _redirect(request, host: redirect.host, temporary: redirect.temporary);
     }
     final host = _hosts[hostName] ?? _hosts[null];
     if(host == null) {
-      request.response.statusCode = 400;
-      request.response.headers.add(HttpHeaders.serverHeader, 'oobium');
-      request.response.write('Bad Request - Invalid Host');
-      await request.response.flush();
-      await request.response.close();
-      return;
+      return _send(request, code: 400, data: 'Bad Request - Invalid Host');
     }
     return host._handle(request);
   }
 
-  Future<void> _redirectToHttps(HttpRequest request) async {
-    final uri = Uri.https(request.requestedUri.authority, request.requestedUri.path);
-    request.response.statusCode = 301;
-    request.response.headers.add(HttpHeaders.locationHeader, uri);
+  String _hostName(HttpRequest request) {
+    final hostHeaders = request.headers[HttpHeaders.hostHeader];
+    if(hostHeaders?.length == 1 && hostHeaders[0]?.isNotEmpty == true) {
+      return hostHeaders[0].split(':')[0];
+    }
+    return null;
+  }
+
+  Future<void> _redirect(HttpRequest request, {String scheme, String host, bool temporary = false}) async {
+    return _send(request,
+      code: temporary ? HttpStatus.movedTemporarily : HttpStatus.movedPermanently,
+      data: 'Moved ${temporary ? 'Temporary' : 'Permanently'}',
+      headers: {HttpHeaders.locationHeader: request.requestedUri.replace(scheme: scheme, host: host)}
+    );
+  }
+  
+  Future<void> _send(HttpRequest request, {int code, Object data, Map<String, Object> headers}) async {
+    request.response.statusCode = code;
+    if(headers != null) {
+      for(var header in headers.entries) {
+        request.response.headers.add(header.key, header.value);
+      }
+    }
     request.response.headers.add(HttpHeaders.serverHeader, 'oobium');
-    request.response.write('Moved Permanently');
+    request.response.write(data);
     await request.response.flush();
     await request.response.close();
   }
+
+  
+  //--- Default HOST Convenience Methods ---//
+  RequestHandler get error404Handler => host().error404Handler;
+  set error404Handler(RequestHandler value) => host().error404Handler = value;
+
+  RequestHandler get error500Handler => host().error500Handler;
+  set error500Handler(RequestHandler value) => host().error500Handler = value;
+
+  bool get livePages => host().livePages;
+  set livePages(bool value) => host().livePages = value;
+
+  void delete(String path, List<RequestHandler> handlers, {Logger logger}) => host().delete(path, handlers, logger: logger);
+  void get(String path, List<RequestHandler> handlers, {Logger logger}) => host().get(path, handlers, logger: logger);
+  void head(String path, List<RequestHandler> handlers, {Logger logger}) => host().head(path, handlers, logger: logger);
+  void options(String path, List<RequestHandler> handlers, {Logger logger}) => host().options(path, handlers, logger: logger);
+  void patch(String path, List<RequestHandler> handlers, {Logger logger}) => host().patch(path, handlers, logger: logger);
+  void post(String path, List<RequestHandler> handlers, {Logger logger}) => host().post(path, handlers, logger: logger);
+  void put(String path, List<RequestHandler> handlers, {Logger logger}) => host().put(path, handlers, logger: logger);
+  void static(String directoryPath, {String at, String Function(String path) pathBuilder, Logger logger, optional = false}) => host().static(directoryPath, at: at, pathBuilder: pathBuilder, logger: logger, optional: optional);
 }
 
 typedef ErrorConverter = String Function(Request req, Response res, Object error, StackTrace stackTrace);
@@ -379,7 +435,7 @@ class Response {
           return send(code: 501, data: 'Multipart Ranges Not Supported');
         }
         final start = ranges[0][0];
-        final end = min((ranges[0][1] ?? (stat.size - 1)), stat.size - 1);
+        final end = min((ranges[0][1] ?? (start + (5*1024*1024))), stat.size - 1);
         if(start > end) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
