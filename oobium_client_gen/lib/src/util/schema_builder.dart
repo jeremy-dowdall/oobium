@@ -1,46 +1,54 @@
-import 'package:analyzer/dart/element/element.dart';
-import 'package:oobium_client_gen/generators/util/model.dart';
-import 'package:oobium_client_gen/generators/util/model_field.dart';
-import 'package:oobium_client_gen/generators/util/model_visitor.dart';
-import 'package:oobium_client_gen/generators/util/schema.dart';
+import 'package:oobium_client_gen/src/util/model.dart';
+import 'package:oobium_client_gen/src/util/model_field.dart';
+import 'package:oobium_client_gen/src/util/schema.dart';
+import 'package:oobium_client_gen/src/util/schema_library.dart';
 import 'package:oobium_common/oobium_common.dart';
-import 'package:source_gen/source_gen.dart';
 
 enum LibraryType { builders, models, scaffolding }
 
 class SchemaBuilder {
-  final LibraryReader library;
+  final SchemaLibrary library;
   SchemaBuilder(this.library);
 
-  Schema load() {
-    if(isSchema) {
-      String owner = loadOwner();
-      List<Model> models = loadModels(owner);
-      expandModels(models);
-      linkModels(models.expand((model) => model.all).toList());
-      return Schema(modelsImport, sourceImports, models);
-    }
-    return null;
+  Schema build() {
+    String owner = getOwnerType();
+    List<Model> models = getModels(owner);
+    expandModels(models);
+    linkModels(models.expand((model) => model.all).toList());
+    return Schema(imports, models);
   }
 
-  bool get isSchema => library.classes.any((c) => c.isModel);
-
-  String get modelsImport => library.element.source.uri.toString().replaceFirst('.schema.dart', '.schema.models.dart');
-  List<String> get sourceImports => library.element.imports.map((e) => e.uri).where((e) => e != 'package:oobium_client/oobium_client_annotations.dart').toList();
-
-  String loadOwner() {
-    final classes = library.classes.where((c) => c.metadata.any((meta) => meta.element.name == 'owner'));
-    if(classes.isEmpty) {
-      throw FormatException('no owner type found (use @owner instead of @model to specify)');
+  List<String> get imports {
+    final imports = <String, List<String>>{};
+    final fields = library.models.expand((m) => m.fields.where((f) => f.isImportedType));
+    for(var field in fields) {
+      imports.putIfAbsent(field.importPackage, () => []).add(field.importTypeName);
     }
-    if(classes.length > 1) {
-      throw FormatException('only 1 owner type (designated by @owner) allowed per library');
-    }
-    return TypeVisitor.visit(classes.first).type;
+    return imports.keys.map((k) => "import '$k' show ${imports[k].join(', ')};").toList();
   }
 
-  List<Model> loadModels(String owner) {
-    return library.classes.where((c) => c.isModel).map((c) => ModelVisitor.visit(owner, c).model).toList();
+  String getOwnerType() {
+    final models = library.models.where((m) => m.isOwner);
+    if(models.isEmpty) {
+      throw FormatException('no owner type found (use "owner" option to specify)');
+    }
+    if(models.length > 1) {
+      throw FormatException('only 1 owner type (designated by "owner" option) allowed per library');
+    }
+    return models.first.type;
+  }
+
+  List<Model> getModels(String owner) {
+    return library.models.map((m) => Model(
+      scaffold: m.isScaffold,
+      owner: owner,
+      type: m.type,
+      fields: m.fields.map((f) => ModelField(
+        metadata: f.options,
+        type: f.type,
+        name: f.name
+      )).toList())
+    ).toList();
   }
 
   void linkModels(List<Model> models) {
@@ -156,8 +164,4 @@ class SchemaBuilder {
     }
     return linkedFields[0];
   }
-}
-
-extension _ClassElementExt on ClassElement {
-  bool get isModel => metadata.any((meta) => meta.element.name == 'model' || meta.element.name == 'owner');
 }

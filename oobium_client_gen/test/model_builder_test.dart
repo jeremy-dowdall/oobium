@@ -1,8 +1,7 @@
-import 'package:oobium_client_gen/generators/util/model.dart';
-import 'package:oobium_client_gen/generators/util/model_builder.dart';
-import 'package:oobium_client_gen/generators/util/model_field.dart';
+import 'package:oobium_client_gen/src/util/model.dart';
+import 'package:oobium_client_gen/src/util/model_builder.dart';
+import 'package:oobium_client_gen/src/util/model_field.dart';
 import 'package:test/test.dart';
-import 'utils.dart';
 
 void main() {
   group('test build models', () {

@@ -1,5 +1,5 @@
-import 'package:oobium_client_gen/generators/util/model.dart';
-import 'package:oobium_client_gen/generators/util/model_field.dart';
+import 'package:oobium_client_gen/src/util/model.dart';
+import 'package:oobium_client_gen/src/util/model_field.dart';
 import 'package:oobium_common/oobium_common.dart';
 
 class ScaffoldingModel {

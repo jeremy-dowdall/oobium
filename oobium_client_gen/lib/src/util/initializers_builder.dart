@@ -1,4 +1,4 @@
-import 'package:oobium_client_gen/generators/util/model.dart';
+import 'package:oobium_client_gen/src/util/model.dart';
 
 class InitializersBuilder {
 
@@ -7,7 +7,7 @@ class InitializersBuilder {
   InitializersBuilder({this.imports, List<Model> models}) : models = models.expand((m) => m.all).toList();
 
   String build() => '''
-    ${imports.map((import) => 'import \'$import\';').join('\n')}
+    ${imports.join('\n')}
     
     extension ModelContextInitializers on ModelContext {
       void addSchemaBuilders() {

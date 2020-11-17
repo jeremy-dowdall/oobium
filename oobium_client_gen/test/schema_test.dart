@@ -1,82 +1,56 @@
-import 'package:oobium_client_gen/generators/util/schema_builder.dart';
+import 'package:oobium_client_gen/src/util/schema_builder.dart';
+import 'package:oobium_client_gen/src/util/schema_library.dart';
 import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:test/test.dart';
-import 'utils.dart';
 
 void main() {
-  group('test isSchema', () {
-    test('with owner', () {
-      final library = libraryReader([ClassDef('@owner Foo')]);
-      final builder = SchemaBuilder(library);
-      expect(builder.isSchema, isTrue);
-    });
-
-    test('with model', () {
-      final library = libraryReader([ClassDef('@model Foo')]);
-      final builder = SchemaBuilder(library);
-      expect(builder.isSchema, isTrue);
-    });
-
-    test('without owner or model (empty metadata)', () {
-      final library = libraryReader([ClassDef('Bar')]);
-      final builder = SchemaBuilder(library);
-      expect(builder.isSchema, isFalse);
-    });
-
-    test('without owner or model (unknown metadata)', () {
-      final library = libraryReader([ClassDef('@unknown Bar')]);
-      final builder = SchemaBuilder(library);
-      expect(builder.isSchema, isFalse);
-    });
-  });
-
   group('test loadOwner', () {
     test('without owner throws exception', () {
-      final library = libraryReader([ClassDef('@model Foo')]);
+      final library = SchemaLibrary.parse(['Foo']);
       final builder = SchemaBuilder(library);
-      expectError(() => builder.loadOwner(), 'no owner type found (use @owner instead of @model to specify)');
+      expectError(() => builder.getOwnerType(), 'no owner type found (use "owner" option to specify)');
     });
 
     test('with 2 owners throws exception', () {
-      final library = libraryReader([ClassDef('@owner Foo'), ClassDef('@owner Bar')]);
+      final library = SchemaLibrary.parse(['Foo(owner)', 'Bar(owner)']);
       final builder = SchemaBuilder(library);
-      expectError(() => builder.loadOwner(), 'only 1 owner type (designated by @owner) allowed per library');
+      expectError(() => builder.getOwnerType(), 'only 1 owner type (designated by "owner" option) allowed per library');
     });
 
     test('with owner', () {
-      final library = libraryReader([ClassDef('@owner Foo')]);
+      final library = SchemaLibrary.parse(['Foo(owner)']);
       final builder = SchemaBuilder(library);
-      expect(builder.loadOwner(), 'Foo');
+      expect(builder.getOwnerType(), 'Foo');
     });
 
     test('with owner and then model', () {
-      final library = libraryReader([ClassDef('@owner Foo'), ClassDef('@model Bar')]);
+      final library = SchemaLibrary.parse(['Foo(owner)', 'Bar']);
       final builder = SchemaBuilder(library);
-      expect(builder.loadOwner(), 'Foo');
+      expect(builder.getOwnerType(), 'Foo');
     });
 
     test('with model and then owner', () {
-      final library = libraryReader([ClassDef('@model Foo'), ClassDef('@owner Bar')]);
+      final library = SchemaLibrary.parse(['Foo', 'Bar(owner)']);
       final builder = SchemaBuilder(library);
-      expect(builder.loadOwner(), 'Bar');
+      expect(builder.getOwnerType(), 'Bar');
     });
   });
 
   group('test loadModels', () {
     test('set owner', () {
-      final library = libraryReader([
-        ClassDef('@model Foo')
+      final library = SchemaLibrary.parse([
+        'Foo'
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models.length, 1);
       expect(models[0].owner, 'TestOwner');
     });
 
     test('Foo, single', () {
-      final library = libraryReader([
-        ClassDef('@model Foo')
+      final library = SchemaLibrary.parse([
+        'Foo'
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models.length, 1);
       expect(models[0].type, 'Foo');
       expect(models[0].name, 'Foo');
@@ -85,11 +59,11 @@ void main() {
     });
 
     test('Foo & Bar, multiple', () {
-      final library = libraryReader([
-        ClassDef('@model Foo'),
-        ClassDef('@model Bar'),
+      final library = SchemaLibrary.parse([
+        'Foo',
+        'Bar',
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models.length, 2);
       expect(models[0].type, 'Foo');
       expect(models[0].name, 'Foo');
@@ -102,10 +76,10 @@ void main() {
     });
 
     test('Foo<P>, generic', () {
-      final library = libraryReader([
-        ClassDef('@model Foo<P>'),
+      final library = SchemaLibrary.parse([
+        'Foo<P>',
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models.length, 1);
       expect(models[0].type, 'Foo<P>'); // TODO ???
       expect(models[0].name, 'Foo');
@@ -116,10 +90,10 @@ void main() {
     });
 
     test('Foo.Link<Bar>, virtual', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('Link<Bar> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bar Link<Bar>',
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models.length, 1);
       expect(models[0].type, 'Foo');
       expect(models[0].name, 'Foo');
@@ -130,10 +104,10 @@ void main() {
 
   group('test loadModels, fields', () {
     test('Foo:String', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('String name')])
+      final library = SchemaLibrary.parse([
+        'Foo', '  name String'
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models.length, 1);
       expect(models[0].fields.length, 1);
       expect(models[0].fields[0].model, models[0]);
@@ -144,10 +118,10 @@ void main() {
     });
 
     test('Foo:Link<Bar>, virtual field', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('Link<Bar> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bar Link<Bar>',
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models?.length, 1);
       expect(models[0].fields?.length, 1);
       expect(models[0].fields[0].model.type, 'Foo');
@@ -163,10 +137,10 @@ void main() {
     });
 
     test('Foo:Link<Bar>, resolved virtual field', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('@resolve Link<Bar> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bar Link<Bar>(resolve)',
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models?.length, 1);
       expect(models[0].fields?.length, 1);
       expect(models[0].fields[0].model.type, 'Foo');
@@ -182,10 +156,10 @@ void main() {
     });
 
     test('Foo<P>:Link<P>, generic field', () {
-      final library = libraryReader([
-        ClassDef('@model Foo<P>', fields: [FieldDef('Link<P> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo<P>', '  bar Link<P>',
       ]);
-      final models = SchemaBuilder(library).loadModels('TestOwner');
+      final models = SchemaBuilder(library).getModels('TestOwner');
       expect(models?.length, 1);
       expect(models[0].fields?.length, 1);
       expect(models[0].fields[0].model.type, 'Foo<P>');
@@ -203,12 +177,12 @@ void main() {
 
   group('test linkModels, Link', () {
     test('Foo:Link<Bar> -> Bar', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('Link<Bar> bar')]),
-        ClassDef('@model Bar')
+      final library = SchemaLibrary.parse([
+        'Foo', '  bar Link<Bar>',
+        'Bar'
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 2);
       expect(models[0].fields.length, 1);
@@ -216,11 +190,11 @@ void main() {
     });
 
     test('Foo:Link<Bar> -> Bar, virtual', () {
-      final library = libraryReader([
-        ClassDef('@owner Foo', fields: [FieldDef('Link<Bar> bar')])
+      final library = SchemaLibrary.parse([
+        'Foo(owner)', '  bar Link<Bar>'
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 1);
       expect(models[0].fields.length, 1);
@@ -231,11 +205,11 @@ void main() {
     });
 
     test('Foo:Link<Bar<Bat>> -> Bar<Bat>, virtual', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('Link<Bar<Bat>> bar')])
+      final library = SchemaLibrary.parse([
+        'Foo', '  bar Link<Bar<Bat>>'
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 1);
       expect(models[0].fields.length, 1);
@@ -246,11 +220,11 @@ void main() {
     });
 
     test('Foo<P>:Link<P> -> null, generic', () {
-      final library = libraryReader([
-        ClassDef('@model Foo<P>', fields: [FieldDef('Link<P> bar')])
+      final library = SchemaLibrary.parse([
+        'Foo<P>', '  bar Link<P>'
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 1);
       expect(models[0].fields.length, 1);
@@ -260,21 +234,21 @@ void main() {
 
   group('test linkModels, HasMany', () {
     test('Foo.HasMany<Bar> -> throws missing linkedModel', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bar> bars')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bars HasMany<Bar>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       expectError(() => builder.linkModels(models), 'could not find linkedModel for Foo.bars -> Bar (sources: Foo)');
     });
 
     test('Foo.HasMany<Bar> -> Bar.foo, implied', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bar> bars')]),
-        ClassDef('@model Bar'),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bars HasMany<Bar>',
+        'Bar',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 2);
       expect(models[0].fields.length, 1);
@@ -287,22 +261,22 @@ void main() {
     });
 
     test('Foo.HasMany<Bar> -> throws missing linkedField', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bar> bars')]),
-        ClassDef('@model Bar', fields: [FieldDef('String foo')]), // implied field is taken, and references something else
+      final library = SchemaLibrary.parse([
+        'Foo', '  bars HasMany<Bar>',
+        'Bar', '  foo String', // implied field is taken, and references something else
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       expectError(() => builder.linkModels(models), 'could not find linkedField for Foo.bars -> Bar.<missing>');
     });
 
     test('Foo.HasMany<Bar> -> Bar.foo', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bar> bars')]),
-        ClassDef('@model Bar', fields: [FieldDef('Link<Foo> foo')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bars HasMany<Bar>',
+        'Bar', '  foo Link<Foo>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 2);
       expect(models[0].fields.length, 1);
@@ -312,23 +286,23 @@ void main() {
     });
 
     test('Foo.HasMany<Bar> -> throws ambiguous linkedField', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bar> bars')]),
-        ClassDef('@model Bar', fields: [FieldDef('Link<Foo> foo'), FieldDef('Link<Foo> alsoFoo')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bars HasMany<Bar>',
+        'Bar', '  foo Link<Foo>', '  alsoFoo Link<Foo>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       expectError(() => builder.linkModels(models), 'ambiguous linkedField for Foo.bars -> Bar.<foo|alsoFoo>');
     });
 
     test('Foo.HasMany<Bat>|Bar.HasMany<Bat> -> Bat.foo|Bat.bar', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bar', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bat', fields: [FieldDef('Link<Foo> foo'), FieldDef('Link<Bar> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bats HasMany<Bat>',
+        'Bar', '  bats HasMany<Bat>',
+        'Bat', '  foo Link<Foo>', '  bar Link<Bar>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 3);
       final fooBats = models[0].fields[0];
@@ -342,13 +316,13 @@ void main() {
     });
 
     test('Foo.HasMany<Bat>|Bar.HasMany<Bat> -> Bat<Foo>.parent|Bat<Bar>.parent, generic', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bar', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bat<P>', fields: [FieldDef('Link<P> parent')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bats HasMany<Bat>',
+        'Bar', '  bats HasMany<Bat>',
+        'Bat<P>', '  parent Link<P>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 3);
       final Foo = models[0], Bar = models[1], Bat = models[2];
@@ -368,13 +342,13 @@ void main() {
     });
 
     test('Foo.HasMany<Bat>|Bar.HasMany<Bat> -> Bat<Foo>.parent|Bat<Bar>.bar, generic', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bar', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bat<P>', fields: [FieldDef('Link<P> parent'), FieldDef('Link<Bar> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bats HasMany<Bat>',
+        'Bar', '  bats HasMany<Bat>',
+        'Bat<P>', '  parent Link<P>', '  bar Link<Bar>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 3);
       final Foo = models[0], Bar = models[1], Bat = models[2];
@@ -391,12 +365,12 @@ void main() {
     });
 
     test('Foo.Link<Bar>|HasMany<Bar> -> Bar<Foo>|Bar<Foo>.parent', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('Link<Bar<Foo>> bar'), FieldDef('HasMany<Bar> bars')]),
-        ClassDef('@model Bar<P>', fields: [FieldDef('Link<P> parent')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bar Link<Bar<Foo>>', '  bars HasMany<Bar>',
+        'Bar<P>', '  parent Link<P>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 2);
       final Foo = models[0], Bar = models[1];
@@ -411,11 +385,11 @@ void main() {
     });
 
     test('Foo<P>.Link<P>|HasMany<Foo<P>> -> null|Link<Foo>', () { // TODO not quite right... ?
-      final library = libraryReader([
-        ClassDef('@model Foo<P>', fields: [FieldDef('Link<P> parent'), FieldDef('HasMany<Foo> children')]),
+      final library = SchemaLibrary.parse([
+        'Foo<P>', '  parent Link<P>', '  children HasMany<Foo>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       expect(models.length, 1);
       expect(models[0].fields.length, 2);
@@ -429,13 +403,13 @@ void main() {
 
   group('test expandedModels', () {
     test('Foo.HasMany<Bat>|Bar.HasMany<Bat> -> Bat<Foo>.parent|Bat<Bar>.bar, generic', () {
-      final library = libraryReader([
-        ClassDef('@model Foo', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bar', fields: [FieldDef('HasMany<Bat> bats')]),
-        ClassDef('@model Bat<P>', fields: [FieldDef('Link<Foo> foo'), FieldDef('Link<Bar> bar')]),
+      final library = SchemaLibrary.parse([
+        'Foo', '  bats HasMany<Bat>',
+        'Bar', '  bats HasMany<Bat>',
+        'Bat<P>', '  foo Link<Foo>', '  bar Link<Bar>',
       ]);
       final builder = SchemaBuilder(library);
-      final models = builder.loadModels('TestOwner');
+      final models = builder.getModels('TestOwner');
       builder.linkModels(models);
       builder.expandModels(models);
       final Foo = models[0], Bar = models[1], Bat = models[2];
@@ -453,10 +427,10 @@ void main() {
     });
 
     test('Message<P>|Marker<P>', () {
-      final schema = schemaDef([
-        classDef('@owner @scaffold Message<P>', ['Link<P> parent', 'HasMany<Marker> markers', 'HasMany<Message> messages',]),
-        classDef('@model @scaffold Marker<P>', ['Link<P> parent',]),
-      ]);
+      final schema = SchemaBuilder(SchemaLibrary.parse([
+        'Message<P>(owner, scaffold)', '  parent Link<P>', '  markers HasMany<Marker>', '  messages HasMany<Message>',
+        'Marker<P>(scaffold)', '  parent Link<P>',
+      ])).build();
       expect(schema.models.length, 2);
       final Message = schema.models[0], Marker = schema.models[1];
       expect(Message.isGeneric, isTrue);

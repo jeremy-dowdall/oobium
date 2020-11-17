@@ -1,4 +1,4 @@
-import 'package:oobium_client_gen/generators/util/model.dart';
+import 'package:oobium_client_gen/src/util/model.dart';
 
 class ModelField {
 
