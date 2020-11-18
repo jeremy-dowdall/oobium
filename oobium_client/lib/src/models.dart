@@ -267,11 +267,6 @@ class SaveResult {
   String get message => _validation?.message;
 }
 
-abstract class ModelBuilder {
-  Map<Type, Function(ModelContext context, Map data)> builders;
-  Map<Type, Function(ModelContext context, List<Map> data)> listBuilders;
-}
-
 abstract class Persistor {
   Future<bool> any<T>(ModelContext context, Iterable<Where> conditions);
   Future<bool> exists<T>(ModelContext context, String id);

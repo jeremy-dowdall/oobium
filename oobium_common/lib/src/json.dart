@@ -82,6 +82,7 @@ abstract class Json implements JsonString {
 
   static from(field) {
     if(field == null) return null;
+    if(field is JsonModel) return field.id;
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
     if(field is List) return fromList(field);
@@ -120,6 +121,18 @@ abstract class JsonModel extends Json {
   Map<String, dynamic> toJson() => Map<String, dynamic>()
     ..['id'] = Json.from(id)
   ;
+
+  bool get isNew => id == null || id.isEmpty;
+  bool get isNotNew => !isNew;
+
+  bool isSameAs(other) => !isNotSameAs(other);
+  bool isNotSameAs(other) {
+    if(runtimeType == other?.runtimeType && id == other?.id) {
+      final json1 = toJson(), json2 = other.toJson();
+      return json1.keys.any((k) => json1[k] != json2[k]);
+    }
+    return true;
+  }
 }
 
 abstract class JsonString {
