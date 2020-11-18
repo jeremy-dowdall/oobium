@@ -301,8 +301,8 @@ class ModelContext {
   Future<String> getAuthToken() => auth.getAuthToken();
   Future<String> getIdToken() => auth.getIdToken();
 
-  final Map<Type, Function(ModelContext context, Map data)> _builders = {};
-  final Map<Type, Persistor> _persistors = {};
+  final _builders = <Type, Function(ModelContext context, Map data)>{};
+  final _persistors = <Type, Persistor>{};
 
   void addBuilder<T>(T builder(ModelContext context, Map data)) {
     _builders[T] = builder;

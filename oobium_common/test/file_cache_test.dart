@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 Future<void> main() async {
   final cache = await FileCache('test-cache')..init();
   setUp(() async => await cache.reset());
-  tearDownAll(() async => cache.destroy());
+  tearDownAll(() async => await cache.destroy());
 
   test('test put', () async {
     await cache.put('test-key', 'test-data');
