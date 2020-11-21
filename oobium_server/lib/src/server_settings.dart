@@ -15,7 +15,6 @@ class ServerSettings {
     _settings.addAll(settings);
   }
   ServerSettings({
-    String protocol,
     String address,
     int port,
     String certPath,
@@ -24,7 +23,6 @@ class ServerSettings {
     String webroot
   }) {
     _settings['server'] ??= {};
-    if(protocol != null) _settings['server']['protocol'] = protocol;
     if(address != null) _settings['server']['address'] = address;
     if(port != null) _settings['server']['port'] = port;
     if(certPath != null) _settings['server']['certPath'] = certPath;
@@ -46,7 +44,7 @@ class ServerSettings {
   String get certPath => _settings['server']['certPath'];
   String get keyPath => _settings['server']['keyPath'];
 
-  String get protocol => _settings['server']['protocol'] ?? (isSecure ? 'https' : 'http');
+  String get protocol => isSecure ? 'https' : 'http';
   String get address => _settings['server']['address'] ?? '127.0.0.1';
   String get host => _settings['server']['host'];
   int get port => _settings['server']['port'] ?? (isSecure ? 443 : 8080);

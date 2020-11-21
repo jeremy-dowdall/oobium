@@ -46,12 +46,16 @@ String generateScaffoldingLibrary(Schema schema, String modelsImport) {
   ].toSet().toList()..sort();
 
   final models = schema.models.where((model) => model.scaffold).expand((m) => m.expanded).map((model) => ScaffoldingModel(model));
-  final listPage = ScaffoldingListPageBuilder(models);
-  final detailPages = models.map((model) => ScaffoldingDetailPageBuilder(model, models));
+  if(models.isEmpty) {
+    return null;
+  } else {
+    final listPage = ScaffoldingListPageBuilder(models);
+    final detailPages = models.map((model) => ScaffoldingDetailPageBuilder(model, models));
 
-  return '''
-      ${imports.join('\n')}
-      ${listPage.build()}
-      ${detailPages.map((scaffoldingModel) => scaffoldingModel.build()).join('\n')}
-    ''';
+    return '''
+        ${imports.join('\n')}
+        ${listPage.build()}
+        ${detailPages.map((scaffoldingModel) => scaffoldingModel.build()).join('\n')}
+      ''';
+  }
 }

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-extension ServerStringsExtensions on List<String> {
+extension RouterStringsExtensions on List<String> {
 
   bool get isWildCard => length > 0 && this[length-1] == '*';
 
@@ -19,7 +19,7 @@ extension ServerStringsExtensions on List<String> {
   }
 }
 
-extension ServerStringExtensions on String {
+extension RouterStringExtensions on String {
 
   String findRouterPath(Iterable<String> routerPaths) {
     final sa = segments;
@@ -64,7 +64,7 @@ extension ServerStringExtensions on String {
   }
 }
 
-extension ServerFileExtensions on File {
+extension RouterFileExtensions on File {
 
   ContentType get contentType {
     var index = path.lastIndexOf(RegExp(r'[\./]'));

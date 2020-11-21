@@ -4,38 +4,58 @@ import 'package:oobium_client_gen/src/generators.dart';
 import 'package:oobium_client_gen/src/util/schema_builder.dart';
 import 'package:oobium_client_gen/src/util/schema_library.dart';
 
-Future<void> main() async {
-  final pubspec = File('pubspec.yaml');
-  if(await pubspec.exists()) {
-    print('pubspec.yaml found...');
-  } else {
-    print('pubspec.yaml not found... exiting');
-    exit(1);
-  }
+Future<void> main(List<String> args) async {
+  final params = _params(args);
+  final clientDir = params['client'] ?? 'lib';
+  final serverDir = params['server'];
 
-  final package = (await pubspec.readAsLines())
-      .firstWhere((l) => l.startsWith('name:')).split(':')[1].trim();
-
-  print('scanning schema for $package...');
-
-  final directory = Directory('');
+  print('scanning $clientDir for schema...');
+  final directory = (clientDir == '.') ? Directory.current : Directory(clientDir);
   final files = await directory.list(recursive: true).where((file) => file.path.endsWith('.schema')).toList();
   if(files.isEmpty) {
     print('no schema found');
   }
   for(var file in files) {
-    final path = file.path.substring('${directory.path}/lib/'.length);
-    print('found schema at $path... processing...');
-    final modelsImport = 'import \'package:$package$path.models.dart\';';
-    final lines = await File(file.path).readAsLines();
+    final path = file.path.substring(directory.path.length + 1); // remove leading slash
+    print('found $path (${file.path}... processing...');
+    final modelsImport = 'import \'$path.gen.models.dart\';';
+    final lines = await File(path).readAsLines();
     final library = await SchemaLibrary.parse(lines);
     final schema = SchemaBuilder(library).build();
     final initializersLibrary = generateInitializersLibrary(schema, modelsImport);
     final modelsLibrary = generateModelsLibrary(schema);
     final scaffoldingLibrary = generateScaffoldingLibrary(schema, modelsImport);
-    File('${file.path}.initializers.dart').writeAsString(initializersLibrary);
-    File('${file.path}.models.dart').writeAsString(modelsLibrary);
-    File('${file.path}.scaffolding.dart').writeAsString(scaffoldingLibrary);
-    print('  $path processed');
+
+    final outputs = <File>[];
+    if(initializersLibrary != null) {
+      outputs.add(await File('$path.gen.initializers.dart').writeAsString(initializersLibrary));
+      if(serverDir != null) outputs.add(await File('$serverDir/$path.gen.initializers.dart').writeAsString(initializersLibrary));
+    }
+    if(modelsLibrary != null ) {
+      outputs.add(await File('$path.gen.models.dart').writeAsString(modelsLibrary));
+      if(serverDir != null) outputs.add(await File('$serverDir/$path.gen.models.dart').writeAsString(modelsLibrary));
+    }
+    if(scaffoldingLibrary != null) {
+      outputs.add(await File('$path.gen.scaffolding.dart').writeAsString(scaffoldingLibrary));
+      outputs.add(await File('$serverDir/$path.gen.scaffolding.dart').writeAsString(scaffoldingLibrary));
+    }
+    print('  $path processed. formatting...');
+
+    final results = await Process.run('dart', ['format', ...outputs.map((f) => f.path).toList()]);
+    print(results.stdout);
   }
+}
+
+Map<String, String> _params(List<String> args) {
+  final params = <String, String>{};
+  for(var i = 0; i < args.length; i++) {
+    if(args[i].startsWith('-')) {
+      if(i != args.length - 1 && !args[i+1].startsWith('-')) {
+        params[args[i].substring(1)] = args[i+1];
+      } else {
+        params[args[i].substring(1)] = 'true';
+      }
+    }
+  }
+  return params;
 }

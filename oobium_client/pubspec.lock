@@ -28,7 +28,7 @@ packages:
       name: asn1lib
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.6.5"
+    version: "0.8.1"
   async:
     dependency: transitive
     description:
@@ -140,7 +140,7 @@ packages:
       name: corsac_jwt
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.2.2"
+    version: "0.3.0"
   crypto:
     dependency: transitive
     description:
@@ -373,6 +373,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.1.1"
+  objectid:
+    dependency: transitive
+    description:
+      name: objectid
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "1.1.1"
   oobium_common:
     dependency: "direct main"
     description:
@@ -456,7 +463,7 @@ packages:
       name: pointycastle
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.0.2"
+    version: "2.0.0"
   process:
     dependency: transitive
     description:
@@ -491,7 +498,7 @@ packages:
       name: rsa_pkcs
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.1.3"
+    version: "1.1.4"
   shared_preferences:
     dependency: "direct main"
     description:

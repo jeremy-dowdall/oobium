@@ -5,11 +5,9 @@ import 'dart:isolate';
 import 'dart:math';
 
 import 'package:oobium_common/oobium_common.dart';
-import 'package:oobium_server/oobium_server.dart';
 import 'package:oobium_server/src/auth/validator.dart';
 import 'package:oobium_server/src/html/html.dart';
-import 'package:oobium_server/src/websocket/websocket.dart';
-import 'package:oobium_server/src/utils.dart';
+import 'package:oobium_common/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
 
 class Host {
@@ -50,7 +48,7 @@ class Host {
         return res.sendFile(File(filePath));
       }], logger: logger);
     } else {
-      for(var file in _getFiles(directoryPath)) {
+      for(var file in _getFiles(directoryPath, optional: optional)) {
         final filePath = file.path;
         final basePath = filePath.substring(directoryPath.length);
         final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
@@ -169,7 +167,18 @@ class Server {
   final ServerSettings settings;
   final _hosts = <String, Host>{};
   final _redirects = <String, Redirect>{};
-  Server([ServerSettings settings]) : settings = settings ?? ServerSettings();
+  Server({
+    String address,
+    int port,
+    String certPath,
+    String keyPath,
+    ServerSettings settings
+  }) : settings = settings ?? ServerSettings() {
+    this.settings['server']['address'] ??= address;
+    this.settings['server']['port'] ??= port;
+    this.settings['server']['certPath'] ??= certPath;
+    this.settings['server']['keyPath'] ??= keyPath;
+  }
 
   Logger _logger = Logger();
   Logger get logger => _logger;
@@ -422,7 +431,6 @@ class Response {
   }
 
   Future<void> sendFile(File file) async {
-    assert(isOpen, 'called sendFile after response has already been closed');
     if(await file.exists()) {
       final stat = await file.stat();
       final etag = 'todo'; // TODO
@@ -578,4 +586,10 @@ RequestHandler auth = (req, res) async {
   if(validated != true) {
     await res.send(code: HttpStatus.forbidden);
   }
+};
+
+RequestHandler websocket(Function(ServerWebSocket socket) f) => (req, res) async {
+  final socket = await req.upgrade();
+  f(socket);
+  socket.start();
 };

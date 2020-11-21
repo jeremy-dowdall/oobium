@@ -1,12 +1,7 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.html) 'ws_html.dart';
 
-import 'package:oobium_server/src/websocket/websocket.dart';
-
-class ClientWebSocket extends BaseWebSocket {
-  ClientWebSocket(WebSocket ws) : super(ws);
-  static Future<ClientWebSocket> connect(String url) async => ClientWebSocket(await WebSocket.connect(url));
-}
+import 'package:oobium_common/src/websocket/websocket_bak.dart';
 
 enum Resolution { replace, resume, cancel }
 class Status {
@@ -27,8 +22,8 @@ class FileSendTask extends Task {
 
   @override
   void registerMessageBuilders() {
-    register<Ready>(Ready.builder);
-    register<FileQueryResults>(FileQueryResults.builder);
+    register<ReadyMessage>(ReadyMessage.builder);
+    register<FileQueryResultsMessage>(FileQueryResultsMessage.builder);
   }
 
   String _fileName;
@@ -42,7 +37,7 @@ class FileSendTask extends Task {
   void onStart() async {
     _fileName = file.path.substring(file.parent.path.length);
     _fileSize = (await file.stat()).size;
-    addMessage(FileQuery(_fileName));
+    addMessage(FileQueryMessage(_fileName));
   }
 
   @override
@@ -53,7 +48,7 @@ class FileSendTask extends Task {
 
   @override
   Future<WebSocketMessage> onMessage(WebSocketMessage message) async {
-    if(message is FileQueryResults) {
+    if(message is FileQueryResultsMessage) {
       final remoteFile = message[_fileName];
       if(remoteFile == null) {
         _position = 0;
@@ -70,7 +65,7 @@ class FileSendTask extends Task {
           _resume = true;
         }
         else {
-          finish(Done(1, 'partial file exists and resume not approved - task canceled'));
+          finish(DoneMessage(1, 'partial file exists and resume not approved - task canceled'));
           return null;
         }
       }
@@ -80,13 +75,13 @@ class FileSendTask extends Task {
           _position = 0;
           _resume = false;
         } else {
-          finish(Done(1, 'file exists and replace not approved - task canceled'));
+          finish(DoneMessage(1, 'file exists and replace not approved - task canceled'));
           return null;
         }
       }
-      return FileSend(_fileName, _fileSize, _position, _resume);
+      return FileSendMessage(_fileName, _fileSize, _position, _resume);
     }
-    if(message is Ready) {
+    if(message is ReadyMessage) {
       onStatus?.call(Status(position: _position, total: _fileSize));
       if(_position < _fileSize) {
         reader ??= await file.open(mode: FileMode.read);
@@ -95,7 +90,7 @@ class FileSendTask extends Task {
         _position += read;
         return Data(_buffer.sublist(0, read));
       } else {
-        return Done();
+        return DoneMessage();
       }
     }
     return null;

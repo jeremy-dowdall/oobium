@@ -12,8 +12,6 @@ class Database {
 
   final _builders = <String, Function(Map data)>{};
   final _models = <String, JsonModel>{};
-  final _putObservers = <Type, Function>{};
-  final _removeObservers = <Type, Function>{};
   int _fileSize;
   IOSink _sink;
   Completer<void> _compactCompleter;
@@ -22,15 +20,6 @@ class Database {
 
   void addBuilder<T>(T builder(Map data)) {
     _builders[T.toString()] = builder;
-  }
-
-  void observe<T>({void all(T model), void onGet(T model), void onSave(T model), void onDelete(T model)}) {
-    _putObservers[T] = onSave ?? all;
-    _removeObservers[T] = onDelete ?? all;
-  }
-  void removeObservers<T>() {
-    _putObservers.remove(T);
-    _removeObservers.remove(T);
   }
 
   Future<void> open() async {

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:meta/meta.dart';
-import 'package:oobium_server/src/websocket/websocket.dart';
+import 'package:oobium_common/oobium_common.dart';
 
 class FileQueryHandler extends TaskHandler {
 
@@ -11,22 +11,22 @@ class FileQueryHandler extends TaskHandler {
 
   @override
   void registerMessageBuilders() {
-    register<FileQuery>(FileQuery.builder);
+    register<FileQueryMessage>(FileQueryMessage.builder);
   }
 
   @override
   Future<WebSocketMessage> onMessage(WebSocketMessage message) async {
     // print('$runtimeType onMessage($message)');
-    if(message is FileQuery) {
+    if(message is FileQueryMessage) {
       final results = <RemoteFile>[];
       final file = File('$path/${message.fileName}');
       if(await file.exists()) {
         final stat = await file.stat();
         results.add(RemoteFile(message.fileName, stat.size));
       }
-      return FileQueryResults(results);
+      return FileQueryResultsMessage(results);
     }
-    return Done();
+    return DoneMessage();
   }
 
   @override
@@ -44,23 +44,23 @@ class FileSendHandler extends TaskHandler {
 
   @override
   void registerMessageBuilders() {
-    register<FileSend>(FileSend.builder);
+    register<FileSendMessage>(FileSendMessage.builder);
   }
 
   @override
   Future<WebSocketMessage> onMessage(WebSocketMessage message) async {
-    if(message is FileSend) {
+    if(message is FileSendMessage) {
       // TODO not a safe path
       final file = File('$_path/${message.fileName}');
       _writer = ServerFileWriter(file: file, total: message.fileSize, start: message.start, resume: message.resume);
-      return Ready();
+      return ReadyMessage();
     }
     return null;
   }
 
   @override
   Future<WebSocketMessage> onData(List<int> data) async {
-    return (await _writer.write(data)) ? Done() : Ready();
+    return (await _writer.write(data)) ? DoneMessage() : ReadyMessage();
   }
 }
 

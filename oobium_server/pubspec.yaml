@@ -12,7 +12,7 @@ dependencies:
   meta: ^1.2.3
   mime: ^0.9.7
   http: ^0.12.2
-  corsac_jwt: ^0.2.2
+  corsac_jwt: ^0.3.0
 
 dev_dependencies:
   oobium_common_test:
