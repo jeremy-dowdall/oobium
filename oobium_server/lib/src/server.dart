@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 
+import 'package:objectid/objectid.dart';
 import 'package:oobium_common/oobium_common.dart';
 import 'package:oobium_server/src/auth/validator.dart';
 import 'package:oobium_server/src/html/html.dart';
@@ -154,7 +155,10 @@ class Host {
     }
     return res.send(code: code);
   }
+
+  final _sockets = <String, ServerWebSocket>{};
 }
+
 
 class Redirect {
   final String host;
@@ -369,10 +373,15 @@ class Request {
   List<List<int>> get ranges => header[HttpHeaders.rangeHeader].substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 
-  Future<ServerWebSocket> upgrade() async {
+  Future<ServerWebSocket> upgrade() => ServerWebSocket.upgrade(_httpRequest).then((socket) {
+    final id = params['uid'] ?? ObjectId().hexString;
+    _host._sockets[id] = socket;
+    socket.done.then((_) {
+      _host._sockets.remove(id);
+    });
     _response._closed = true; // don't _actually_ close this response, the websocket will handle it
-    return await ServerWebSocket.upgrade(_httpRequest);
-  }
+    return socket;
+  });
 }
 class HeaderValues {
   final HttpHeaders _headers;
@@ -578,13 +587,16 @@ class ServerWebSocket extends BaseWebSocket {
 
 RequestHandler auth = (req, res) async {
   final authHeader = req.header[HttpHeaders.authorizationHeader];
-  if(authHeader == 'Test 127.0.0.1' && req._host.settings.address == '127.0.0.1') {
-    return;
-  }
-  final validator = Validator(req._host.settings.projectId);
-  final validated = await validator.validate(authHeader);
-  if(validated != true) {
-    await res.send(code: HttpStatus.forbidden);
+  if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
+    req.params['uid'] = authHeader.split(' ')[1];
+  } else {
+    final validator = Validator(req._host.settings.projectId);
+    final uid = await validator.validate(authHeader);
+    if(uid != null) {
+      req.params['uid'] = uid;
+    } else {
+      await res.send(code: HttpStatus.forbidden);
+    }
   }
 };
 

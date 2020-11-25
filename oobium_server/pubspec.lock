@@ -233,7 +233,7 @@ packages:
     source: hosted
     version: "1.4.12"
   objectid:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: objectid
       url: "https://pub.dartlang.org"

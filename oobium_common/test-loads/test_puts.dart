@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:oobium_common/src/data/database.dart';
-import 'package:oobium_common/src/json.dart';
 
 Future<void> main() async {
   final count = 10000;
@@ -22,9 +21,10 @@ Future<void> main() async {
   print('  ${db.size} records\n  ${(await File(db.path).stat()).size}bytes\n  time: ${flush-start}ms (open: ${open-start}ms, read: ${read-open}ms, put: ${put-read}ms, flush: ${flush-put}ms)');
 }
 
-class TestType1 extends JsonModel {
+class TestType1 extends DataModel {
   final String name;
   TestType1({String id, this.name}) : super(id);
-  TestType1.fromJson(data) : name = Json.field(data, 'name'), super.fromJson(data);
+  TestType1.fromJson(data) : name = data['name'], super.fromJson(data);
+  @override TestType1 copyWith({String id, String name}) => TestType1(id: id ?? this.id, name: name ?? this.name);
   @override Map<String, dynamic> toJson() => super.toJson()..['name'] = name;
 }

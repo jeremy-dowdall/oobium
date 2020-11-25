@@ -22,18 +22,20 @@ void main() async {
   });
 }
 
-class TestType1 extends JsonModel {
+class TestType1 extends DataModel {
   final String name;
   final TestType2 type2;
   TestType1({String id, this.name, this.type2}) : super(id);
   TestType1.fromJson(data) : name = Json.field(data, 'name'), type2 = Json.field(data, 'type2', (v) => TestType2.fromJson(v)), super.fromJson(data);
+  @override TestType1 copyWith({String id, String name}) => TestType1(id: id ?? this.id, name: name ?? this.name);
   @override Map<String, dynamic> toJson() => super.toJson()..['name'] = name;
 }
 
-class TestType2 extends JsonModel {
+class TestType2 extends DataModel {
   final String name;
   final TestType1 type2;
   TestType2({String id, this.name, this.type2}) : super(id);
   TestType2.fromJson(data) : name = Json.field(data, 'name'), type2 = Json.field(data, 'type2', (v) => TestType1.fromJson(v)), super.fromJson(data);
+  @override TestType2 copyWith({String id, String name}) => TestType2(id: id ?? this.id, name: name ?? this.name);
   @override Map<String, dynamic> toJson() => super.toJson()..['name'] = name;
 }

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:oobium_common/src/data/database.dart';
-import 'package:oobium_common/src/json.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
@@ -191,15 +190,10 @@ Future<void> main() async {
   });
 }
 
-String pad(int i, int length) {
-  var s = i.toString();
-  while(s.length < length) s = '0$s';
-  return s;
-}
-
-class TestType1 extends JsonModel {
+class TestType1 extends DataModel {
   final String name;
   TestType1({String id, this.name}) : super(id);
-  TestType1.fromJson(data) : name = Json.field(data, 'name'), super.fromJson(data);
+  TestType1.fromJson(data) : name = data['name'], super.fromJson(data);
+  @override TestType1 copyWith({String id, String name}) => TestType1(id: id ?? this.id, name: name ?? this.name);
   @override Map<String, dynamic> toJson() => super.toJson()..['name'] = name;
 }

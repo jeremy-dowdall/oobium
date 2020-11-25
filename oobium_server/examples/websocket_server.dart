@@ -20,7 +20,7 @@ void main() {
         res.send(code: 404);
       }
     });
-    socket.on.put('/files/<fileName>', (request, response) {
+    socket.on.put('/files/<fileName>', (data) {
 
     });
   })]);

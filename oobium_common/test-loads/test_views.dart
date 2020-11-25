@@ -32,8 +32,10 @@ Future<void> main() async {
   print('messages:\n  ${messages.map((m) => m.toJson()).join('\n  ')}');
 }
 
-class User extends JsonModel {
+class User extends DataModel {
+
   final String name;
+
   User({String id,
     this.name
   }) : super(id);
@@ -41,13 +43,20 @@ class User extends JsonModel {
     name = Json.field(data, 'name'),
     super.fromJson(data)
   ;
+
+  @override
+  User copyWith({String id, String name}) => User(
+    id: id ?? this.id,
+    name: name ?? this.name
+  );
+
   @override
   Map<String, dynamic> toJson() => super.toJson()
     ..['name'] = name
   ;
 }
 
-class Message extends JsonModel {
+class Message extends DataModel {
 
   final User from;
   final User to;
@@ -64,6 +73,12 @@ class Message extends JsonModel {
     content = Json.field(data, 'content'),
     super.fromJson(data)
   ;
+
+  @override Message copyWith({String id, User from, User to}) => Message(
+    id: id ?? this.id,
+    from: from ?? this.from,
+    to: to ?? this.to
+  );
 
   @override
   Map<String, dynamic> toJson() => super.toJson()

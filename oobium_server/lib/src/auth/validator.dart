@@ -17,9 +17,9 @@ class Validator {
 
   void destroy() => _instances.remove(projectId);
 
-  Future<bool> validate(String authorizationHeader) async {
+  Future<String> validate(String authorizationHeader) async {
     if(authorizationHeader == null || !authorizationHeader.startsWith('Token ')) {
-      return false;
+      return null;
     }
     final fireToken = FirebaseToken.decode(
         token: authorizationHeader.split(' ')[1],
@@ -28,10 +28,10 @@ class Validator {
     );
     if(fireToken.isValid()) {
       print('user: ${fireToken.name} - ${fireToken.email} (${fireToken.uid})');
-      return true;
+      return fireToken.uid;
     } else {
       print('invalid fireToken: ${fireToken.errors.join('\n')}');
-      return false;
+      return null;
     }
   }
 

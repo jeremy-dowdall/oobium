@@ -1,31 +1,24 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:oobium_common/oobium_common.dart';
 import 'package:oobium_server/src/server.dart';
 import 'package:test/test.dart';
 
-void main() {
-  Server server;
-  ServerWebSocket wsServer;
+Future<void> main() async {
+  final wsServer = ServerIsolate();
+  await wsServer.start();
+
   ClientWebSocket wsClient;
 
   setUp(() async {
     wsClient?.close();
-    wsServer?.close();
-    await server?.close();
-    server = Server(address: '127.0.0.1', port: 8001);
-    server.get('/', [websocket((socket) { wsServer = socket; })]);
-    await server.start();
     wsClient = (await ClientWebSocket.connect(address: '127.0.0.1', port: 8001))..start();
   });
   tearDown(() async {
     wsClient?.close();
     wsClient = null;
-    wsServer?.close();
-    wsServer = null;
-    await server?.close();
-    server = null;
   });
 
   group('test message', () {
@@ -73,17 +66,11 @@ void main() {
 
   group('test gets', () {
     test('single get with url params', () async {
-      wsServer.on.get('/echo/<msg>', (req, res) {
-        res.send(data: req.params['msg']);
-      });
       final result = await wsClient.get('/echo/hello');
       expect(result.code, 200);
       expect(result.data, 'hello');
     });
     test('multiple gets, client (url params) and server (404)', () async {
-      wsServer.on.get('/echo/<msg>', (req, res) {
-        res.send(data: req.params['msg']);
-      });
       final results = await Future.wait([
         wsClient.get('/echo/hello'),
         wsServer.get('/boom'),
@@ -98,22 +85,15 @@ void main() {
       expect(results[2].data, 'goodbye');
     });
     test('get data', () async {
-      wsServer.on.get('/', (req, res) {
-        res.send(data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
-      });
-      final result = await wsClient.get('/');
+      final result = await wsClient.get('/data');
       expect(result.code, 200);
       expect(result.data, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     });
     test('get data stream', () async {
-      final file = File('test/assets/test1.txt');
-      wsServer.on.get('/', (req, res) {
-        res.send(data: file.openRead());
-      });
-      final result = await wsClient.get('/');
+      final result = await wsClient.get('/stream');
       expect(result.code, 100);
       expect(result.data, isA<Stream>());
-      final fsData = (await file.openRead().toList()).expand((l) => l);
+      final fsData = (await File('test/assets/test1.txt').openRead().toList()).expand((l) => l);
       final wsData = (await (result.data as Stream<List<int>>).toList()).expand((l) => l);
       expect(wsData, fsData);
     });
@@ -121,57 +101,99 @@ void main() {
 
   group('test puts', () {
     test('put String', () async {
-      var data;
-      wsServer.on.put('/string', (req, res) {
-        data = req.data;
-        res.send(code: 200);
-      });
-      final result = await wsClient.put('/string', 'test-string');
+      final result = await wsClient.put('/data', 'test-string');
       expect(result.isSuccess, isTrue);
       expect(result.code, 200);
       expect(result.data, isNull);
-      expect(data, 'test-string');
+      expect(await wsServer.data, 'test-string');
     });
     test('put data', () async {
-      var data;
-      wsServer.on.put('/', (req, res) {
-        data = req.data;
-        res.send(code: 200);
-      });
-      await wsClient.put('/', [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
-      expect(data, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+      await wsClient.put('/data', [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+      expect(await wsServer.data, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     });
-    test('put / get data stream', () async {
+    test('put data stream', () async {
       final file = File('test/assets/test1.txt');
-      final fsData = (await file.openRead().toList()).expand((l) => l);
-      final completer = Completer();
-      wsServer.on.put('/', (req, res) async {
-        res.send(code: 200);
-        final result = await wsServer.get(req.data);
-        final wsData = (await (result.data as Stream<List<int>>).toList()).expand((l) => l);
-        completer.complete(wsData);
-      });
-      final path = '/asdfasdfasdf';
-      wsClient.on.get(path, (req, res) {
-        res.send(data: file.openRead());
-      });
-      final result = await wsClient.put('/', path);
+      final result = await wsClient.put('/stream', file.openRead());
       expect(result.code, 200);
-      final wsData = await completer.future;
+      final fsData = (await file.openRead().toList()).expand((l) => l);
+      final wsData = await wsServer.data;
       expect(wsData, fsData);
     });
-    // test('put data stream', () async {
-    //   final file = File('test/assets/test1.txt');
-    //   var completer = Completer();
-    //   wsServer.on.put('/', (req, res) async {
-    //     final wsData = (await req.stream.toList()).expand((l) => l);
-    //     completer.complete(wsData);
-    //   });
-    //   final result = await wsClient.put('/', file.openRead());
-    //   expect(result.code, 200);
-    //   final fsData = (await file.openRead().toList()).expand((l) => l);
-    //   final wsData = await completer.future;
-    //   expect(wsData, fsData);
-    // });
   });
+
+  // group('test x-client', () {
+  //   test('put String', () async {
+  //     wsServer.on.put('/register', (data) {
+  //
+  //     });
+  //     final result = await wsClient.put('/string', 'test-string');
+  //     expect(result.isSuccess, isTrue);
+  //     expect(result.code, 200);
+  //   });
+  // });
+}
+
+class ServerIsolate {
+  Isolate isolate;
+  SendPort sendPort;
+
+  Future<WsResult> get(String path) async {
+    final port = ReceivePort();
+    sendPort.send(['get', path, port.sendPort]);
+    return (await port.first) as WsResult;
+  }
+
+  Future<dynamic> get data {
+    final port = ReceivePort();
+    sendPort.send(['getData', port.sendPort]);
+    return port.first;
+  }
+
+  Future<void> start() async {
+    final receivePort = ReceivePort();
+    isolate = await Isolate.spawn(_init, receivePort.sendPort);
+    sendPort = await receivePort.first;
+  }
+
+  static Future<void> _init(SendPort sendPort) async {
+    final port = ReceivePort();
+    sendPort.send(port.sendPort);
+
+    final server = Server(address: '127.0.0.1', port: 8001);
+    ServerWebSocket wsServer;
+    var wsData;
+    server.get('/', [websocket((socket) {
+      print('client websocket connected');
+      wsServer = socket;
+      wsServer.on.get('/echo/<msg>', (req, res) {
+        res.send(data: req.params['msg']);
+      });
+      wsServer.on.get('/data', (req, res) {
+        res.send(data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+      });
+      wsServer.on.get('/stream', (req, res) {
+        res.send(data: File('test/assets/test1.txt').openRead());
+      });
+      wsServer.on.put('/data', (data) {
+        wsData = data.value;
+        print('data received: $wsData');
+      });
+      wsServer.on.put('/stream', (data) async {
+        final completer = Completer<List<int>>();
+        wsData = completer.future;
+        final d = (await data.stream.toList()).expand((l) => l).toList();
+        completer.complete(d);
+      });
+    })]);
+    await server.start();
+
+    await for(var msg in port) {
+      if(msg[0] == 'getData') {
+        (msg[1] as SendPort).send(await wsData);
+      }
+      if(msg[0] == 'get') {
+        (msg[2] as SendPort).send(await wsServer.get(msg[1]));
+      }
+    }
+  }
 }

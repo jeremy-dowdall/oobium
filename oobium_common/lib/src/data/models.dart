@@ -7,17 +7,17 @@ class ModelContext {
   ModelContext(this.db);
 
   String newId() => db.newId();
-  List<T> batch<T extends JsonModel>({Iterable<T> put, Iterable<String> remove}) => db.batch(put: put, remove: remove);
-  T get<T extends JsonModel>(String id, {T Function() orElse}) => db.get<T>(id, orElse: orElse);
-  Iterable<T> getAll<T extends JsonModel>() => db.getAll<T>();
-  T put<T extends JsonModel>(T model) => db.put<T>(model);
-  List<T> putAll<T extends JsonModel>(Iterable<T> models) => db.putAll<T>(models);
+  List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => db.batch(put: put, remove: remove);
+  T get<T extends DataModel>(String id, {T Function() orElse}) => db.get<T>(id, orElse: orElse);
+  Iterable<T> getAll<T extends DataModel>() => db.getAll<T>();
+  T put<T extends DataModel>(T model) => db.put<T>(model);
+  List<T> putAll<T extends DataModel>(Iterable<T> models) => db.putAll<T>(models);
   void remove(String id) => db.remove(id);
   void removeAll(Iterable<String> ids) => db.removeAll(ids);
 
 }
 
-abstract class Model extends JsonModel {
+abstract class Model extends DataModel {
 
   final ModelContext context;
   Model(this.context, String id) : super(id);
