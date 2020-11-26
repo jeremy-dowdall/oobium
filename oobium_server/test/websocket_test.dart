@@ -4,6 +4,7 @@ import 'dart:isolate';
 
 import 'package:oobium_common/oobium_common.dart';
 import 'package:oobium_server/src/server.dart';
+import 'package:oobium_server/src/server_websocket.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {

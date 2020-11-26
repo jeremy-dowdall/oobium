@@ -1,4 +1,3 @@
-import 'package:objectid/objectid.dart';
 import 'package:oobium_common/src/data/database.dart';
 import 'package:test/test.dart';
 
@@ -53,8 +52,11 @@ Future<void> main() async {
     db1.put(TestType1(id: 'test-id-01', name: 'test01'));
     db2.put(TestType1(id: 'test-id-02', name: 'test02'));
 
+
     print('bind start');
-    await db1.bind(db2.socket);
+    // server.on.get('/sync', [websocket((socket) async {
+      await db1.bind(socket);
+    // })]);
     print('bind end');
 
     expect(db1.size, 2);

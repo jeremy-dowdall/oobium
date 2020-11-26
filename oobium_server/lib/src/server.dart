@@ -10,6 +10,7 @@ import 'package:oobium_server/src/auth/validator.dart';
 import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium_common/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
+import 'package:oobium_server/src/server_websocket.dart';
 
 class Host {
 
@@ -578,11 +579,6 @@ class StringContent implements Content {
   StringContent(String data) : _data = utf8.encode(data);
   @override int get length => _data.length;
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
-}
-
-class ServerWebSocket extends BaseWebSocket {
-  ServerWebSocket(WebSocket ws) : super(ws);
-  static Future<ServerWebSocket> upgrade(HttpRequest request) async => ServerWebSocket(await WebSocketTransformer.upgrade(request));
 }
 
 RequestHandler auth = (req, res) async {

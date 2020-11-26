@@ -1,8 +1,13 @@
-import 'dart:io';
+import 'dart:io' as io;
 import 'dart:async';
 
 import 'package:meta/meta.dart';
 import 'package:oobium_common/oobium_common.dart';
+
+class ServerWebSocket extends WebSocket {
+  ServerWebSocket(io.WebSocket ws) : super(ws);
+  static Future<ServerWebSocket> upgrade(io.HttpRequest request) async => ServerWebSocket(await io.WebSocketTransformer.upgrade(request));
+}
 
 class FileQueryHandler extends TaskHandler {
 
@@ -19,7 +24,7 @@ class FileQueryHandler extends TaskHandler {
     // print('$runtimeType onMessage($message)');
     if(message is FileQueryMessage) {
       final results = <RemoteFile>[];
-      final file = File('$path/${message.fileName}');
+      final file = io.File('$path/${message.fileName}');
       if(await file.exists()) {
         final stat = await file.stat();
         results.add(RemoteFile(message.fileName, stat.size));
@@ -51,7 +56,7 @@ class FileSendHandler extends TaskHandler {
   Future<WebSocketMessage> onMessage(WebSocketMessage message) async {
     if(message is FileSendMessage) {
       // TODO not a safe path
-      final file = File('$_path/${message.fileName}');
+      final file = io.File('$_path/${message.fileName}');
       _writer = ServerFileWriter(file: file, total: message.fileSize, start: message.start, resume: message.resume);
       return ReadyMessage();
     }
@@ -65,13 +70,13 @@ class FileSendHandler extends TaskHandler {
 }
 
 class ServerFileWriter {
-  final IOSink writer;
+  final io.IOSink writer;
   final int total;
   int position;
 
   ServerFileWriter._({this.writer, this.total, this.position = 0});
-  factory ServerFileWriter({@required File file, @required int total, start = 0, resume = false}) {
-    final writer = file.openWrite(mode: resume ? FileMode.writeOnlyAppend : FileMode.writeOnly);
+  factory ServerFileWriter({@required io.File file, @required int total, start = 0, resume = false}) {
+    final writer = file.openWrite(mode: resume ? io.FileMode.writeOnlyAppend : io.FileMode.writeOnly);
     return ServerFileWriter._(writer: writer, total: total, position: start);
   }
 

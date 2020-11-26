@@ -7,7 +7,7 @@ import 'package:oobium_common/src/json.dart';
 import 'package:oobium_common/src/router.extensions.dart';
 import 'package:oobium_common/src/websocket/websocket_util.dart';
 
-class ClientWebSocket extends BaseWebSocket {
+class ClientWebSocket extends WebSocket {
   ClientWebSocket(ws.WebSocket ws) : super(ws);
   static Future<ClientWebSocket> connect({String address, int port, String path, Map<String, dynamic> headers}) async {
     final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}${path ?? ''}';
@@ -18,12 +18,12 @@ class ClientWebSocket extends BaseWebSocket {
 const _GET_PUT_KEY = '_get';
 const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
 
-abstract class BaseWebSocket {
+abstract class WebSocket {
 
   final ws.WebSocket _ws;
   StreamSubscription _wsSubscription;
 
-  BaseWebSocket(this._ws);
+  WebSocket(this._ws);
 
   Future<WsResult> get(String path) {
     return _sendMessage(WsMessage(type: 'REQ', id: ObjectId().hexString, method: 'GET', path: path));
@@ -218,7 +218,7 @@ class WsRequest {
 class WsResponse {
 
   final WsMessage _message;
-  final BaseWebSocket _socket;
+  final WebSocket _socket;
   WsResponse._(this._message, this._socket);
 
   bool _sent = false;
@@ -273,7 +273,7 @@ class WsData {
 
 class WsHandler {
 
-  final BaseWebSocket _socket;
+  final WebSocket _socket;
   final _getHandlers = <String, WsGetHandler>{};
   final _putHandlers = <String, WsPutHandler>{};
 
