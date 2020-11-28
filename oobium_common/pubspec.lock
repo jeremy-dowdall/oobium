@@ -239,6 +239,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.1.1"
+  oobium_common_test:
+    dependency: "direct dev"
+    description:
+      path: "../oobium_common_test"
+      relative: true
+    source: path
+    version: "0.0.0"
   package_config:
     dependency: transitive
     description:

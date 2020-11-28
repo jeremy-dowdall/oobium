@@ -86,6 +86,7 @@ abstract class Json implements JsonString {
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
     if(field is List) return fromList(field);
+    if(field is Set)  return fromSet(field);
     if(field is String || field is num || field is bool) return field;
     if(field is JsonString) return field.toJsonString();
     if(field is DateTime) return field.millisecondsSinceEpoch;
@@ -104,6 +105,8 @@ abstract class Json implements JsonString {
     });
     return map;
   }
+
+  static Map<String, dynamic> fromSet(Set set) => { for(var id in set ?? {}) id: true };
 
   static String _fromEnum(data) {
     final split = data.toString().split('.');

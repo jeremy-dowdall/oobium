@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:oobium_common/src/data/database.dart';
+import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
@@ -24,6 +25,10 @@ Future<void> main() async {
     expect(output.id, isNotEmpty);
     expect(output.name, 'test01');
     expect(output, input);
+  });
+
+  test('test invalid provided id', () async {
+    expectError(() => TestType1(id: 'test:id', name: 'test01'), 'invalid character ":" in id (pos 4 of "test:id")');
   });
 
   test('test data stored in memory', () async {

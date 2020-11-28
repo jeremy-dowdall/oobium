@@ -11,14 +11,14 @@ class ClientWebSocket extends WebSocket {
   ClientWebSocket(ws.WebSocket ws) : super(ws);
   static Future<ClientWebSocket> connect({String address, int port, String path, Map<String, dynamic> headers}) async {
     final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}${path ?? ''}';
-    return ClientWebSocket(await ws.WebSocket.connect(url, headers: headers));
+    return ClientWebSocket(await ws.WebSocket.connect(url, headers: headers))..start();
   }
 }
 
 const _GET_PUT_KEY = '_get';
 const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
 
-abstract class WebSocket {
+class WebSocket {
 
   final ws.WebSocket _ws;
   StreamSubscription _wsSubscription;
@@ -46,6 +46,10 @@ abstract class WebSocket {
     _wsSubscription?.pause();
   }
 
+  void resume() {
+    _wsSubscription?.resume();
+  }
+
   void stop() {
     _wsSubscription?.cancel();
     _wsSubscription = null;
@@ -60,7 +64,6 @@ abstract class WebSocket {
   Completer<WsResult> _completer;
 
   Future<WsResult> _sendMessage(WsMessage message) {
-    print('send message ${message.type}');
     if(message.isRequest) {
       // 1. 'client' sends the request
       if(_completer == null) {
@@ -86,7 +89,6 @@ abstract class WebSocket {
   }
 
   void _receiveMessage(WsMessage message) {
-    print('receive message ${message.type}');
     if(message.isRequest) {
       // 2. 'server' receives the request
       on._handleMessage(message);
@@ -106,12 +108,10 @@ abstract class WebSocket {
   }
 
   void _sendData(List<int> data) {
-    print('send data');
     _ws.add(data);
   }
 
   void _receiveData(List<int> data) {
-    print('receive data');
     if(_result != null) {
       _result._controller.add(data);
     }
@@ -124,7 +124,7 @@ abstract class WebSocket {
   }
 
   bool _complete(int code, data) {
-    final result = WsResult._(code, data);
+    final result = WsResult(code, data);
     _completer.complete(result);
     _completer = null;
     return result.isSuccess;
@@ -245,9 +245,12 @@ class WsResponse {
 class WsResult {
   final int code;
   final dynamic data;
-  WsResult._(this.code, this.data);
+  WsResult(this.code, this.data);
   bool get isSuccess => (code >= 200) && (code < 300);
   bool get isNotSuccess => !isSuccess;
+
+  @override
+  String toString() => '$code($data)';
 }
 class WsStreamResult implements WsResult {
   final _controller = StreamController<List<int>>();
@@ -280,7 +283,6 @@ class WsHandler {
   WsHandler(this._socket);
 
   void _handleMessage(WsMessage message) {
-    print('WS${message.method}${message.path}');
     if(message.isGet) {
       _handleGet(message);
     } else {
@@ -323,7 +325,7 @@ class WsHandler {
             });
           });
         } else {
-          final data = WsData(WsResult._(200, message.data));
+          final data = WsData(WsResult(200, message.data));
           Future.value(handler(data)).then((_) {
             _socket._sendMessage(message.toResponse(200));
           });
@@ -337,12 +339,19 @@ class WsHandler {
     }
   }
 
-  void get(String path, WsGetHandler handler) {
+  WsSubscription get(String path, WsGetHandler handler) {
     _getHandlers['GET$path'] = handler;
+    return WsSubscription(() => _getHandlers.remove('GET$path'));
   }
-  void put(String path, WsPutHandler handler) {
+  WsSubscription put(String path, WsPutHandler handler) {
     _putHandlers['PUT$path'] = handler;
+    return WsSubscription(() => _putHandlers.remove('PUT$path'));
   }
+}
+class WsSubscription {
+  final Function _onCancel;
+  WsSubscription(this._onCancel);
+  void cancel() => _onCancel();
 }
 typedef WsGetHandler = FutureOr<void> Function(WsRequest request, WsResponse response);
 typedef WsPutHandler = FutureOr<void> Function(WsData data);

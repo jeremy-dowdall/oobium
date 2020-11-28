@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/server_websocket.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
-  final wsServer = ServerIsolate();
-  await wsServer.start();
+  final wsServer = await TestIsolate.start(TestServer());
 
   ClientWebSocket wsClient;
 
@@ -134,35 +133,15 @@ Future<void> main() async {
   // });
 }
 
-class ServerIsolate {
-  Isolate isolate;
-  SendPort sendPort;
+class TestServer extends TestIsolate {
 
-  Future<WsResult> get(String path) async {
-    final port = ReceivePort();
-    sendPort.send(['get', path, port.sendPort]);
-    return (await port.first) as WsResult;
-  }
+  Server server;
+  ServerWebSocket wsServer;
+  var wsData;
 
-  Future<dynamic> get data {
-    final port = ReceivePort();
-    sendPort.send(['getData', port.sendPort]);
-    return port.first;
-  }
-
-  Future<void> start() async {
-    final receivePort = ReceivePort();
-    isolate = await Isolate.spawn(_init, receivePort.sendPort);
-    sendPort = await receivePort.first;
-  }
-
-  static Future<void> _init(SendPort sendPort) async {
-    final port = ReceivePort();
-    sendPort.send(port.sendPort);
-
-    final server = Server(address: '127.0.0.1', port: 8001);
-    ServerWebSocket wsServer;
-    var wsData;
+  @override
+  Future<void> onStart() {
+    server = Server(address: '127.0.0.1', port: 8001);
     server.get('/', [websocket((socket) {
       print('client websocket connected');
       wsServer = socket;
@@ -186,15 +165,89 @@ class ServerIsolate {
         completer.complete(d);
       });
     })]);
-    await server.start();
+    return server.start();
+  }
 
-    await for(var msg in port) {
-      if(msg[0] == 'getData') {
-        (msg[1] as SendPort).send(await wsData);
-      }
-      if(msg[0] == 'get') {
-        (msg[2] as SendPort).send(await wsServer.get(msg[1]));
-      }
+  @override
+  Future<void> onStop() {
+    return server.stop();
+  }
+
+  @override
+  FutureOr onMessage(String path, data) {
+    if(path == 'getData') {
+      return wsData;
+    }
+    if(path == 'get') {
+      return wsServer.get(data);
     }
   }
+
+  Future<WsResult> get(String path) async => (await send('get', path)) as WsResult;
+  Future<dynamic> get data async => send('getData');
 }
+
+// class ServerIsolate {
+//   Isolate isolate;
+//   SendPort sendPort;
+//
+//   Future<WsResult> get(String path) async {
+//     final port = ReceivePort();
+//     sendPort.send(['get', path, port.sendPort]);
+//     return (await port.first) as WsResult;
+//   }
+//
+//   Future<dynamic> get data {
+//     final port = ReceivePort();
+//     sendPort.send(['getData', port.sendPort]);
+//     return port.first;
+//   }
+//
+//   Future<void> start() async {
+//     final receivePort = ReceivePort();
+//     isolate = await Isolate.spawn(_init, receivePort.sendPort);
+//     sendPort = await receivePort.first;
+//   }
+//
+//   static Future<void> _init(SendPort sendPort) async {
+//     final port = ReceivePort();
+//     sendPort.send(port.sendPort);
+//
+//     final server = Server(address: '127.0.0.1', port: 8001);
+//     ServerWebSocket wsServer;
+//     var wsData;
+//     server.get('/', [websocket((socket) {
+//       print('client websocket connected');
+//       wsServer = socket;
+//       wsServer.on.get('/echo/<msg>', (req, res) {
+//         res.send(data: req.params['msg']);
+//       });
+//       wsServer.on.get('/data', (req, res) {
+//         res.send(data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+//       });
+//       wsServer.on.get('/stream', (req, res) {
+//         res.send(data: File('test/assets/test1.txt').openRead());
+//       });
+//       wsServer.on.put('/data', (data) {
+//         wsData = data.value;
+//         print('data received: $wsData');
+//       });
+//       wsServer.on.put('/stream', (data) async {
+//         final completer = Completer<List<int>>();
+//         wsData = completer.future;
+//         final d = (await data.stream.toList()).expand((l) => l).toList();
+//         completer.complete(d);
+//       });
+//     })]);
+//     await server.start();
+//
+//     await for(var msg in port) {
+//       if(msg[0] == 'getData') {
+//         (msg[1] as SendPort).send(await wsData);
+//       }
+//       if(msg[0] == 'get') {
+//         (msg[2] as SendPort).send(await wsServer.get(msg[1]));
+//       }
+//     }
+//   }
+// }

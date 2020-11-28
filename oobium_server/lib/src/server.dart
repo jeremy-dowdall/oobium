@@ -597,7 +597,6 @@ RequestHandler auth = (req, res) async {
 };
 
 RequestHandler websocket(Function(ServerWebSocket socket) f) => (req, res) async {
-  final socket = await req.upgrade();
+  final socket = (await req.upgrade())..start();
   f(socket);
-  socket.start();
 };

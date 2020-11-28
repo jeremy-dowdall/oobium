@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:oobium_common/src/data/database.dart';
+import 'package:oobium_common/src/websocket/websocket.dart';
+import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
@@ -22,7 +26,7 @@ Future<void> main() async {
     await db2.reset(stream: stream);
     expect(db1.replicants.length, 1);
     expect(db2.uid, db1.uid);
-    expect(db2.rid, db1.replicants.first);
+    expect(db2.rid, db1.replicants.first.rid);
     expect(db2.replicants, isEmpty);
     final model2 = db2.get<TestType1>(model1.id);
     expect(model2, isNotNull);
@@ -31,7 +35,7 @@ Future<void> main() async {
     await db2.close();
     await db2.open();
     expect(db2.uid, db1.uid);
-    expect(db2.rid, db1.replicants.first);
+    expect(db2.rid, db1.replicants.first.rid);
     expect(db2.replicants, isEmpty);
     final model3 = db2.get<TestType1>(model1.id);
     expect(model3, isNotNull);
@@ -44,28 +48,26 @@ Future<void> main() async {
   test('test sync(1 <-> 2)', () async {
     final db1 = Database('test1.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
     await db1.reset(uid: db1.newId());
-    // db1.createSocket(ws1);
     final db2 = Database('test2.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
     await db2.reset(stream: await db1.replicate());
-    // db2.createSocket(ws2);
 
     db1.put(TestType1(id: 'test-id-01', name: 'test01'));
     db2.put(TestType1(id: 'test-id-02', name: 'test02'));
 
+    final server = await TestIsolate.start(TestServer());
+    final client = (await ClientWebSocket.connect(port: 8001));
 
-    print('bind start');
-    // server.on.get('/sync', [websocket((socket) async {
-      await db1.bind(socket);
-    // })]);
-    print('bind end');
+    await db2.bind(client);
 
-    expect(db1.size, 2);
-    expect(db1.size, db2.size);
-    expect(db1.get<TestType1>('test-id-01')?.name, 'test01');
-    expect(db1.get<TestType1>('test-id-02')?.name, 'test02');
+    expect(await server.dbSize, 2);
+    expect(await server.dbSize, db2.size);
+    expect((await server.dbGet<TestType1>('test-id-01'))?.name, 'test01');
+    expect((await server.dbGet<TestType1>('test-id-02'))?.name, 'test02');
     expect(db2.get<TestType1>('test-id-01')?.name, 'test01');
     expect(db2.get<TestType1>('test-id-02')?.name, 'test02');
 
+    server.stop();
+    client.close();
     await db1.destroy();
     await db2.destroy();
   });
@@ -76,7 +78,7 @@ Future<void> main() async {
     final db2 = Database('test2.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
     await db2.reset(stream: await db1.replicate());
 
-    db1.bind(db2.socket);
+    // db1.bind(WebSocket(MockSocket()));
 
     db1.put(TestType1(id: 'test-id-01', name: 'test01'));
     expect(db1.size, 1);
@@ -102,8 +104,8 @@ Future<void> main() async {
     final db3 = Database('test2.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
     await db3.reset(stream: await db1.replicate());
 
-    db1.bind(db2.socket);
-    db1.bind(db3.socket);
+    // db1.bind(WebSocket(MockSocket()));
+    // db1.bind(WebSocket(MockSocket()));
 
     db1.put(TestType1(id: 'test-id-01', name: 'test01'));
     expect(db1.size, 1);
@@ -139,8 +141,8 @@ Future<void> main() async {
     final db3 = Database('test2.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
     await db3.reset(stream: await db1.replicate());
 
-    db1.bind(db2.socket);
-    db2.bind(db3.socket);
+    // db1.bind(WebSocket(MockSocket()));
+    // db2.bind(WebSocket(MockSocket()));
 
     db1.put(TestType1(id: 'test-id-01', name: 'test01'));
     expect(db1.size, 1);
@@ -175,4 +177,34 @@ class TestType1 extends DataModel {
   TestType1.fromJson(data) : name = data['name'], super.fromJson(data);
   @override TestType1 copyWith({String id, String name}) => TestType1(id: id ?? this.id, name: name ?? this.name);
   @override Map<String, dynamic> toJson() => super.toJson()..['name'] = name;
+}
+
+class TestServer extends TestIsolate {
+
+  Future<T> dbGet<T>(String id) => send<T>('/db/get', id);
+
+  Future<int> get dbSize => send<int>('/db/size');
+
+  Database _db;
+  TestWebsocketServer _server;
+
+  @override
+  Future<void> onStart() async {
+    _server = await TestWebsocketServer.start(port: 8001, onUpgrade: (socket) async {
+      _db = Database('test1.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
+      await _db.open();
+      await _db.bind(socket);
+    });
+  }
+
+  @override
+  Future<void> onStop() {
+    return _server.close();
+  }
+
+  @override
+  FutureOr onMessage(String path, data) {
+    if(path == '/db/size') return _db?.size ?? 0;
+    if(path == '/db/get') return _db?.get(data);
+  }
 }

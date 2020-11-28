@@ -14,6 +14,8 @@ dependencies:
   objectid: ^1.1.1
 
 dev_dependencies:
+  oobium_common_test:
+    path: ../../oobium/oobium_common_test
   pedantic: ^1.9.0
   test: ^1.15.3
   mockito: ^4.1.3
