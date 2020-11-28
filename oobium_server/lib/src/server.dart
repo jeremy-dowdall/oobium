@@ -129,13 +129,13 @@ class Host {
         print(logger.convertError(request, response, error, stackTrace));
       }
       if(response.isNotClosed) {
-        await response.close();
+        await _handleError(request, response, 404);
       }
     } else {
       await _handleError(request, response, 404);
     }
     if(httpRequest.response.statusCode >= 400) {
-      print('status ${httpRequest.response.statusCode}');
+      print('ERROR: ${httpRequest.requestedUri} -> ${httpRequest.response.statusCode}');
     }
   }
 
@@ -361,7 +361,7 @@ class Request {
 
   HeaderValues get header => HeaderValues(headers);
   HttpHeaders get headers => _httpRequest.headers;
-  Map<String, String> get params => _params ??= path.parseParams(routePath);
+  Map<String, String> get params => _params ??= '$method$path'.parseParams(routePath);
   Map<String, String> get query => _httpRequest.uri.queryParameters;
   String get path => _httpRequest.requestedUri.path;
 
@@ -471,21 +471,21 @@ class Response {
     return send(code: 404);
   }
 
-  Future<void> sendHtml(data) {
+  Future<void> sendHtml(html, {int code}) {
     headers[HttpHeaders.contentTypeHeader] = ContentType.html.toString();
-    return send(data: data);
+    return send(code: code, data: html);
   }
 
-  Future<void> sendJson(FutureOr<dynamic> data) async {
+  Future<void> sendJson(FutureOr<dynamic> data, {int code}) async {
     headers[HttpHeaders.contentTypeHeader] = ContentType.json.toString();
     // TODO
     headers['Access-Control-Allow-Origin'] = '*';
     headers['Access-Control-Allow-Headers'] = '*';
     headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
-    return send(data: Json.encode(await data));
+    return send(code: code, data: Json.encode(await data));
   }
 
-  Future<void> sendPage(Page page) => sendHtml(page.render());
+  Future<void> sendPage(Page page, {int code}) => sendHtml(page.render(), code: code);
 
   Future<void> close() async {
     await _httpResponse.flush();

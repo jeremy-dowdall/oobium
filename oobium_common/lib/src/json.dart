@@ -41,13 +41,16 @@ abstract class Json implements JsonString {
 
   static DateTime toDateTime(data, String field, [DateTime builder(v)]) {
     if(data is Map) {
-      final value = data[field];
+      var value = data[field];
+      if(value is String) {
+        value = DateTime.parse(value).millisecondsSinceEpoch;
+      }
       if(value is num) {
         final dt = DateTime.fromMillisecondsSinceEpoch(value.toInt());
-        if(field.endsWith('Date') || field.endsWith('On')) {
+        if(field == 'date' || field.endsWith('Date') || field.endsWith('On')) {
           return DateTime(dt.year, dt.month, dt.day);
         }
-        if(field.endsWith('Time')) {
+        if(field == 'time' || field.endsWith('Time') || field.endsWith('At')) {
           return DateTime(0, 0, 0, dt.hour, dt.minute, dt.second);
         }
         return dt;
