@@ -84,7 +84,7 @@ class WebSocket {
         _completer = Completer<WsResult>();
         if(message.method == 'PUT' && message.data is Stream) {
           on.get(_GET_PUT_PATH, (req, res) {
-            on._getHandlers.remove(_GET_PUT_PATH);
+            on._handlers.remove(_GET_PUT_PATH);
             res.send(data: message.data);
           });
           _ws.add(message.copyWith(data: {_GET_PUT_KEY: _GET_PUT_PATH}).toString());
@@ -219,11 +219,11 @@ class WsMessage {
 class WsRequest {
   final WsMessage _message;
   final String _routePath;
-  WsRequest._(this._message, this._routePath);
+  final WsData data;
+  WsRequest._(this._message, this._routePath, this.data);
 
   String get method => _message.method;
   String get path => _message.path;
-  dynamic get data => _message.data;
 
   Map<String, dynamic> _params;
   Map<String, dynamic> get params => _params ??= '$method$path'.parseParams(_routePath);
@@ -275,7 +275,7 @@ class WsStreamResult implements WsResult {
 }
 class WsData {
   final dynamic _result;
-  WsData(this._result);
+  WsData(WsResult result) : _result = result;
   dynamic get value => _result.data;
   Stream<List<int>> get stream => _controller.stream;
   bool get isStream => _result is WsStreamResult;
@@ -291,59 +291,30 @@ class WsData {
 class WsHandler {
 
   final WebSocket _socket;
-  final _getHandlers = <String, WsGetHandler>{};
-  final _putHandlers = <String, WsPutHandler>{};
+  final _handlers = <String, WsGetHandler>{};
 
   WsHandler(this._socket);
 
-  void _handleMessage(WsMessage message) {
-    if(message.isGet) {
-      _handleGet(message);
-    } else {
-      _handlePut(message);
-    }
+  WsSubscription get(String path, WsGetHandler handler) {
+    _handlers['GET$path'] = handler;
+    return WsSubscription(() => _handlers.remove('GET$path'));
   }
 
-  void _handleGet(WsMessage message) {
-    final path = 'GET${message.path}';
-    final routePath = _getHandlers.containsKey(path) ? path : path.findRouterPath(_getHandlers.keys);
-    final handler = _getHandlers[routePath];
-    if(handler != null) {
-      final request = WsRequest._(message, routePath);
-      final response = WsResponse._(message, _socket);
-      try {
-        Future.value(handler(request, response)).then((_) {
-          if(!response._sent) response.send(code: 200);
-        });
-      } catch(error, stackTrace) {
-        print('$error\n$stackTrace');
-        response.send(code: 500);
-      }
-    } else {
-      _socket._sendMessage(message.toResponse(404));
-    }
+  WsSubscription put(String path, WsGetHandler handler) {
+    _handlers['PUT$path'] = handler;
+    return WsSubscription(() => _handlers.remove('PUT$path'));
   }
 
-  void _handlePut(WsMessage message) {
-    final path = 'PUT${message.path}';
-    final routePath = _putHandlers.containsKey(path) ? path : path.findRouterPath(_putHandlers.keys);
-    final handler = _putHandlers[routePath];
+  Future<void> _handleMessage(WsMessage message) async {
+    final path = '${message.method}${message.path}';
+    final routePath = _handlers.containsKey(path) ? path : path.findRouterPath(_handlers.keys);
+    final handler = _handlers[routePath];
     if(handler != null) {
       try {
-        final key = (message.data is Map) ? message.data[_GET_PUT_KEY] : null;
-        if(key != null) {
-          _socket.get(_GET_PUT_PATH).then((result) {
-            final data = WsData(result);
-            Future.value(handler(data)).then((_) {
-              _socket._sendMessage(message.toResponse(200));
-            });
-          });
-        } else {
-          final data = WsData(WsResult(200, message.data));
-          Future.value(handler(data)).then((_) {
-            _socket._sendMessage(message.toResponse(200));
-          });
-        }
+        final request = WsRequest._(message, routePath, await _getData(message));
+        final response = WsResponse._(message, _socket);
+        await handler(request, response);
+        if(!response._sent) response.send(code: 200);
       } catch(error, stackTrace) {
         print('$error\n$stackTrace');
         _socket._sendMessage(message.toResponse(500));
@@ -353,13 +324,12 @@ class WsHandler {
     }
   }
 
-  WsSubscription get(String path, WsGetHandler handler) {
-    _getHandlers['GET$path'] = handler;
-    return WsSubscription(() => _getHandlers.remove('GET$path'));
-  }
-  WsSubscription put(String path, WsPutHandler handler) {
-    _putHandlers['PUT$path'] = handler;
-    return WsSubscription(() => _putHandlers.remove('PUT$path'));
+  Future<WsData> _getData(WsMessage message) async {
+    final key = (message.isPut && message.data is Map) ? message.data[_GET_PUT_KEY] : null;
+    if(key != null) {
+      return WsData(await _socket.get(_GET_PUT_PATH));
+    }
+    return WsData(WsResult(200, message.data));
   }
 }
 class WsSubscription {
@@ -368,4 +338,4 @@ class WsSubscription {
   void cancel() => _onCancel();
 }
 typedef WsGetHandler = FutureOr<void> Function(WsRequest request, WsResponse response);
-typedef WsPutHandler = FutureOr<void> Function(WsData data);
+// typedef WsPutHandler = FutureOr<void> Function(WsData data);

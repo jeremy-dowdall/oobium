@@ -524,7 +524,7 @@ class Binder {
   }) {
     _socket.done.then((_) => finish());
     _subscriptions.addAll([
-      _socket.on.put(connectPath, (data) => onConnect(data.value)),
+      _socket.on.put(connectPath, (req, res) => onConnect(req.data.value)),
       _socket.on.get(replicatePath, (req, res) async => res.send(data: await _db.replicate())),
     ]);
     sendConnect();
@@ -562,7 +562,7 @@ class Binder {
   void attach(Replicant replicant) {
     _replicant = replicant;
     _rSubscriptions.addAll([
-      _socket.on.put(dataPath, (data) => replicant.put(DataEvent.fromJson(data.value))),
+      _socket.on.put(dataPath, (req, res) => replicant.put(DataEvent.fromJson(req.data.value))),
       // _socket.on.put(syncPath, (data) => replicant.sync().then((_) => _ready.complete())),
       _socket.on.get(syncPath, (req, res) async => res.send(data: await replicant.getSyncRecords())),
     ]);

@@ -154,14 +154,14 @@ class TestServer extends TestIsolate {
       wsServer.on.get('/stream', (req, res) {
         res.send(data: File('test/assets/test1.txt').openRead());
       });
-      wsServer.on.put('/data', (data) {
-        wsData = data.value;
+      wsServer.on.put('/data', (req, res) {
+        wsData = req.data.value;
         print('data received: $wsData');
       });
-      wsServer.on.put('/stream', (data) async {
+      wsServer.on.put('/stream', (req, res) async {
         final completer = Completer<List<int>>();
         wsData = completer.future;
-        final d = (await data.stream.toList()).expand((l) => l).toList();
+        final d = (await req.data.stream.toList()).expand((l) => l).toList();
         completer.complete(d);
       });
     })]);

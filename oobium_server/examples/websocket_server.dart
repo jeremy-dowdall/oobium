@@ -20,8 +20,8 @@ void main() {
         res.send(code: 404);
       }
     });
-    socket.on.put('/files/<fileName>', (data) {
-
+    socket.on.put('/files/<fileName>', (req, res) {
+      // TODO
     });
   })]);
 
