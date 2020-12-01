@@ -4,6 +4,56 @@ import 'dart:isolate';
 
 import 'package:oobium_common/oobium_common.dart';
 
+abstract class TestDatabaseServer extends TestIsolate {
+
+  Future<T> dbGet<T>(String id) => send<T>('/db/get', id);
+  Future<T> dbPut<T extends DataModel>(T model) => send<T>('/db/put', model);
+
+  Future<int> get dbBinderCount => send<int>('/db/count/binders');
+  Future<int> get dbModelCount => send<int>('/db/count/models');
+  Future<int> get dbReplicantCount => send<int>('/db/count/replicants');
+
+  Future<void> destroy() async {
+    await send('/db/destroy');
+    return stop();
+  }
+
+  final String path;
+  final int port;
+  TestDatabaseServer({this.path, this.port});
+
+  Database _db;
+  TestWebsocketServer _server;
+
+  FutureOr<void> onConfigure(Database db);
+
+  @override
+  Future<void> onStart() async {
+    _db = Database(path);
+    await onConfigure(_db);
+    await _db.reset(uid: _db.newId());
+    _server = await TestWebsocketServer.start(port: 8001, onUpgrade: (socket) async {
+      print('bind to server db');
+      _db.bind(socket);
+    });
+  }
+
+  @override
+  Future<void> onStop() {
+    return _server.close();
+  }
+
+  @override
+  FutureOr onMessage(String path, data) {
+    if(path == '/db/destroy') return _db?.destroy();
+    if(path == '/db/get') return _db?.get(data);
+    if(path == '/db/put') return _db?.put(data);
+    if(path == '/db/count/binders') return _db?.binders?.length ?? 0;
+    if(path == '/db/count/models') return _db?.size ?? 0;
+    if(path == '/db/count/replicants') return _db?.replicants?.length ?? 0;
+  }
+}
+
 class TestWebsocketServer {
 
   final int port;
@@ -11,7 +61,6 @@ class TestWebsocketServer {
   io.HttpServer _http;
   StreamSubscription _subscription;
   Future<void> Function(WebSocket socket) _onUpgrade;
-  bool _paused;
 
   TestWebsocketServer._(this.port);
 

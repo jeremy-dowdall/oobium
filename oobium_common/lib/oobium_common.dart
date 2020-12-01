@@ -1,4 +1,4 @@
-export 'package:oobium_common/src/data/database.dart';
+export 'package:oobium_common/src/data/database.dart' show Database, DataBinder, DataModel;
 export 'package:oobium_common/src/websocket/websocket.dart';
 export 'package:oobium_common/src/websocket/websocket_client.dart';
 export 'package:oobium_common/src/websocket/websocket_util.dart';

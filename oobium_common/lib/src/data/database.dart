@@ -120,7 +120,10 @@ class Database {
     _models.clear();
     _dataFileSize = 0;
     _self = null;
-    for(var replicant in replicants) replicant.close();
+    for(var replicant in _replicants) replicant.close();
+    _replicants.clear();
+    for(var socket in _binders) socket.finish();
+    _binders.clear();
   }
 
   Future<void> destroy() async {
@@ -133,17 +136,20 @@ class Database {
   }
   Future<void> _destroy(String path) => File(path).exists().then((e) => e ? File(path).delete() : null);
 
-  Future<void> reset({String uid, Stream stream}) async {
+  Future<void> reset({String uid, Stream stream, WebSocket socket}) async {
     await destroy();
-    if(uid != null) {
-      final sink = File('$path.sync').openWrite(mode: FileMode.writeOnly);
-      sink.writeln(SyncRecord(uid, ObjectId().hexString));
-      await sink.flush();
-      await sink.close();
+    if(socket != null) {
+      stream = (await socket.get('/db/replicate', retry: true)).data as Stream<List<int>>;
     }
     if(stream != null) {
       final sink = File('$path.init').openWrite(mode: FileMode.writeOnly);
       await sink.addStream(stream);
+      await sink.flush();
+      await sink.close();
+    }
+    if(uid != null) {
+      final sink = File('$path.sync').openWrite(mode: FileMode.writeOnly);
+      sink.writeln(SyncRecord(uid, ObjectId().hexString));
       await sink.flush();
       await sink.close();
     }
@@ -263,8 +269,10 @@ class Database {
   String get uid => _self?.uid;
   String get rid => _self?.rid;
 
+  final _binders = <Binder>[];
+  List<Binder> get binders => [..._binders];
   final _replicants = <Replicant>[];
-  List<Replicant> get replicants => _replicants;
+  List<Replicant> get replicants => [..._replicants];
   
   Future<Stream<List<int>>> replicate() {
     _replicateCompleter = Completer<Stream<List<int>>>();
@@ -274,6 +282,7 @@ class Database {
   Future<Stream<List<int>>> _replicate() async {
     assert(uid != null, 'cannot replicate a database that does not have its uid set');
     final rid = ObjectId().hexString;
+    assert(replicants.any((r) => r.rid == rid) == false, 'duplicate replicant id (rid)');
     final file = File('$path.init.$rid');
     final sink = file.openWrite(mode: FileMode.writeOnly);
     sink.writeln('[sync]');
@@ -285,17 +294,18 @@ class Database {
     }
     await sink.flush();
     await sink.close();
+    await _commitReplicant(rid);
     final controller = StreamController<List<int>>();
     controller.addStream(file.openRead()).then((_) {
-      _commitReplicant(rid);
       controller.close().then((_) => file.delete());
     });
     return controller.stream;
   }
 
   Future<void> _commitReplicant(String rid) async {
-    final replicant = Replicant(this, rid);
-    await File('$path.sync.$rid').writeAsString(DateTime.now().millisecondsSinceEpoch.toString());
+    final lastSync = DateTime.now().millisecondsSinceEpoch;
+    final replicant = Replicant(this, rid, lastSync);
+    await File('$path.sync.$rid').writeAsString(lastSync.toString());
     final sink = File('$path.sync').openWrite(mode: FileMode.writeOnlyAppend);
     sink.writeln(replicant);
     await sink.flush();
@@ -303,23 +313,14 @@ class Database {
     _replicants.add(replicant);
   }
   
-  Future<void> bind(WebSocket socket, {bool sync}) {
-    return _bind(DataSocket(rid, socket), sync ?? (socket is ClientWebSocket));
-  }
-  Future<void> _bind(DataSocket socket, bool sync) async {
-    final rid = await socket.getReplicantId();
-    print('rid: $rid (${Isolate.current.debugName})');
-
-    final replicant = _replicants.firstWhere((r) => r.rid == rid, orElse: () => null);
-    assert(replicant != null, 'no replicant found with id: $rid');
-
-    await replicant.connect(socket);
-    if(sync) {
-      await replicant.sync();
-    }
+  Future<void> bind(WebSocket socket) {
+    final binder = Binder(this, socket);
+    _binders.add(binder);
+    binder.finished.then((_) => _binders.remove(binder));
+    return binder.ready;
   }
 
-  void _onAdd(List<DataRecord> records) => _batch(
+  void _onPut(List<DataRecord> records) => _batch(
     put: records.where((r) => r.isNotDelete).map((r) => _build(r)),
     remove: records.where((r) => r.isDelete).map((r) => r.id),
     notify: false
@@ -413,7 +414,9 @@ class Replicant {
   final Database db;
   final String rid;
   final File file;
-  Replicant(this.db, this.rid) : file = File('${db.path}.sync.$rid');
+  Replicant(this.db, this.rid, [int lastSync]) : file = File('${db.path}.sync.$rid') {
+    _lastSync = lastSync;
+  }
 
   String get uid => db.uid;
 
@@ -423,7 +426,7 @@ class Replicant {
     _lastSync = int.parse(lines[0]);
   }
   Future<void> close() {
-    _socket?.stop();
+    _binder?.detach();
     return stopTracking();
   }
   Future<void> destroy() async {
@@ -431,18 +434,18 @@ class Replicant {
     await file.delete();
   }
 
-  DataSocket _socket;
-  Future<void> connect(DataSocket socket) async {
+  Binder _binder;
+  Future<void> attach(Binder binder) async {
+    _binder = binder..attach(this);
     await stopTracking();
-    _socket = socket..start(put: put, getSyncRecords: getSyncRecords);
   }
-  Future<void> disconnect() async {
-    _socket.stop();
-    _socket = null;
+  Future<void> detach() async {
     await startTracking();
+    _binder.detach();
+    _binder = null;
   }
 
-  bool get isConnected => _socket != null;
+  bool get isConnected => _binder != null;
   bool get isNotConnected => !isConnected;
 
   IOSink _sink;
@@ -457,37 +460,37 @@ class Replicant {
 
   Future<void> sync() async {
     assert(isConnected, 'cannot sync unless connected to a socket');
-
     final a = await getSyncRecords();
-    final b = await _socket.getSyncRecords();
-
-    // final addToB = a.where((a) => !b.contains(a) && a.timestamp > lastSync).map((m) => DataRecord.fromModel(m));
-    // final removeFromA = b.where((b) => !a.contains(b) && b.timestamp < lastSync).map((m) => DataRecord.delete(m.id));
-    // final addToA = a.where((a) => !b.contains(a) && a.timestamp > lastSync).map((m) => DataRecord.fromModel(m));
-    // final removeFromB = b.where((b) => !a.contains(b) && b.timestamp < lastSync).map((m) => DataRecord.delete(m.id));
-
-    await put(DataEvent({_socket.rid}, b));
-    await add(a);
+    final b = await _binder.getSyncRecords();
+    if(b.isNotEmpty) put(DataEvent({_binder.rid}, b));
+    if(a.isNotEmpty) await add(a);
   }
 
-  /// new records in db, notify the socket or save relevant records
-  void add(List<DataRecord> records) {
+  /// new records in db, notify the socket or save relevant records for a future sync
+  Future<void> add(List<DataRecord> records) async {
     _lastSync = DateTime.now().millisecondsSinceEpoch;
-    if(isConnected) {
-      _socket.add(DataEvent({rid}, records));
-      file.writeAsString(_lastSync.toString());
-    } else {
-      for(var record in records.where((r) => r.isDelete)) {
-        _sink.writeln('${record.id}:${record.timestamp}');
+    if(records.isNotEmpty) {
+      if(isConnected) {
+        await _binder.add(DataEvent({db.rid}, records));
+        await file.writeAsString(_lastSync.toString());
+      } else {
+        for(var record in records.where((r) => r.isDelete)) {
+          _sink.writeln('${record.id}:${record.timestamp}');
+        }
       }
     }
   }
 
   /// new records from somewhere else, update db and then notify others (only happens when connected)
-  Future<void> put(DataEvent event) async {
-    if(event.visit(rid, _lastSync)) {
-      db._onAdd(event.records);
-      await Future.wait(db.replicants.map((r) => r.put(event)));
+  void put(DataEvent event) {
+    if(event.isNotEmpty && event.visit(db.rid, _lastSync)) {
+      db._onPut(event.records);
+      for(var r in db.replicants) {
+        if(event.notVisitedBy(r.rid)) {
+          r._binder.add(event);
+        }
+      }
+    } else {
     }
   }
   
@@ -504,58 +507,85 @@ class Replicant {
   String toString() => SyncRecord(uid, rid).toString();
 }
 
-class DataSocket {
-  final String rid;
+class Binder {
+  final Database _db;
   final WebSocket _socket;
-  final String ridPath;
-  final String dataPath;
+  final String replicatePath;
+  final String connectPath;
   final String syncPath;
-  DataSocket(this.rid, this._socket, {
-    this.ridPath = '/db/rid',
-    this.dataPath = '/db/data',
+  final String dataPath;
+  final _ready = Completer();
+  final _finished = Completer();
+  Binder(this._db, this._socket, {
+    this.replicatePath = '/db/replicate',
+    this.connectPath = '/db/connect',
     this.syncPath = '/db/sync',
-  });
-
-  List<WsSubscription> _subscriptions;
-  void start({
-    Future<void> put(DataEvent event),
-    Future<Iterable<DataRecord>> getSyncRecords(),
+    this.dataPath = '/db/data',
   }) {
-    _subscriptions = [
-      _socket.on.put(dataPath, (data) => put(DataEvent.fromJson(data.value))),
-      _socket.on.get(syncPath, (req, res) async => res.send(data: await getSyncRecords())),
-    ];
+    _socket.done.then((_) => finish());
+    _subscriptions.addAll([
+      _socket.on.put(connectPath, (data) => onConnect(data.value)),
+      _socket.on.get(replicatePath, (req, res) async => res.send(data: await _db.replicate())),
+    ]);
+    sendConnect();
   }
-  void stop() {
-    _subscriptions?.forEach((s) => s.cancel());
-    _subscriptions = null;
+
+  bool get isConnected => _replicant != null;
+  bool isPeerConnected = false;
+  Future<void> sendConnect() async {
+    if(rid != null && !isPeerConnected) {
+      isPeerConnected = (await _socket.put(connectPath, rid, retry: true)).isSuccess;
+    }
+    await readyCheck();
+  }
+
+  Future<void> onConnect(String rid) async {
+    await _db._replicants.firstWhere((r) => r.rid == rid, orElse: () => null)?.attach(this);
+    await readyCheck();
+  }
+
+  Future<void> readyCheck() async {
+    if(isConnected && isPeerConnected) {
+      final sync = rid.compareTo(_replicant.rid) > 0;
+      if(sync) await _replicant.sync();
+      _ready.complete();
+    }
+  }
+
+  Future<void> get ready => _ready.future;
+  Future<void> get finished => _finished.future;
+  String get rid => _db.rid;
+
+  Replicant _replicant;
+  final _subscriptions = <WsSubscription>[];
+  final _rSubscriptions = <WsSubscription>[];
+  void attach(Replicant replicant) {
+    _replicant = replicant;
+    _rSubscriptions.addAll([
+      _socket.on.put(dataPath, (data) => replicant.put(DataEvent.fromJson(data.value))),
+      // _socket.on.put(syncPath, (data) => replicant.sync().then((_) => _ready.complete())),
+      _socket.on.get(syncPath, (req, res) async => res.send(data: await replicant.getSyncRecords())),
+    ]);
+  }
+  void detach() {
+    for(var s in _rSubscriptions) s.cancel();
+    _rSubscriptions.clear();
+    _replicant = null;
+  }
+  Future<void> finish() async {
+    for(var s in _subscriptions) s.cancel();
+    _subscriptions.clear();
+    await _replicant?.detach();
+    if(!_finished.isCompleted) _finished.complete();
   }
   
-  void add(DataEvent event) {
-    _socket.put(dataPath, event);
+  Future<bool> add(DataEvent event) async {
+    return (await _socket.put(dataPath, event)).isSuccess;
   }
 
   Future<Iterable<DataRecord>> getSyncRecords() async {
     final result = await _socket.get(syncPath);
     return (result.data as List).map((e) => DataRecord.fromLine(e)).toList();
-  }
-
-  Future<String> getReplicantId() async {
-    String rid;
-    final completer = Completer<String>();
-    final subscription = _socket.on.get(ridPath, (req, res) async {
-      res.send(data: this.rid);
-      if(rid == null) {
-        rid = (await _socket.get(ridPath)).data;
-      }
-      completer.complete(rid);
-    });
-    rid = (await _socket.get(ridPath)).data;
-
-    return completer.future.then((result) {
-      subscription.cancel();
-      return result;
-    });
   }
 }
 
@@ -572,13 +602,16 @@ class DataEvent extends Json {
     timestamp = Json.field(data, 'timestamp')
   ;
 
-  bool hasVisited(String id) => history.contains(id);
-  bool hasNotVisited(String id) => !hasVisited(id);
+  bool visitedBy(String id) => history.contains(id);
+  bool notVisitedBy(String id) => !visitedBy(id);
+
+  bool get isEmpty => records.isEmpty;
+  bool get isNotEmpty => !isEmpty;
 
   bool visit(String id, int lastSync) {
-    final visited = history.contains(id);
+    final notVisited = notVisitedBy(id);
     history.add(id);
-    return !visited && (timestamp > lastSync);
+    return notVisited && (timestamp > lastSync);
   }
 
   @override

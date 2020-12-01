@@ -21,22 +21,25 @@ const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
 class WebSocket {
 
   final ws.WebSocket _ws;
+  final _done = Completer();
   StreamSubscription _wsSubscription;
 
   WebSocket(this._ws);
 
-  Future<WsResult> get(String path) {
-    return _sendMessage(WsMessage(type: 'REQ', id: ObjectId().hexString, method: 'GET', path: path));
+  Future<WsResult> get(String path, {bool retry = false}) {
+    final message = WsMessage(type: 'REQ', id: ObjectId().hexString, method: 'GET', path: path);
+    return retry ? _sendMessageWithRetries(message) : _sendMessage(message);
   }
 
-  Future<WsResult> put(String path, dynamic data) {
-    return _sendMessage(WsMessage(type: 'REQ', id: ObjectId().hexString, method: 'PUT', path: path, data: data));
+  Future<WsResult> put(String path, dynamic data, {bool retry = false}) {
+    final message = WsMessage(type: 'REQ', id: ObjectId().hexString, method: 'PUT', path: path, data: data);
+    return retry ? _sendMessageWithRetries(message) : _sendMessage(message);
   }
 
   WsHandler _on;
   WsHandler get on => _on ??= WsHandler(this);
 
-  Future<void> get done => _ws.done;
+  Future<void> get done => _done.future;
 
   void start() {
     _wsSubscription ??= _ws.listen(_onData, onError: _onError, onDone: _onDone);
@@ -62,6 +65,17 @@ class WebSocket {
 
   WsStreamResult _result;
   Completer<WsResult> _completer;
+
+  Future<WsResult> _sendMessageWithRetries(WsMessage message) async {
+    for(var i = 0; i < 10; i++) {
+      await Future.delayed(Duration(milliseconds: i * 50));
+      final result = (await _sendMessage(message));
+      if(result.isSuccess) {
+        return result;
+      }
+    }
+    return WsResult(404, null);
+  }
 
   Future<WsResult> _sendMessage(WsMessage message) {
     if(message.isRequest) {
@@ -142,9 +156,9 @@ class WebSocket {
     print('error: $error\n$stackTrace');
   }
   void _onDone() {
-    // TODO necessary?
     _wsSubscription?.cancel();
     _wsSubscription = null;
+    if(!_done.isCompleted) _done.complete();
   }
 }
 
