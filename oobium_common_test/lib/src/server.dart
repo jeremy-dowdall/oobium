@@ -73,7 +73,7 @@ class TestWebsocketServer {
   }
 
   Future<void> _handle(io.HttpRequest request) async {
-    final socket = await io.WebSocketTransformer.upgrade(request);
+    final socket = WsSocket(await io.WebSocketTransformer.upgrade(request));
     return _onUpgrade(WebSocket(socket)..start());
   }
 }

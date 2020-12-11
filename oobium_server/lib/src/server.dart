@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:io' as io show WebSocket;
 import 'dart:isolate';
 import 'dart:math';
 
@@ -11,7 +10,6 @@ import 'package:oobium_server/src/auth/validator.dart';
 import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium_common/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
-import 'package:oobium_server/src/server_websocket.dart';
 
 class Host {
 
@@ -320,12 +318,12 @@ class ServerWebSocket extends WebSocket {
   
   final String id;
   final Host _host;
-  ServerWebSocket._(this.id, this._host, io.WebSocket ws) : super(ws);
+  ServerWebSocket._(this.id, this._host, WsSocket ws) : super(ws);
   
   WsProxy proxy(String id) => WsProxy(id, _host);
 
   static Future<ServerWebSocket> upgrade(String id, Host host, HttpRequest request) async {
-    return ServerWebSocket._(id ?? ObjectId().hexString, host, await WebSocketTransformer.upgrade(request));
+    return ServerWebSocket._(id ?? ObjectId().hexString, host, WsSocket(await WebSocketTransformer.upgrade(request)));
   }
 }
 

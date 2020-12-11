@@ -1,15 +1,16 @@
-import 'dart:io' if (dart.library.html) 'ws_html.dart' as ws;
-import 'package:oobium_common/src/websocket/websocket.dart';
+import 'dart:io' if (dart.library.html) 'dart:html' as ws;
+import 'package:oobium_common/src/websocket/ws_socket.dart';
+import 'package:oobium_common/src/websocket.dart';
 
 class AuthSocket extends WebSocket {
 
-  AuthSocket(ws.WebSocket ws) : super(ws);
+  AuthSocket(WsSocket ws) : super(ws);
 
   static Future<AuthSocket> connect({String address, int port, String uid, String token}) async {
     final authToken = (uid != null) ? '$uid:$token' : token;
     assert(authToken != null);
-    final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8001}/auth';
-    final websocket = await ws.WebSocket.connect(url, headers: {'authorization': 'TOKEN $authToken'});
+    final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}/auth';
+    final websocket = await WsSocket.connect(url, authToken);
     final socket = AuthSocket(websocket)..start();
     socket._uid ??= (await socket.get('/users/id')).data;
     socket._token = (await socket.get('/users/token')).data;

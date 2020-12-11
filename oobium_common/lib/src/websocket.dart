@@ -1,17 +1,18 @@
 import 'dart:async';
 
-import 'dart:io' if (dart.library.html) 'ws_html.dart' as ws;
 import 'package:objectid/objectid.dart';
 import 'package:oobium_common/oobium_common.dart';
 import 'package:oobium_common/src/json.dart';
 import 'package:oobium_common/src/router.extensions.dart';
-import 'package:oobium_common/src/websocket/websocket_util.dart';
+import 'package:oobium_common/src/websocket/ws_socket.dart';
+
+export 'package:oobium_common/src/websocket/ws_socket.dart';
 
 class ClientWebSocket extends WebSocket {
-  ClientWebSocket(ws.WebSocket ws) : super(ws);
-  static Future<ClientWebSocket> connect({String address, int port, String path, Map<String, dynamic> headers}) async {
+  ClientWebSocket(WsSocket ws) : super(ws);
+  static Future<ClientWebSocket> connect({String address, int port, String path}) async {
     final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}${path ?? ''}';
-    return ClientWebSocket(await ws.WebSocket.connect(url, headers: headers))..start();
+    return ClientWebSocket(await WsSocket.connect(url))..start();
   }
 }
 
@@ -20,7 +21,7 @@ const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
 
 class WebSocket {
 
-  final ws.WebSocket _ws;
+  final WsSocket _ws;
   final _done = Completer();
   StreamSubscription _wsSubscription;
 
@@ -60,9 +61,9 @@ class WebSocket {
     _wsSubscription = null;
   }
 
-  void close([int code, String reason]) {
+  Future<void> close([int code, String reason]) {
     stop();
-    _ws.close(code, reason);
+    return _ws.close(code, reason);
   }
 
   WsStreamResult _result;
@@ -89,9 +90,9 @@ class WebSocket {
             on._handlers.remove(_GET_PUT_PATH);
             res.send(data: message.data);
           });
-          _ws.add(message.copyWith(data: {_GET_PUT_KEY: _GET_PUT_PATH}).toString());
+          _ws.add(message.copyWith(data: {_GET_PUT_KEY: _GET_PUT_PATH}));
         } else {
-          _ws.add(message.toString());
+          _ws.add(message);
         }
         return _completer.future;
       } else {
@@ -99,7 +100,7 @@ class WebSocket {
       }
     } else {
       // 3. 'server' send the response
-      _ws.add(message.toString());
+      _ws.add(message);
       return Future.value(null);
     }
   }

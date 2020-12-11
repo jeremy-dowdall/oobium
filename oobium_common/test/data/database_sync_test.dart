@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:oobium_common/src/data/database.dart';
-import 'package:oobium_common/src/websocket/websocket.dart';
+import 'package:oobium_common/src/websocket.dart';
 import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:test/test.dart';
 
