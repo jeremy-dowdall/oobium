@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io' as io;
 import 'dart:isolate';
 
 import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium_common_test/src/websocket.dart';
 
-abstract class TestDatabaseServer extends TestIsolate {
+abstract class DatabaseServerIsolate extends TestIsolate {
 
   Future<Map<String, dynamic>> dbGet(String id) => send<Map<String, dynamic>>('/db/get', id);
   Future<Map<String, dynamic>> dbPut(DataModel model) => send<Map<String, dynamic>>('/db/put', model);
@@ -18,20 +18,18 @@ abstract class TestDatabaseServer extends TestIsolate {
 
   final String path;
   final int port;
-  TestDatabaseServer({this.path, this.port});
+  DatabaseServerIsolate({this.path, this.port});
 
   Database _db;
   TestWebsocketServer _server;
 
-  FutureOr<void> onConfigure(Database db);
+  Database onCreateDatabase();
 
   @override
   Future<void> onStart() async {
-    _db = Database(path);
-    await onConfigure(_db);
+    _db = onCreateDatabase();
     await _db.reset();
-    _server = await TestWebsocketServer.start(port: 8001, onUpgrade: (socket) async {
-      print('bind to server db');
+    _server = await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
       _db.bind(socket);
     });
   }
@@ -46,35 +44,7 @@ abstract class TestDatabaseServer extends TestIsolate {
     if(path == '/db/destroy') return _db?.destroy();
     if(path == '/db/get') return _db?.get(data as String)?.toJson();
     if(path == '/db/put') return _db?.put(data as DataModel)?.toJson();
-    if(path == '/db/count/models') return _db?.size ?? 0;
-  }
-}
-
-class TestWebsocketServer {
-
-  final int port;
-
-  io.HttpServer _http;
-  StreamSubscription _subscription;
-  Future<void> Function(WebSocket socket) _onUpgrade;
-
-  TestWebsocketServer._(this.port);
-
-  static Future<TestWebsocketServer> start({int port = 8080, Future<void> Function(WebSocket socket) onUpgrade}) async {
-    final server = TestWebsocketServer._(port);
-    server._onUpgrade = onUpgrade;
-    server._http = await io.HttpServer.bind('127.0.0.1', port);
-    server._subscription = server._http.listen((httpRequest) async => await server._handle(httpRequest));
-    return server;
-  }
-  Future<void> close() async {
-    await _subscription.cancel();
-    await _http.close(force: true);
-  }
-
-  Future<void> _handle(io.HttpRequest request) async {
-    final socket = await io.WebSocketTransformer.upgrade(request);
-    return _onUpgrade(WebSocket(socket)..start());
+    if(path == '/db/count/models') return _db?.getAll()?.length ?? 0;
   }
 }
 
@@ -101,7 +71,6 @@ abstract class TestIsolate {
   _TestIsolate _isolate;
   Future<T> send<T>(String path, [dynamic data]) => _isolate.send<T>(path, data);
 }
-
 class _TestIsolate {
   final Isolate _isolate;
   final SendPort _sendPort;

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:io' as io show WebSocket;
 import 'dart:isolate';
 import 'dart:math';
 
@@ -11,7 +10,6 @@ import 'package:oobium_server/src/auth/validator.dart';
 import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium_common/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
-import 'package:oobium_server/src/server_websocket.dart';
 
 class Host {
 
@@ -320,13 +318,9 @@ class ServerWebSocket extends WebSocket {
   
   final String id;
   final Host _host;
-  ServerWebSocket._(this.id, this._host, io.WebSocket ws) : super(ws);
+  ServerWebSocket._(String id, this._host) : id = id ?? ObjectId().hexString;
   
   WsProxy proxy(String id) => WsProxy(id, _host);
-
-  static Future<ServerWebSocket> upgrade(String id, Host host, HttpRequest request) async {
-    return ServerWebSocket._(id ?? ObjectId().hexString, host, await WebSocketTransformer.upgrade(request));
-  }
 }
 
 class WsProxy {
@@ -413,14 +407,15 @@ class Request {
   List<List<int>> get ranges => header[HttpHeaders.rangeHeader].substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 
-  Future<ServerWebSocket> upgrade() => ServerWebSocket.upgrade(params['uid'], _host, _httpRequest).then((socket) {
+  ServerWebSocket _websocket() {
+    final socket = ServerWebSocket._(params['uid'], _host);
     _host._sockets[socket.id] = socket;
     socket.done.then((_) {
       _host._sockets.remove(socket.id);
     });
     _response._closed = true; // don't _actually_ close this response, the websocket will handle it
     return socket;
-  });
+  }
 }
 class HeaderValues {
   final HttpHeaders _headers;
@@ -634,7 +629,8 @@ RequestHandler fireAuth = (req, res) async {
   }
 };
 
-RequestHandler websocket(Function(ServerWebSocket socket) f) => (req, res) async {
-  final socket = (await req.upgrade())..start();
-  f(socket);
+RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f) => (req, res) async {
+  final socket = req._websocket();
+  await f(socket);
+  return socket.upgrade(req._httpRequest);
 };

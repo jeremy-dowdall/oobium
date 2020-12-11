@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:objectid/objectid.dart';
 import 'package:oobium_common/src/json.dart';
-import 'package:oobium_common/src/websocket/websocket.dart';
+import 'package:oobium_common/src/websocket.dart';
 
 class Database {
 
@@ -122,7 +122,7 @@ class Database {
     _id = null;
     for(var replicant in _replicants) replicant.close();
     _replicants.clear();
-    for(var socket in _binders) socket.cancel();
+    for(var socket in _binders.values) socket.cancel();
     _binders.clear();
   }
 
@@ -148,10 +148,6 @@ class Database {
       await sink.close();
     }
     await open();
-  }
-
-  String newId() {
-    return ObjectId().hexString;
   }
 
   T get<T extends DataModel>(String id, {T Function() orElse}) {
@@ -268,7 +264,7 @@ class Database {
   String _id;
   String get id => _id;
 
-  final _binders = <Binder>[];
+  final _binders = <WebSocket, Binder>{};
   final _replicants = <Replicant>[];
 
   Future<Stream<List<int>>> replicate() {
@@ -309,10 +305,19 @@ class Database {
   }
   
   Future<void> bind(WebSocket socket) {
-    final binder = Binder(this, socket);
-    _binders.add(binder);
-    binder.finished.then((_) => _binders.remove(binder));
-    return binder.ready;
+    if(_binders.containsKey(socket)) {
+      return Future.value();
+    } else {
+      final binder = Binder(this, socket);
+      _binders[socket] = binder;
+      binder.finished.then((_) => _binders.remove(socket));
+      return binder.ready;
+    }
+  }
+
+  Future<void> unbind(WebSocket socket) {
+    final binder = _binders.remove(socket);
+    return (binder != null) ? binder.cancel() : Future.value();
   }
 
   void _onPut(List<DataRecord> records) => _batch(
@@ -644,7 +649,7 @@ class Binder {
     final event = (data is DataEvent) ? data : (data is WsData) ? DataEvent.fromJson(data.value) : null;
     if(event != null && event.isNotEmpty && event.visit(localId)) {
       _db._onPut(event.records);
-      for(var binder in _db._binders) {
+      for(var binder in _db._binders.values) {
         if(event.notVisitedBy(binder.remoteId)) {
           await binder.sendData(event);
         }

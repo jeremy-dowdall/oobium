@@ -10,7 +10,7 @@ class AuthServer {
   final Database _db;
   final _codes = <String, String>{};
   AuthServer({String address, int port, String dbPath}) :
-        _server = Server(address: address ?? '127.0.0.1', port: port ?? 8001),
+        _server = Server(address: address, port: port),
         _db = AuthData(dbPath ?? 'auth.db');
 
   Future<void> start() async {

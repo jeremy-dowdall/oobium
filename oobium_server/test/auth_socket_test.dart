@@ -17,7 +17,7 @@ Future<void> main() async {
 
     final server = await TestIsolate.start(TestServer(port: 8001, dbPath: '$path/auth.db'));
 
-    final clientA = await AuthSocket.connect(port: 8001, uid: admin.id, token: admin.token.id);
+    final clientA = await AuthSocket().connect(port: 8001, uid: admin.id, token: admin.token.id);
     expect(clientA.uid, admin.id);
     expect(clientA.token, admin.token.id);
 
@@ -30,7 +30,7 @@ Future<void> main() async {
       return true;
     };
 
-    final clientB = await AuthSocket.connect(port: 8001, token: installCode);
+    final clientB = await AuthSocket().connect(port: 8001, token: installCode);
     expect(clientB.uid, isNotEmpty);
     expect(clientB.uid, isNot(clientA.uid));
     expect(clientB.token, isNotEmpty);

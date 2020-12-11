@@ -8,8 +8,7 @@ void main() async {
   final fileName = file.path.substring(file.parent.path.length);
   final fileSize = (await file.stat()).size;
 
-  final socket = await ClientWebSocket.connect(address: '127.0.0.1', port: 4040, path: '/ws');
-  socket.start();
+  final socket = await WebSocket().connect(address: '127.0.0.1', port: 4040, path: '/ws');
 
   final result = await socket.get('/files/$fileName/stat');
   if(result.isSuccess) {
@@ -26,5 +25,5 @@ void main() async {
     print('error: ${result.code}');
   }
 
-  socket.close();
+  await socket.close();
 }

@@ -1,0 +1,65 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:oobium_common/src/websocket.dart';
+import 'package:oobium_common_test/oobium_common_test.dart';
+import 'package:stream_channel/stream_channel.dart';
+
+hybridMain(StreamChannel channel, dynamic message) async {
+
+  final server = WsTestServer();
+  await server.start(message);
+  server.listen(channel);
+  channel.sink.add('ready');
+
+}
+
+class WsTestServer {
+
+  WebSocket ws;
+  var wsData;
+
+  Future<void> start(int port) async {
+    await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
+      ws = socket;
+      ws.on.get('/echo/<msg>', (req, res) {
+        res.send(data: req.params['msg']);
+      });
+      ws.on.get('/data', (req, res) {
+        res.send(data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+      });
+      ws.on.get('/stream', (req, res) {
+        res.send(data: Stream.fromIterable([[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]]));
+      });
+      ws.on.put('/data', (req, res) {
+        wsData = req.data.value;
+      });
+      ws.on.put('/stream', (req, res) async {
+        final completer = Completer<List<List<int>>>();
+        wsData = completer.future;
+        final d = await req.data.stream.toList();
+        completer.complete(d);
+      });
+    });
+  }
+
+  StreamSubscription listen(StreamChannel channel) {
+    return channel.stream.listen((msg) async {
+      final result = await onMessage(msg[0], (msg.length > 1) ? msg[1] : null);
+      channel.sink.add(result);
+    });
+  }
+
+  FutureOr onMessage(String path, [dynamic data]) {
+    switch(path) {
+      case 'getData': return wsData;
+      case 'get': return ws.get(data).then((result) => result.asJson());
+      default:
+        return 404;
+    }
+  }
+}
+
+extension WsResultExt on WsResult {
+  Map asJson() => {'code': code, 'data': data};
+}
