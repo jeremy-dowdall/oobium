@@ -150,10 +150,6 @@ class Database {
     await open();
   }
 
-  String newId() {
-    return ObjectId().hexString;
-  }
-
   T get<T extends DataModel>(String id, {T Function() orElse}) {
     if(_models.containsKey(id)) {
       return _models[id] as T;

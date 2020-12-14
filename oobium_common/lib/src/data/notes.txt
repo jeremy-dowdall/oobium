@@ -4,3 +4,26 @@ files:
  <path>.sync (replicants: uid, rid and timestamp; 1st line is self)
  <path>.sync.<rid> (deletes since last sync. limit via time and size?)
  <path>.temp (used during compacting)
+
+objects
+ database  <name>            (Map<String(id), Model>)
+ init      <name>.init       (List<String> -> IdRecord + List<ReplicantIdRecord> + List<DataRecord>)
+ repo      <name>.repo       (List<String> -> List<DataRecord> -> List<Model>, compact is a part of this..., Model necessary? I don't think so)
+ sync      <name>.sync       (List<String> -> IdRecord + List<ReplicantIdRecord>)
+ replicant <name>.sync.<rid> (List<String> -> LastSync + List<DeleteRecord>
+
+
+
+
+IO.File does not exist on web... what are the file doing though?
+ List<String>
+
+DbCollection                       IO                                    Web
+ create  (collection)              File(path).create
+ delete  (collection)              File(path).delete
+ getAll  (List<String>)            File(path).readAsStrings()
+ get     (String, by ID)           File(path).readAsStrings().findWhere
+ putAll  (List<String>, append)    File(path).openWrite(mode: append)...
+ put     (String, append)          File(path).writeAsString(mode: append)
+ setAll  (List<String>, overwrite) File(path).openWrite(mode: write)...
+ set     (String, overwrite)       File(path).writeAsString(mode: write)

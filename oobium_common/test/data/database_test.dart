@@ -109,10 +109,12 @@ Future<void> main() async {
       ]
     );
     await db.flush();
-    expect(models.length, 2);
+    expect(models.length, 4);
     expect(models[0].id, isNotEmpty);
     expect(models[1].id, isNotEmpty);
     expect(models[0].id, isNot(models[1].id));
+    expect(models[2], isNull);
+    expect(models[3], isNull);
     final data = await File(db.path).readAsLines();
     expect(data.length, 2);
     expect(data[0].contains('test01'), isTrue);

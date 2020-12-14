@@ -147,7 +147,7 @@ Future<void> main() async {
     final server = await TestIsolate.start(TestServer(path: '$path/test1.db', port: 8001));
     final client1 = (await ClientWebSocket.connect(port: 8001));
     final client2 = (await ClientWebSocket.connect(port: 8001));
-    
+
     final db1 = Database('$path/test2.db', [(data) => TestType1.fromJson(data)]);
     await db1.reset(socket: client1);
     final db2 = Database('$path/test3.db', [(data) => TestType1.fromJson(data)]);
