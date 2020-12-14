@@ -23,12 +23,11 @@ abstract class TestDatabaseServer extends TestIsolate {
   Database _db;
   TestWebsocketServer _server;
 
-  FutureOr<void> onConfigure(Database db);
+  Database onCreateDatabase();
 
   @override
   Future<void> onStart() async {
-    _db = Database(path);
-    await onConfigure(_db);
+    _db = onCreateDatabase();
     await _db.reset();
     _server = await TestWebsocketServer.start(port: 8001, onUpgrade: (socket) async {
       print('bind to server db');
@@ -46,7 +45,7 @@ abstract class TestDatabaseServer extends TestIsolate {
     if(path == '/db/destroy') return _db?.destroy();
     if(path == '/db/get') return _db?.get(data as String)?.toJson();
     if(path == '/db/put') return _db?.put(data as DataModel)?.toJson();
-    if(path == '/db/count/models') return _db?.size ?? 0;
+    if(path == '/db/count/models') return _db?.getAll()?.length ?? 0;
   }
 }
 

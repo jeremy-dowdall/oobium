@@ -12,6 +12,8 @@ objects
  sync      <name>.sync       (List<String> -> IdRecord + List<ReplicantIdRecord>)
  replicant <name>.sync.<rid> (List<String> -> LastSync + List<DeleteRecord>
 
+init
+ write -> database.createInit() to List<String> representing a new replicant: IdRecord + ReplicantIdRecord + List<DataRecord>
 
 
 

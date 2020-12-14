@@ -1,14 +1,10 @@
-import 'dart:io';
-
-import 'package:oobium_common/src/data/database.dart';
+import 'package:oobium_common/src/database.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
-  final db = await Database('test.db')..addBuilder<TestType1>((data) => TestType1.fromJson(data));
-  await db.open();
 
-  setUp(() async => await db.reset());
-  tearDownAll(() async => await db.destroy());
+  setUp(() async => await reset());
+  tearDownAll(() async => await destroy());
 
   test('test auto-generate id', () async {
     expect(TestType1(name: 'test01').id, isNotEmpty);
@@ -31,27 +27,30 @@ Future<void> main() async {
   });
 
   test('test data stored in memory', () async {
-    final input = TestType1(name: 'test01');
-    db.put(input);
-    final output = db.get<TestType1>(input.id);
-    expect(output.name, 'test01');
-    expect(output, input);
+    final db = create();
+    final model1 = db.put(TestType1(name: 'test01'));
+    final model2 = db.get<TestType1>(model1.id);
+    expect(model2.name, 'test01');
+    expect(model2, model1);
   });
 
-  test('test data stored on disk', () async {
-    final input = TestType1(name: 'test01');
-    db.put(input);
-    await db.flush();
-    final data = await File(db.path).readAsLines();
+  test('test data stored persistently', () async {
+    final db = create();
+    db.put(TestType1(name: 'test01'));
+    await db.close();
+
+    final db2 = create();
+    await db2.open();
+    final data = db2.getAll<TestType1>().toList();
     expect(data.length, 1);
-    expect(data[0].contains('test01'), isTrue);
+    expect(data[0].name, 'test01');
   });
 
   test('test loading data stored on disk', () async {
-    final model = TestType1(name: 'test01');
-    db.put(model);
-    await db.flush();
-    final db2 = Database(db.path)..addBuilder<TestType1>((data) => TestType1.fromJson(data));
+    final db = create();
+    final model = db.put(TestType1(name: 'test01'));
+    await db.close();
+    final db2 = Database(db.path, [(data) => TestType1.fromJson(data)]);
     await db2.open();
     expect(db2.get(model.id), isNotNull);
     expect((db2.get<TestType1>(model.id)).name, model.name);
@@ -60,10 +59,10 @@ Future<void> main() async {
   });
 
   test('test storing and loading empty model', () async {
-    final model = TestType1();
-    db.put(model);
-    await db.flush();
-    final db2 = Database(db.path)..addBuilder<TestType1>((data) => TestType1.fromJson(data));
+    final db = create();
+    final model = db.put(TestType1());
+    await db.close();
+    final db2 = Database(db.path, [(data) => TestType1.fromJson(data)]);
     await db2.open();
     expect(db2.get(model.id), isNotNull);
     expect((db2.get<TestType1>(model.id)).name, model.name);
@@ -71,34 +70,41 @@ Future<void> main() async {
     await db2.close();
   });
 
-  test('test data stored on disk is appended', () async {
+  test('test data copied and persisted', () async {
+    final db = create();
     final m1 = db.put(TestType1(name: 'test01'));
     db.put(m1.copyWith(name: 'test02'));
-    await db.flush();
-    final data = await File(db.path).readAsLines();
+    await db.close();
+    final db2 = create();
+    await db2.open();
+    final data = db2.getAll<TestType1>().toList();
     expect(data.length, 2);
-    expect(data[0].contains('test01'), isTrue);
-    expect(data[1].contains('test02'), isTrue);
+    expect(data[0].name, 'test01');
+    expect(data[1].name, 'test02');
   });
 
   test('test putAll', () async {
-    final models = db.putAll([
+    final db = create();
+    await db.open();
+    db.putAll([
       TestType1(name: 'test01'),
       TestType1(name: 'test02'),
     ]);
-    await db.flush();
+    await db.close();
+
+    final db2 = create();
+    await db2.open();
+    final models = db2.getAll().toList();
     expect(models.length, 2);
     expect(models[0].id, isNotEmpty);
     expect(models[1].id, isNotEmpty);
     expect(models[0].id, isNot(models[1].id));
-    final data = await File(db.path).readAsLines();
-    expect(data.length, 2);
-    expect(data[0].contains('test01'), isTrue);
-    expect(data[1].contains('test02'), isTrue);
   });
 
   test('test batch', () async {
-    final models = db.batch(
+    final db = create();
+    await db.open();
+    db.batch(
       put: [
         TestType1(name: 'test01'),
         TestType1(name: 'test02'),
@@ -108,94 +114,105 @@ Future<void> main() async {
         'test-02'
       ]
     );
-    await db.flush();
+    await db.close();
+
+    final db2 = create();
+    await db2.open();
+    final models = db2.getAll().toList();
     expect(models.length, 4);
     expect(models[0].id, isNotEmpty);
     expect(models[1].id, isNotEmpty);
     expect(models[0].id, isNot(models[1].id));
     expect(models[2], isNull);
     expect(models[3], isNull);
-    final data = await File(db.path).readAsLines();
-    expect(data.length, 2);
-    expect(data[0].contains('test01'), isTrue);
-    expect(data[1].contains('test02'), isTrue);
   });
 
-  test('test compacting', () async {
-    for(var i = 0; i < 6; i++) {
-      db.put(TestType1(name: 'test-1-$i'));
-    }
-    final m = TestType1();
-    for(var i = 0; i < 6; i++) {
-      db.put(m.copyWith(name: 'test-2-$i'));
-    }
-    await db.flush();
-    final data = await File(db.path).readAsLines();
-    expect(data.length, 7);
-    for(var i = 0; i < 6; i++) {
-      expect(data[i].contains('test-1-$i'), isTrue);
-    }
-    expect(data[6].contains('test-2-5'), isTrue);
-  });
+  // test('test compacting', () async {
+  //   final db = create();
+  //   for(var i = 0; i < 6; i++) {
+  //     db.put(TestType1(name: 'test-1-$i'));
+  //   }
+  //   final m = TestType1();
+  //   for(var i = 0; i < 6; i++) {
+  //     db.put(m.copyWith(name: 'test-2-$i'));
+  //   }
+  //   await db.flush();
+  //   final data = await File(db.path).readAsLines();
+  //   expect(data.length, 7);
+  //   for(var i = 0; i < 6; i++) {
+  //     expect(data[i].name, 'test-1-$i');
+  //   }
+  //   expect(data[6].name, 'test-2-5');
+  // });
 
   test('test remove', () async {
+    final db = create();
+    await db.open();
     final model = db.put(TestType1(name: 'test01'));
-    await db.flush();
-    expect(db.size, 1);
-    expect(db.get(model.id), model);
-    expect((await File(db.path).readAsLines()).length, 1);
+    await db.close();
 
-    db.remove(model.id);
-    await db.flush();
-    expect(db.size, 0);
-    expect(db.get(model.id), isNull);
-    expect((await File(db.path).readAsLines()).length, 2);
+    final db2 = create();
+    await db2.open();
+    expect(db2.getAll().length, 1);
+    expect(db2.get(model.id).isSameAs(model), isTrue);
 
-    await db.compact();
-    await db.flush();
-    expect(db.size, 0);
-    expect(db.get(model.id), isNull);
-    expect((await File(db.path).readAsLines()).length, 0);
+    db2.remove(model.id);
+    await db.close();
+
+    final db3 = create();
+    await db3.open();
+    expect(db2.getAll().isEmpty, isTrue);
+    expect(db2.get(model.id), isNull);
   });
 
   test('test loading a removed model', () async {
+    final db = create();
+    await db.open();
     final model1 = db.put(TestType1(name: 'test01'));
     final model2 = db.put(TestType1(name: 'test02'));
-    await db.flush();
-    expect(db.size, 2);
-    expect(db.get(model1.id), model1);
-    expect(db.get(model2.id), model2);
-    expect((await File(db.path).readAsLines()).length, 2);
+    await db.close();
 
-    db.remove(model1.id);
-    await db.flush();
-    expect(db.size, 1);
-    expect(db.get(model1.id), isNull);
-    expect(db.get(model2.id), model2);
-    expect((await File(db.path).readAsLines()).length, 3);
-
-    final db2 = Database(db.path);
-    db2.addBuilder<TestType1>((data) => TestType1.fromJson(data));
+    final db2 = create();
     await db2.open();
-    expect(db2.size, 1);
-    expect(db2.get(model1.id), isNull);
-    expect(db2.get(model2.id), isNot(model2));
-    expect(db2.get(model2.id), isNotNull);
-    expect(db2.get<TestType1>(model2.id).name, model2.name);
-    expect((await File(db2.path).readAsLines()).length, 3);
+    expect(db2.getAll().length, 2);
+    expect(db2.get(model1.id), model1);
+    expect(db2.get(model2.id), model2);
+
+    db2.remove(model1.id);
     await db2.close();
+
+    final db3 = create();
+    await db3.open();
+    expect(db3.getAll().length, 1);
+    expect(db3.get(model1.id), isNull);
+    expect(db3.get(model2.id), model2);
   });
 
   test('test getAll', () async {
+    final db = create();
+    await db.open();
     db.put(TestType1(name: 'test-01'));
-    final model = db.put(TestType1(name: 'test-02'));
     db.put(TestType1(name: 'test-02'));
-
+    db.put(TestType1(name: 'test-02'));
     expect(db.getAll<TestType1>().length, 3);
     expect(db.getAll<TestType1>().where((m) => m.name == 'test-02').length, 2);
-    expect(db.getAll<TestType1>().firstWhere((m) => m.name == 'test-02'), model);
+    await db.close();
+
+    final db2 = create();
+    await db2.open();
+    expect(db2.getAll<TestType1>().length, 3);
+    expect(db2.getAll<TestType1>().where((m) => m.name == 'test-02').length, 2);
   });
 }
+
+final databases = <Database>[];
+Database create() {
+  final db = Database('test.db', [(data) => TestType1.fromJson(data)]);
+  databases.add(db);
+  return db;
+}
+Future<void> reset() => Future.forEach<Database>(databases, (db) => db.reset()).then((_) => databases.clear());
+Future<void> destroy() => Future.forEach<Database>(databases, (db) => db.destroy()).then((_) => databases.clear());
 
 class TestType1 extends DataModel {
   String get name => this['name'];
