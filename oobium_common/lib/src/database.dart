@@ -1,6 +1,7 @@
 import 'package:objectid/objectid.dart';
-import 'package:oobium_common/src/data/persistor.dart';
+import 'package:oobium_common/src/data/repo.dart';
 import 'package:oobium_common/src/json.dart';
+import 'package:oobium_common/src/websocket.dart';
 
 class Database {
 
@@ -14,17 +15,50 @@ class Database {
 
   final _builders = <String, Function(Map data)>{};
   final _models = <String, DataModel>{};
-  final _persistor = Persistor();
+  Repo _repo;
 
   String get id => null;
+  int get size => _models.length;
   
-  Future<void> open() async {}
+  Future<void> open() async {
+    await _openRepo();
+  }
+  Future<void> _openRepo() async {
+    _repo = Repo(path);
+    await _repo.open();
+    await for(var record in _repo.read()) {
+      if(record.isDelete) {
+        _models.remove(record.id);
+      } else {
+        _models[record.id] = _build(record);
+      }
+    }
+  }
 
-  Future<void> close() async {}
+  Future<void> close() async {
+    await _repo.close();
+    _repo = null;
+  }
 
-  Future<void> reset() async {}
+  Future<void> reset({Stream stream, WebSocket socket}) async {
+    await destroy();
+    if(socket != null) {
+      // stream = (await socket.get(Binder.replicatePath, retry: true)).data as Stream<List<int>>;
+    }
+    if(stream != null) {
+      final repo = Repo(path);
+      await repo.writeStream(stream);
+      // final sink = File('$path.init').openWrite(mode: FileMode.writeOnly);
+      // await sink.addStream(stream);
+      // await sink.flush();
+      // await sink.close();
+    }
+    await open();
+  }
 
-  Future<void> destroy() async {}
+  Future<void> destroy() async {
+    await _repo?.destroy();
+  }
 
   List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => _batch(put: put, remove: remove);
 
@@ -65,14 +99,26 @@ class Database {
     }
 
     if(records.isNotEmpty) {
+      _commit(records);
       _notifyListeners(DataEvent(id, records));
     }
 
     return results;
   }
 
+  DataModel _build(DataRecord record) {
+    assert(_builders[record.type] != null, 'no builder registered for ${record.type}');
+    final value = _builders[record.type](record.data);
+    assert(value is DataModel, 'builder did not return a DataModel: $value');
+    return (value as DataModel).._fields._db = this;
+  }
+
+  void _commit(List<DataRecord> records) {
+    _repo?.write(records);
+  }
+  
   void _notifyListeners(DataEvent event) {
-    print('TODO _notifyListeners($event)');
+    // print('TODO _notifyListeners($event)');
   }
 }
 

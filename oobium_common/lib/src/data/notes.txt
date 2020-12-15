@@ -7,10 +7,10 @@ files:
 
 objects
  database  <name>            (Map<String(id), Model>)
- init      <name>.init       (List<String> -> IdRecord + List<ReplicantIdRecord> + List<DataRecord>)
- repo      <name>.repo       (List<String> -> List<DataRecord> -> List<Model>, compact is a part of this..., Model necessary? I don't think so)
- sync      <name>.sync       (List<String> -> IdRecord + List<ReplicantIdRecord>)
- replicant <name>.sync.<rid> (List<String> -> LastSync + List<DeleteRecord>
+ init      <name>.init       (IdRecord + List<ReplicantIdRecord> + List<DataRecord>)
+ repo      <name>.repo       (List<DataRecord>, compact is a part of this...)
+ sync      <name>.sync       (IdRecord + List<ReplicantIdRecord>)
+ replicant <name>.sync.<rid> (LastSync + List<DeleteRecord>)
 
 init
  write -> database.createInit() to List<String> representing a new replicant: IdRecord + ReplicantIdRecord + List<DataRecord>
