@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:objectid/objectid.dart';
+import 'package:oobium_common/src/data/data.dart';
 import 'package:oobium_common/src/data/repo.dart';
+import 'package:oobium_common/src/data/sync.dart';
 import 'package:oobium_common/src/json.dart';
 import 'package:oobium_common/src/websocket.dart';
+import 'package:oobium_common/src/string.extensions.dart';
 
 class Database {
 
   final String path;
   Database(this.path, [List<Function(Map data)> builders]) {
+    assert(path.isNotBlank, 'database path cannot be blank');
     if(builders != null) for(var builder in builders) {
       final type = builder.runtimeType.toString().split(' => ')[1];
       _builders[type] = builder;
@@ -15,18 +21,20 @@ class Database {
 
   final _builders = <String, Function(Map data)>{};
   final _models = <String, DataModel>{};
-  Repo _repo;
 
-  String get id => null;
+  Repo _repo;
+  Sync _sync;
+
   int get size => _models.length;
   
   Future<void> open() async {
+    await Data(path).create();
     await _openRepo();
+    await _openSync();
   }
   Future<void> _openRepo() async {
-    _repo = Repo(path);
-    await _repo.open();
-    await for(var record in _repo.read()) {
+    await (_repo = Repo(path)).open();
+    await for(var record in _repo.get()) {
       if(record.isDelete) {
         _models.remove(record.id);
       } else {
@@ -34,30 +42,30 @@ class Database {
       }
     }
   }
-
-  Future<void> close() async {
-    await _repo.close();
-    _repo = null;
+  Future<void> _openSync() async {
+    await (_sync = Sync(path, _repo)).open();
   }
 
-  Future<void> reset({Stream stream, WebSocket socket}) async {
-    await destroy();
-    if(socket != null) {
-      // stream = (await socket.get(Binder.replicatePath, retry: true)).data as Stream<List<int>>;
-    }
-    if(stream != null) {
-      final repo = Repo(path);
-      await repo.writeStream(stream);
-      // final sink = File('$path.init').openWrite(mode: FileMode.writeOnly);
-      // await sink.addStream(stream);
-      // await sink.flush();
-      // await sink.close();
-    }
-    await open();
+  Future<void> close() async {
+    await _repo?.close(cancel: false)?.then((_) => _repo = null);
+    await _sync?.close(cancel: false)?.then((_) => _sync = null);
   }
 
   Future<void> destroy() async {
-    await _repo?.destroy();
+    await _repo?.close(cancel: true)?.then((_) => _repo = null);
+    await _sync?.close(cancel: true)?.then((_) => _sync = null);
+    return Data(path).destroy();
+  }
+
+  Future<void> reset({WebSocket socket}) async {
+    await destroy();
+    if(socket != null) {
+      await Data(path).create();
+      final repo = await Repo(path).open();
+      final sync = await Sync(path, repo).open();
+      await sync.replicate(socket);
+    }
+    await open();
   }
 
   List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => _batch(put: put, remove: remove);
@@ -70,6 +78,10 @@ class Database {
 
   T remove<T extends DataModel>(String id) => batch(remove: [id])[0];
   List<T> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
+
+  Future<void> bind(WebSocket socket) => _sync.bind(socket);
+
+  Future<void> unbind(WebSocket socket) => _sync.unbind(socket);
 
   List<T> _batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
     final results = <T>[];
@@ -99,8 +111,8 @@ class Database {
     }
 
     if(records.isNotEmpty) {
-      _commit(records);
-      _notifyListeners(DataEvent(id, records));
+      _repo?.put(Stream.fromIterable(records));
+      _sync?.put(Stream.fromIterable(records));
     }
 
     return results;
@@ -111,14 +123,6 @@ class Database {
     final value = _builders[record.type](record.data);
     assert(value is DataModel, 'builder did not return a DataModel: $value');
     return (value as DataModel).._fields._db = this;
-  }
-
-  void _commit(List<DataRecord> records) {
-    _repo?.write(records);
-  }
-  
-  void _notifyListeners(DataEvent event) {
-    // print('TODO _notifyListeners($event)');
   }
 }
 
@@ -252,37 +256,4 @@ class DataRecord implements JsonString {
 
   @override
   toString() => isDelete ? '$id:$timestamp' : '$id:$timestamp:$type${Json.encode(_data)}';
-}
-
-class DataEvent extends Json {
-
-  final Set<String> history;
-  final List<DataRecord> records;
-
-  DataEvent(String srcId, this.records) : history = {srcId};
-  DataEvent.fromJson(data) :
-        history = Json.toSet(data, 'history'),
-        records = Json.toList(data, 'records', (e) => DataRecord.fromLine(e))
-  ;
-
-  bool visitedBy(String id) => history.contains(id);
-  bool notVisitedBy(String id) => !visitedBy(id);
-
-  bool get isEmpty => records.isEmpty;
-  bool get isNotEmpty => !isEmpty;
-
-  bool visit(String id) {
-    final notVisited = notVisitedBy(id);
-    history.add(id);
-    return notVisited;
-  }
-
-  @override
-  Map<String, dynamic> toJson() => {
-    'history':   Json.from(history),
-    'records':   Json.from(records),
-  };
-
-  @override
-  String toString() => 'DataEvent(history: $history, records: $records)';
 }

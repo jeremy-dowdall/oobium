@@ -12,11 +12,11 @@ Future<void> main() async {
   ClientWebSocket wsClient;
 
   setUp(() async {
-    wsClient?.close();
+    await wsClient?.close();
     wsClient = (await ClientWebSocket.connect(address: '127.0.0.1', port: 8001))..start();
   });
   tearDown(() async {
-    wsClient?.close();
+    await wsClient?.close();
     wsClient = null;
   });
 

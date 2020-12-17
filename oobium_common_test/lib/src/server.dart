@@ -29,8 +29,7 @@ abstract class TestDatabaseServer extends TestIsolate {
   Future<void> onStart() async {
     _db = onCreateDatabase();
     await _db.reset();
-    _server = await TestWebsocketServer.start(port: 8001, onUpgrade: (socket) async {
-      print('bind to server db');
+    _server = await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
       _db.bind(socket);
     });
   }

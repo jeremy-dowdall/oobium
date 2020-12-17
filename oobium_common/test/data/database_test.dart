@@ -208,6 +208,7 @@ Future<void> main() async {
 final databases = <Database>[];
 Database create([Database clone]) {
   final path = clone?.path ?? 'test-data/test-${databases.length}';
+  print('running test ${databases.length}');
   final db = Database(path, [(data) => TestType1.fromJson(data)]);
   databases.add(db);
   return db;

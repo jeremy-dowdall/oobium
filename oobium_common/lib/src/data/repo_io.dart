@@ -7,49 +7,37 @@ import 'repo_base.dart' as base;
 
 class Repo extends base.Repo {
 
-  final File repo;
   final executor = Executor();
-  Repo(String path) : repo = File('$path.repo'), super(path);
+  Repo(String db) : super(db);
 
-  Future<void> open() {
-    return repo.create(recursive: true);
+  String get path => '$db/repo';
+  File get file => File(path);
+
+  @override
+  Future<Repo> open() async {
+    await file.create();
+    return this;
   }
 
-  Future<void> close() async {
-    return executor.close();
+  @override
+  Future<void> close({bool cancel = false}) {
+    return executor.close(cancel: cancel ?? false);
   }
 
-  Future<void> destroy() async {
-    await executor.close(cancel: true);
-    if(await repo.exists()) {
-      return repo.delete();
-    } else {
-      return Future.value();
-    }
-  }
-
-  Stream<DataRecord> read() async* {
-    for(var line in await repo.readAsLines()) {
+  @override
+  Stream<DataRecord> get([int timestamp]) async* {
+    for(var line in await file.readAsLines()) {
       yield(DataRecord.fromLine(line));
     }
   }
 
-  void write(Iterable<DataRecord> records) {
-    executor.add(() async {
-      final sink = repo.openWrite(mode: FileMode.append);
-      for(var record in records) {
-        sink.writeln(record);
-      }
-      await sink.flush();
-      await sink.close();
-    });
-  }
-
-  Future<void> writeStream(Stream<String> lines) {
+  @override
+  Future<void> put(Stream<DataRecord> records) {
+    // TODO compact
     return executor.add(() async {
-      final sink = repo.openWrite();
-      await for(var line in lines) {
-        sink.writeln(line);
+      final sink = file.openWrite(mode: FileMode.append);
+      await for(var record in records) {
+        sink.writeln(record);
       }
       await sink.flush();
       await sink.close();

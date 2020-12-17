@@ -8,55 +8,40 @@ import 'repo_base.dart' as base;
 
 class Repo extends base.Repo {
 
-  Repo(String path) : super(path);
+  Repo(String db) : super(db);
 
-  Database db;
+  Database idb;
   final executor = Executor();
 
-  Future<void> open() async {
-    db = await window.indexedDB.open(path, version: 1, onUpgradeNeeded: (event) async {
-      final upgradeDb = event.target.result as Database;
-      if(!upgradeDb.objectStoreNames.contains('repo')) {
-        final objectStore = upgradeDb.createObjectStore('repo');
-        await objectStore.transaction.completed;
-      }
-    });
+  @override
+  Future<Repo> open() async {
+    idb = await window.indexedDB.open(db);
+    return this;
   }
 
-  Future<void> close() async {
-    await executor.close();
-    db.close();
-    db = null;
+  @override
+  Future<void> close({bool cancel = false}) async {
+    await executor.close(cancel: cancel ?? false);
+    idb.close();
+    idb = null;
     return Future.value();
   }
 
-  Future<void> destroy() async {
-    await executor.close(cancel: true);
-    db.close();
-    db = null;
-    // TODO this destroys the whole database, something we probably want, but not at this level (in the repo class)
-    await window.indexedDB.deleteDatabase(path);
-  }
-
-  Stream<DataRecord> read() {
-    return db.transaction('repo', 'readonly').objectStore('repo').openCursor(autoAdvance: true).map((event) {
+  @override
+  Stream<DataRecord> get([int timestamp]) {
+    return idb.transaction('repo', 'readonly').objectStore('repo').openCursor(autoAdvance: true).map((event) {
       return DataRecord.fromLine(event.value);
     });
   }
-  
-  void write(Iterable<DataRecord> records) {
-    for(var record in records) {
-      if(record.isDelete) {
-        executor.add(() => db.transaction('repo', 'readwrite').objectStore('repo').delete(record.id));
-      } else {
-        executor.add(() => db.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.id));
-      }
-    }
-  }
 
-  Future<void> writeStream(Stream<String> lines) async {
-    await for(var record in lines.map((line) => DataRecord.fromLine(line))) {
-      executor.add(() => db.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.id));
+  @override
+  void put(Stream<DataRecord> records) async {
+    await for(var record in records) {
+      if(record.isDelete) {
+        executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').delete(record.id));
+      } else {
+        executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.id));
+      }
     }
   }
 }
