@@ -15,7 +15,7 @@ Future<void> main() async {
     final admin = db.put(User(name: 'admin', token: Token(), role: 'admin'));
     await db.close();
 
-    final server = await TestIsolate.start(TestServer(port: 8001, dbPath: '$path/auth.db'));
+    final server = await TestHybrid.start(TestServer(port: 8001, dbPath: '$path/auth.db'));
 
     final clientA = await AuthSocket.connect(port: 8001, uid: admin.id, token: admin.token.id);
     expect(clientA.uid, admin.id);
@@ -47,7 +47,7 @@ Future<void> main() async {
   });
 }
 
-class TestServer extends TestIsolate {
+class TestServer extends TestHybrid {
 
   final int port;
   final String dbPath;

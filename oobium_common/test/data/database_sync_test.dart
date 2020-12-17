@@ -5,27 +5,27 @@ import 'package:oobium_common/src/data/repo.dart';
 import 'package:oobium_common/src/data/sync.dart';
 import 'package:oobium_common/src/database.dart';
 import 'package:oobium_common/src/websocket.dart';
-import 'package:oobium_common_test/oobium_common_test.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
 
-  // setUp(() => Data(path).destroy());
-  // tearDownAll(() => Data(path).destroy());
+  setUpAll(() => Data('test-data').destroy());
+  tearDownAll(() => Data('test-data').destroy());
 
-  group('lifecycle', () {
+  group('sync lifecycle', () {
     test('test no id first open', () async {
       final path = nextPath();
-      await Data(path).create();
-      final sync = Sync(path, Repo(path));
+      final data = await Data(path).create();
+      final sync = Sync(data, Repo(data));
       await sync.open();
       expect(sync.id, isNull);
     });
 
     test('test id auto-generated on replicate and maintained on open', () async {
       final path = nextPath();
-      await Data(path).create();
-      final sync = Sync(path, Repo(path));
+      final data = await Data(path).create();
+      final sync = Sync(data, Repo(data));
       await sync.open();
       await sync.createReplicant();
       expect(sync.id, isNotNull);
@@ -39,18 +39,18 @@ Future<void> main() async {
 
   test('test replication', () async {
     final port = nextPort();
-    final server = await serverIsolate(nextPath(), port);
+    final server = await serverHybrid(nextPath(), port);
     final model = await server.dbPut(TestType1(name: 'test-01'));
 
     final db = database(nextPath());
     await db.reset(socket: await ClientWebSocket.connect(port: port));
 
-    expect(db.get<TestType1>(model['id'])?.name, model['name']);
+    expect(db.get<TestType1>(model.id)?.name, model.name);
   });
 
   test('test bind(1 <-> 2) with pre-existing data', () async {
     final port = nextPort();
-    final server = await serverIsolate(nextPath(), port);
+    final server = await serverHybrid(nextPath(), port);
     final client = (await ClientWebSocket.connect(port: port));
 
     final db2 = database(nextPath());
@@ -66,15 +66,15 @@ Future<void> main() async {
 
     expect(await server.dbModelCount, 2);
     expect(await server.dbModelCount, db2.size);
-    expect((await server.dbGet(m1.id))['name'], 'test01');
-    expect((await server.dbGet(m2.id))['name'], 'test02');
+    expect((await server.dbGet(m1.id)).name, 'test01');
+    expect((await server.dbGet(m2.id)).name, 'test02');
     expect(db2.get<TestType1>(m1.id)?.name, 'test01');
     expect(db2.get<TestType1>(m2.id)?.name, 'test02');
   });
 
   test('test bind(1 <-> 2) fresh', () async {
     final port = nextPort();
-    final server = await serverIsolate(nextPath(), port);
+    final server = await serverHybrid(nextPath(), port);
     final client = (await ClientWebSocket.connect(port: port));
 
     final db = database(nextPath());
@@ -93,18 +93,18 @@ Future<void> main() async {
     db.put(m2);
     expect(db.size, 2);
     expect(await server.dbModelCount, db.size);
-    expect((await server.dbGet(m2.id))['name'], 'test02');
+    expect((await server.dbGet(m2.id)).name, 'test02');
   });
 
   test('test bind(2 <-> 1 <-> 3)', () async {
     final port = nextPort();
-    final server = await serverIsolate(nextPath(), port);
+    final server = await serverHybrid(nextPath(), port);
     final client1 = (await ClientWebSocket.connect(port: port));
     final client2 = (await ClientWebSocket.connect(port: port));
 
     final db1 = database(nextPath());
     await db1.reset(socket: client1);
-    final db2 = database('test3');
+    final db2 = database(nextPath());
     await db2.reset(socket: client2);
 
     await db1.bind(client1);
@@ -119,7 +119,7 @@ Future<void> main() async {
     expect(await server.dbModelCount, 1);
     expect(db1.size, 1);
     expect(db2.size, 1);
-    expect((await server.dbGet(m1.id))['name'], 'test01');
+    expect((await server.dbGet(m1.id)).name, 'test01');
     expect(db1.get<TestType1>(m1.id)?.name, 'test01');
     expect(db2.get<TestType1>(m1.id)?.name, 'test01');
 
@@ -128,7 +128,7 @@ Future<void> main() async {
     expect(await server.dbModelCount, 2);
     expect(db1.size, 2);
     expect(db2.size, 2);
-    expect((await server.dbGet(m2.id))['name'], 'test02');
+    expect((await server.dbGet(m2.id)).name, 'test02');
     expect(db1.get<TestType1>(m2.id)?.name, 'test02');
     expect(db2.get<TestType1>(m2.id)?.name, 'test02');
 
@@ -137,14 +137,61 @@ Future<void> main() async {
     expect(await server.dbModelCount, 3);
     expect(db1.size, 3);
     expect(db2.size, 3);
-    expect((await server.dbGet(m3.id))['name'], 'test03');
+    expect((await server.dbGet(m3.id)).name, 'test03');
     expect(db1.get<TestType1>(m3.id)?.name, 'test03');
     expect(db2.get<TestType1>(m3.id)?.name, 'test03');
   });
 }
 
 Database database(String path) => Database(path, [(data) => TestType1.fromJson(data)]);
-Future<TestServer> serverIsolate(String path, int port) => TestIsolate.start(TestServer(path: path, port: port));
+Future<TestServer> serverHybrid(String path, int port) => TestServer.start(path, port);
+
+int dbCount = 0;
+int serverCount = 0;
+String nextPath() => 'test-data/database-sync-test-${dbCount++}';
+int nextPort() => 8000 + (serverCount++);
+
+class TestServer {
+
+  static Future<TestServer> start(String path, int port) async {
+    final server = TestServer(spawnHybridUri('database_sync_test_server.dart', message: [path, port]));
+    await server.ready;
+    return server;
+  }
+
+  final _ready = Completer();
+  final StreamChannel channel;
+  TestServer(this.channel) {
+    channel.stream.listen((msg) {
+      if(msg == 'ready') {
+        _ready.complete();
+      }
+      else if(completer != null && !completer.isCompleted) {
+        if(msg is Map) {
+          completer.complete(TestType1.fromJson(msg));
+        } else {
+          completer.complete(msg);
+        }
+        completer = null;
+      }
+    });
+  }
+
+  Future<void> get ready => _ready.future;
+
+  Future<TestType1> dbGet(String id) => _send<TestType1>('/db/get', id);
+  Future<TestType1> dbPut(DataModel model) => _send<TestType1>('/db/put', model.toJson());
+
+  Future<int> get dbModelCount => _send<int>('/db/count/models');
+
+  Completer completer;
+  Future<T> _send<T>(String path, [dynamic data]) async {
+    await completer?.future;
+    completer = Completer<T>();
+    channel.sink.add([path, data]);
+    return completer.future;
+  }
+}
 
 class TestType1 extends DataModel {
   String get name => this['name'];
@@ -155,16 +202,3 @@ class TestType1 extends DataModel {
   @override TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
   @override TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
 }
-
-class TestServer extends TestDatabaseServer {
-
-  TestServer({String path, int port}) : super(path: path, port: port);
-
-  @override
-  Database onCreateDatabase() => Database(path, [(data) => TestType1.fromJson(data)]);
-}
-
-int dbCount = 0;
-int serverCount = 0;
-String nextPath() => 'test-data/database-sync-test-${dbCount++}';
-int nextPort() => 8000 + (serverCount++);

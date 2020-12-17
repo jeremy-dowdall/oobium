@@ -7,7 +7,7 @@ import 'package:oobium_server/src/server.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
-  final wsServer = await TestIsolate.start(TestServer());
+  final wsServer = await TestHybrid.start(TestServer());
 
   ClientWebSocket wsClient;
 
@@ -132,7 +132,7 @@ Future<void> main() async {
   // });
 }
 
-class TestServer extends TestIsolate {
+class TestServer extends TestHybrid {
 
   Server server;
   ServerWebSocket wsServer;

@@ -1,27 +1,21 @@
 import 'dart:io';
 
-import 'package:oobium_common/src/data/executor.dart';
+import 'package:oobium_common/src/data/data.dart';
 import 'package:oobium_common/src/database.dart';
 
 import 'repo_base.dart' as base;
 
 class Repo extends base.Repo {
 
-  final executor = Executor();
-  Repo(String db) : super(db);
+  Repo(Data db) : super(db);
 
-  String get path => '$db/repo';
-  File get file => File(path);
+  File file;
 
   @override
   Future<Repo> open() async {
+    file = File('${db.connect(this)}/repo');
     await file.create();
     return this;
-  }
-
-  @override
-  Future<void> close({bool cancel = false}) {
-    return executor.close(cancel: cancel ?? false);
   }
 
   @override
@@ -37,6 +31,19 @@ class Repo extends base.Repo {
     return executor.add(() async {
       final sink = file.openWrite(mode: FileMode.append);
       await for(var record in records) {
+        sink.writeln(record);
+      }
+      await sink.flush();
+      await sink.close();
+    });
+  }
+
+  @override
+  Future<void> putAll(Iterable<DataRecord> records) {
+    // TODO compact
+    return executor.add(() async {
+      final sink = file.openWrite(mode: FileMode.append);
+      for(var record in records) {
         sink.writeln(record);
       }
       await sink.flush();

@@ -1,7 +1,9 @@
 import 'dart:html' hide WebSocket;
 import 'dart:indexed_db';
 
+import 'package:oobium_common/src/data/data.dart';
 import 'package:oobium_common/src/data/executor.dart';
+import 'package:oobium_common/src/data/models.dart';
 import 'package:oobium_common/src/data/repo.dart';
 import 'package:oobium_common/src/websocket.dart';
 
@@ -9,29 +11,15 @@ import 'sync_base.dart' as base;
 
 class Sync extends base.Sync {
 
-  Sync(String db, Repo repo) : super(db, repo);
+  Sync(Data db, Repo repo, [Models models]) : super(db, repo, models);
 
   Database idb;
   final executor = Executor();
 
   @override
   Future<Sync> open() async {
-    idb = await window.indexedDB.open(db, version: 1, onUpgradeNeeded: (event) async {
-      final upgradeDb = event.target.result as Database;
-      if(!upgradeDb.objectStoreNames.contains('repo')) {
-        final objectStore = upgradeDb.createObjectStore('repo');
-        await objectStore.transaction.completed;
-      }
-    });
+    idb = db.connect(this);
     return this;
-  }
-
-  @override
-  Future<void> close({bool cancel = false}) async {
-    await executor.close(cancel: cancel ?? false);
-    idb.close();
-    idb = null;
-    return Future.value();
   }
 
   @override
@@ -40,14 +28,8 @@ class Sync extends base.Sync {
   }
 }
 
-class Binder extends base.Binder {
-
-  Binder(Sync sync, WebSocket socket) : super(sync, socket);
-
-}
-
 class Replicant extends base.Replicant {
 
-  Replicant(String db, String id) : super(db, id);
+  Replicant(Data db, String id) : super(db, id);
 
 }

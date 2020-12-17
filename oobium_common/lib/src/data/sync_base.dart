@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:objectid/objectid.dart';
+import 'package:oobium_common/src/data/data.dart';
 import 'package:oobium_common/src/data/executor.dart';
+import 'package:oobium_common/src/data/models.dart';
 import 'package:oobium_common/src/data/repo.dart';
 import 'package:oobium_common/src/database.dart';
 import 'package:oobium_common/src/json.dart';
@@ -17,23 +19,33 @@ const connectPath = '/db/connect';
 const syncPath = '/db/sync';
 const dataPath = '/db/data';
 
-class Sync {
+class Sync implements Connection {
 
-  final String db;
+  final Data db;
+  final Models models;
   final Repo repo;
-  Sync(this.db, this.repo);
+  Sync(this.db, this.repo, [this.models]);
 
   String id;
-  final binders = <WebSocket, platform.Binder>{};
+  final binders = <WebSocket, Binder>{};
   final replicants = <platform.Replicant>[];
 
   Future<Sync> open() => throw UnsupportedError('platform not supported');
-  Future<void> close({bool cancel = false}) => throw UnsupportedError('platform not supported');
+
+  Future<void> close({bool cancel = false}) async {
+    for(var replicant in replicants) {
+      await replicant.close(cancel: cancel ?? false);
+    }
+    id = null;
+    replicants.clear();
+  }
+
   Future<void> save() => throw UnsupportedError('platform not supported');
 
-  void put(Stream<DataRecord> records) async {
+  void put(Iterable<DataRecord> records) {
+    repo.putAll(records);
     for(var replicant in replicants) {
-      replicant.put(records);
+      replicant.putAll(records);
     }
   }
 
@@ -41,7 +53,7 @@ class Sync {
     if(binders.containsKey(socket)) {
       return Future.value();
     } else {
-      final binder = platform.Binder(this, socket);
+      final binder = Binder(this, socket);
       binders[socket] = binder;
       binder.finished.then((_) => binders.remove(socket));
       return binder.ready;
@@ -62,8 +74,7 @@ class Sync {
     if(result.isSuccess) {
       final response = result.data.split(':');
       id = response[1]; // TODO assert this is null to begin with?
-      final replicant = platform.Replicant(db, response[0]);
-      _addReplicant(replicant);
+      await _addReplicant(response[0]);
     }
   }
   Future<void> _getReplicantData(WebSocket socket) async {
@@ -77,16 +88,17 @@ class Sync {
 
   Future<String> createReplicant() async {
     id ??= ObjectId().hexString;
-    final replicant = platform.Replicant(db, ObjectId().hexString);
-    _addReplicant(replicant);
+    final replicant = await _addReplicant();
     return '$id:${replicant.id}';
   }
 
-  Future<void> _addReplicant(platform.Replicant replicant) async {
-    await replicant.save();
+  Future<platform.Replicant> _addReplicant([String id]) async {
+    final replicant = platform.Replicant(db, id ?? ObjectId().hexString);
     await replicant.open();
+    await replicant.save();
     replicants.add(replicant);
     await save();
+    return replicant;
   }
 }
 
@@ -101,8 +113,8 @@ class Binder {
   Binder(this._sync, this._socket) {
     _socket.done.then((_) => cancel());
     _subscriptions.addAll([
-      _socket.on.get(replicantPath, (req, res) async => res.send(data: await _sync.createReplicant())),
-      _socket.on.get(dataPath, (req, res) => res.send(data: _sync.repo.get().map((r) => r.toJsonString()).transform(utf8.encoder))),
+      _socket.on.get(replicantPath, onGetReplicant),
+      _socket.on.get(dataPath, onGetData),
       _socket.on.put(connectPath, (req, res) => onConnect(req.data)),
       _socket.on.put(dataPath, (req, res) => onData(req.data)),
       _socket.on.put(syncPath, (req, res) async => onSync(req.data)),
@@ -118,6 +130,14 @@ class Binder {
   bool isSynced = false;
   bool isPeerSynced = false;
 
+  Future<void> onGetReplicant(WsRequest req, WsResponse res) async {
+    res.send(data: await _sync.createReplicant());
+  }
+  
+  Future<void> onGetData(WsRequest req, WsResponse res) async {
+    res.send(data: _sync.repo.get().map((r) => r.toJsonString()).transform(utf8.encoder));
+  }
+  
   Future<void> sendConnect() async {
     localId = _sync.id;
     if(localId != null && !isPeerConnected) {
@@ -144,7 +164,7 @@ class Binder {
 
   Future<void> sendSync() async {
     if(isConnected && isPeerConnected && !isPeerSynced) {
-      final records = await _replicant.getSyncRecords(_sync.repo);
+      final records = await _replicant.getSyncRecords(_sync.models);
       final data = await records.toList();
       // final data = records.map((r) => r.toJsonString()).transform(utf8.encoder);
       isPeerSynced = (await _socket.put(syncPath, data)).isSuccess;
@@ -181,7 +201,8 @@ class Binder {
   Future<void> onData(data) async {
     final event = (data is DataEvent) ? data : (data is WsData) ? DataEvent.fromJson(data.value) : null;
     if(event != null && event.isNotEmpty && event.visit(localId)) {
-      _sync.repo.put(Stream.fromIterable(event.records));
+      _sync.models.loadAll(event.records);
+      _sync.repo.putAll(event.records);
       for(var binder in _sync.binders.values) {
         if(event.notVisitedBy(binder.remoteId)) {
           await binder.sendData(event);
@@ -209,9 +230,9 @@ class Binder {
   }
 }
 
-class Replicant {
+class Replicant implements Connection {
 
-  final String db;
+  final Data db;
   final String id;
   Replicant(this.db, this.id);
 
@@ -219,13 +240,13 @@ class Replicant {
   Future<void> close({bool cancel = false}) => stopTracking(cancel: cancel ?? false);
   Future<void> destroy() => throw UnsupportedError('platform not supported');
 
-  Stream<DataRecord> getSyncRecords(Repo repo) => throw UnsupportedError('platform not supported');
+  Stream<DataRecord> getSyncRecords(Models models) => throw UnsupportedError('platform not supported');
 
   Future<void> save() => throw UnsupportedError('platform not supported');
   Future<void> saveRecords(Iterable<DataRecord> records) => throw UnsupportedError('platform not supported');
 
-  platform.Binder _binder;
-  Future<void> attach(platform.Binder binder) async {
+  Binder _binder;
+  Future<void> attach(Binder binder) async {
     _binder = binder;
     await stopTracking();
   }
@@ -248,13 +269,12 @@ class Replicant {
   }
 
   /// new records in db, notify the socket or save relevant records for a future sync
-  void put(Stream<DataRecord> records) async {
-    final list = await records.toList();
-    if(list.isNotEmpty) {
+  void putAll(Iterable<DataRecord> records) async {
+    if(records.isNotEmpty) {
       if(isConnected) {
         _binder.sendData(records).then((_) => save());
       } else {
-        _executor.add(() => saveRecords(list.where((r) => r.isDelete)));
+        _executor.add(() => saveRecords(records.where((r) => r.isDelete)));
       }
     }
   }

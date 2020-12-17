@@ -1,5 +1,7 @@
 import 'dart:io' hide WebSocket;
 
+import 'package:oobium_common/src/data/data.dart';
+import 'package:oobium_common/src/data/models.dart';
 import 'package:oobium_common/src/data/repo.dart';
 import 'package:oobium_common/src/database.dart';
 import 'package:oobium_common/src/websocket.dart';
@@ -8,35 +10,29 @@ import 'sync_base.dart' as base;
 
 class Sync extends base.Sync {
 
-  Sync(String db, Repo repo) : super(db, repo);
+  Sync(Data db, Repo repo, [Models models]) : super(db, repo, models);
 
-  String get path => '$db/sync';
-  File get file => File(path);
+  File file;
 
   @override
   Future<Sync> open() async {
-    await file.create();
-    final lines = await file.readAsLines();
-    if(lines.isNotEmpty) {
-      id = lines.first;
-      for(var id in lines.skip(1)) {
-        replicants.add(await Replicant(db, id).open());
+    file = File('${db.connect(this)}/sync');
+    if(await file.exists()) {
+      final lines = await file.readAsLines();
+      if(lines.isNotEmpty) {
+        id = lines.first;
+        for(var id in lines.skip(1)) {
+          replicants.add(await Replicant(db, id).open());
+        }
       }
+    } else {
+      await file.create();
     }
     return this;
   }
 
-  @override
-  Future<void> close({bool cancel = false}) async {
-    for(var replicant in replicants) {
-      await replicant.close(cancel: cancel ?? false);
-    }
-    id = null;
-    replicants.clear();
-    return Future.value();
-  }
-
   Future<void> save() async {
+    assert(id != null);
     final sink = file.openWrite();
     sink.writeln(id);
     for(var replicant in replicants) {
@@ -47,27 +43,24 @@ class Sync extends base.Sync {
   }
 }
 
-class Binder extends base.Binder {
-
-  Binder(Sync sync, WebSocket socket) : super(sync, socket);
-
-}
-
 class Replicant extends base.Replicant {
 
-  Replicant(String db, String id) : super(db, id);
+  Replicant(Data db, String id) : super(db, id);
 
-  String get path => '$db/sync.$id';
-  File get file => File(path);
+  File file;
 
-  Future<Replicant> open() => startTracking().then((_) => Future.value(this));
+  Future<Replicant> open() {
+    file = File('${db.connect(this)}/sync.$id');
+    return startTracking().then((_) => Future.value(this));
+  }
+
   Future<void> destroy() => Future.value();
 
-  Stream<DataRecord> getSyncRecords(Repo repo) async* {
+  Stream<DataRecord> getSyncRecords(Models models) async* {
     final lines = await file.readAsLines();
     final lastSync = int.parse(lines[0]);
-    await for(var record in repo.get(lastSync)) {
-      yield(record);
+    for(var model in models.getAll().where((model) => model.timestamp > lastSync)) {
+      yield(DataRecord.fromModel(model));
     }
     for(var record in lines.skip(1).map((l) => DataRecord.fromLine(l))) {
       yield(record);

@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   test: ^1.15.3
+  stream_channel: ^2.0.0
   oobium_common:
     path: ../oobium_common
 

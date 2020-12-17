@@ -10,16 +10,15 @@ class WsSocket {
   static Future<WsSocket> connect(String url, [String authToken]) async {
     final auth = (authToken != null) ? ['authorization', 'TOKEN $authToken'] : <String>[];
     final ws = WebSocket(url, auth);
-    final ready = Completer();
-    ws.addEventListener('open', (event) => ready.complete());
-    await ready;
+    await ws.onOpen.first;
     return WsSocket(ws);
   }
 
   StreamSubscription listen(onData, {onError, onDone}) {
-    ws.addEventListener('message', _onMessage);
+    final handler = (event) => _controller.add(event.data);
+    ws.addEventListener('message', handler);
     return _controller.stream.listen(onData, onError: onError, onDone: () {
-      ws.removeEventListener('message', _onMessage);
+      ws.removeEventListener('message', handler);
     });
   }
 
@@ -29,6 +28,4 @@ class WsSocket {
   }
 
   void add(data) => ws.send((data is List<int>) ? data : data.toString());
-
-  void _onMessage(MessageEvent event) => _controller.add(event.data);
 }

@@ -1,0 +1,174 @@
+import 'package:objectid/objectid.dart';
+import 'package:oobium_common/src/database.dart';
+import 'package:oobium_common/src/json.dart';
+
+class Models {
+
+  Models([List<Function(Map data)> builders]) {
+    if(builders != null) for(var builder in builders) {
+      final type = builder.runtimeType.toString().split(' => ')[1];
+      _builders[type] = builder;
+    }
+  }
+  
+  final _builders = <String, Function(Map data)>{};
+  final _models = <String, DataModel>{};
+
+  Future<void> load(Stream<DataRecord> records) async {
+    await for(var record in records) {
+      if(record.isDelete) {
+        _models.remove(record.id);
+      } else {
+        _models[record.id] = _build(record);
+      }
+    }
+  }
+
+  void loadAll(Iterable<DataRecord> records) {
+    for(var record in records) {
+      if(record.isDelete) {
+        _models.remove(record.id);
+      } else {
+        _models[record.id] = _build(record);
+      }
+    }
+  }
+
+  void clear() {
+    _models.clear();
+  }
+
+  int get length => _models.length;
+
+  T get<T extends DataModel>(String id, {T Function() orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
+  Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? _models.values : _models.values.whereType<T>();
+
+  Batch<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
+    final batch = Batch<T>();
+
+    if(put != null) for(var model in put) {
+      if(model.isSameAs(_models[model.id])) {
+        batch.results.add(model);
+      } else {
+        _models[model.id] = model;
+        batch.results.add(model);
+        batch.records.add(DataRecord.fromModel(model));
+      }
+      for(var member in model._fields.models) {
+        if(member.isNotSameAs(_models[member.id])) {
+          _models[member.id] = member;
+          batch.records.add(DataRecord.fromModel(member));
+        }
+      }
+    }
+    if(remove != null) for(var id in remove) {
+      final model = _models.remove(id);
+      batch.results.add(model);
+      if(model != null) {
+        batch.records.add(DataRecord.delete(id));
+      }
+    }
+
+    return batch;
+  }
+
+  DataModel _build(DataRecord record) {
+    assert(_builders[record.type] != null, 'no builder registered for ${record.type}');
+    final value = _builders[record.type](record.data);
+    assert(value is DataModel, 'builder did not return a DataModel: $value');
+    return (value as DataModel).._fields._context = this;
+  }
+}
+
+class Batch<T extends DataModel> {
+  final results = <T>[];
+  final records = <DataRecord>[];
+}
+
+abstract class DataModel extends JsonModel implements DataId {
+
+  final int timestamp;
+  final DataFields _fields;
+
+  DataModel(Map<String, dynamic> fields) :
+        timestamp = DateTime.now().millisecondsSinceEpoch,
+        _fields = DataFields(fields),
+        super(ObjectId().hexString);
+
+  DataModel.copyNew(DataModel original, Map<String, dynamic> fields) :
+        timestamp = DateTime.now().millisecondsSinceEpoch,
+        _fields = DataFields({...original._fields._map}..addAll(fields??{})),
+        super(ObjectId().hexString);
+
+  DataModel.copyWith(DataModel original, Map<String, dynamic> fields) :
+        timestamp = DateTime.now().millisecondsSinceEpoch,
+        _fields = DataFields({...original._fields._map}..addAll(fields??{})),
+        super(original.id);
+
+  DataModel.fromJson(data, Set<String> fields, Set<String> modelFields) :
+        timestamp = Json.field(data, 'timestamp'),
+        _fields = DataFields({
+          for(var k in fields) k: Json.field(data, k),
+          for(var k in modelFields) k: DataId(Json.field(data, k))
+        }),
+        super.fromJson(data);
+
+  dynamic operator [](String key) => _fields[key];
+
+  DataModel copyNew();
+  DataModel copyWith();
+
+  DateTime get createdAt => ObjectId.fromHexString(id).timestamp;
+  DateTime get updatedAt => DateTime.fromMillisecondsSinceEpoch(timestamp);
+
+  @override
+  bool isSameAs(other) =>
+      (runtimeType == other?.runtimeType) &&
+          (id == other.id) && (timestamp == other.timestamp) &&
+          _fields == other._fields;
+
+  @override
+  bool isNotSameAs(other) => !isSameAs(other);
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'timestamp': timestamp,
+    for(var e in _fields._map.entries) e.key: e.value
+  };
+
+  @override
+  String toString() => '${runtimeType.toString()}($id)';
+}
+
+class DataId implements JsonString {
+  final String id;
+  DataId(this.id);
+  @override
+  String toJsonString() => id;
+}
+
+class DataFields {
+
+  final Map<String, dynamic> _map;
+  DataFields(this._map);
+
+  Models _context;
+
+  Iterable<DataModel> get models => _map.values.whereType<DataModel>();
+
+  operator [](String key) {
+    final value = _map[key];
+    if(value is DataModel) return value;
+    if(value is DataId) return _context.get(value.id);
+    return value;
+  }
+
+  bool operator ==(other) => (other is DataFields) && (_map.length == other._map.length) && _map.keys.every((k) => _(k) == other._(k));
+
+  String _(String key) {
+    final obj = _map[key];
+    if(obj is DataId) return obj.id;
+    return obj;
+  }
+}

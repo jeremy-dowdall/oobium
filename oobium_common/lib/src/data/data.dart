@@ -1,3 +1,5 @@
 export 'data_base.dart'
-if (dart.library.io) 'data_io.dart'
-if (dart.library.html) 'data_html.dart';
+  if (dart.library.io) 'data_io.dart'
+  if (dart.library.html) 'data_html.dart';
+
+export 'data_base.dart' show Connection;

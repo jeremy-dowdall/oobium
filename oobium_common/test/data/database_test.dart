@@ -1,9 +1,19 @@
+import 'package:oobium_common/src/data/data.dart';
 import 'package:oobium_common/src/database.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
 
   tearDown(() async => await destroy());
+
+  test('test data create / destroy', () async {
+    final data = Data('test-db');
+    await data.create();
+    print('destroy 1');
+    await data.destroy();
+    print('destroy 2');
+    await data.destroy();
+  });
 
   test('test auto-generate id', () async {
     expect(TestType1(name: 'test01').id, isNotEmpty);
@@ -36,21 +46,9 @@ Future<void> main() async {
   test('test data stored persistently', () async {
     final db = create();
     await db.reset();
-    db.put(TestType1(name: 'test01'));
-    await db.close();
-
-    final db2 = create(db);
-    await db2.open();
-    final data = db2.getAll<TestType1>().toList();
-    expect(data.length, 1);
-    expect(data[0].name, 'test01');
-  });
-
-  test('test loading data stored on disk', () async {
-    final db = create();
-    await db.reset();
     final model = db.put(TestType1(name: 'test01'));
     await db.close();
+
     final db2 = create(db);
     await db2.open();
     expect(db2.get(model.id), isNotNull);
@@ -64,6 +62,7 @@ Future<void> main() async {
     await db.reset();
     final model = db.put(TestType1());
     await db.close();
+
     final db2 = create(db);
     await db2.open();
     expect(db2.get(model.id), isNotNull);
@@ -208,7 +207,6 @@ Future<void> main() async {
 final databases = <Database>[];
 Database create([Database clone]) {
   final path = clone?.path ?? 'test-data/test-${databases.length}';
-  print('running test ${databases.length}');
   final db = Database(path, [(data) => TestType1.fromJson(data)]);
   databases.add(db);
   return db;
