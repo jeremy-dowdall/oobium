@@ -5,7 +5,7 @@ import 'package:oobium_common/src/websocket.dart';
 import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-hybridMain(StreamChannel channel, dynamic message) async {
+Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
   final server = WsTestServer();
   await server.start(message);
@@ -35,6 +35,12 @@ class WsTestServer {
         wsData = req.data.value;
       });
       ws.on.put('/stream', (req, res) async {
+        final completer = Completer<List<List<int>>>();
+        wsData = completer.future;
+        final d = await req.data.stream.toList();
+        completer.complete(d);
+      });
+      ws.on.put('/file', (req, res) async {
         final completer = Completer<List<List<int>>>();
         wsData = completer.future;
         final d = await req.data.stream.toList();

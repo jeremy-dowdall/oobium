@@ -125,8 +125,14 @@ Future<void> main() async {
       expect(result.code, 200);
       expect(await server.data, data);
     });
+    test('put file', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      final result = await client.put('/file', WsFile('assets/test-file-01.txt'));
+      expect(result.code, 200);
+      expect(await server.data, [[1,2,3]]);
+    });
   });
-
   // group('test x-client', () {
   //   test('put String', () async {
   //     server.on.put('/register', (data) {
@@ -155,11 +161,7 @@ class WsTestServerClient {
         _ready.complete();
       }
       else if(completer != null && !completer.isCompleted) {
-        // if(msg is Map) {
-        //   completer.complete(TestType1.fromJson(msg));
-        // } else {
-          completer.complete(msg);
-        // }
+        completer.complete(msg);
         completer = null;
       }
     });

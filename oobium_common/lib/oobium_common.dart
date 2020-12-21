@@ -1,5 +1,6 @@
 export 'package:oobium_common/src/database.dart' show Database, DataModel;
 export 'package:oobium_common/src/api_client.dart';
+export 'package:oobium_common/src/auth/admin_client.dart';
 export 'package:oobium_common/src/auth/auth.dart';
 export 'package:oobium_common/src/auth/auth_socket.dart';
 export 'package:oobium_common/src/file_cache.dart';

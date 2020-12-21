@@ -12,6 +12,8 @@ export 'package:oobium_common/src/data/models.dart' show DataModel;
 
 class Database {
 
+  static Future<void> clean(String path) => Data(path).destroy();
+
   final String path;
   final Models _models;
   Database(this.path, [List<Function(Map data)> builders]) : _models = Models(builders) {

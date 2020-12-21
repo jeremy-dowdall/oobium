@@ -407,6 +407,8 @@ class Request {
   List<List<int>> get ranges => header[HttpHeaders.rangeHeader].substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 
+  ServerSettings get settings => _host.settings;
+
   ServerWebSocket _websocket() {
     final socket = ServerWebSocket._(params['uid'], _host);
     _host._sockets[socket.id] = socket;
@@ -629,8 +631,8 @@ RequestHandler fireAuth = (req, res) async {
   }
 };
 
-RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f) => (req, res) async {
+RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols) protocol, bool autoStart = true}) => (req, res) async {
   final socket = req._websocket();
   await f(socket);
-  return socket.upgrade(req._httpRequest);
+  return socket.upgrade(req._httpRequest, protocol: protocol, autoStart: autoStart);
 };

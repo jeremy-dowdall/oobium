@@ -8,11 +8,10 @@ class WsSocket {
   final WebSocket ws;
   WsSocket(this.ws);
 
-  static Future<WsSocket> upgrade(HttpRequest request) => throw UnsupportedError('platform not supported');
+  static Future<WsSocket> upgrade(HttpRequest request, {String Function(List<String> protocols) protocol}) => throw UnsupportedError('platform not supported');
 
-  static Future<WsSocket> connect(String url, [String authToken]) async {
-    final auth = (authToken != null) ? ['authorization', 'TOKEN $authToken'] : <String>[];
-    final ws = WebSocket(url, auth);
+  static Future<WsSocket> connect(String url, {List<String> protocols}) async {
+    final ws = WebSocket(url, protocols);
     ws.binaryType = 'arraybuffer';
     await ws.onOpen.first;
     return WsSocket(ws);

@@ -4,20 +4,21 @@ import 'package:oobium_common/oobium_common.dart';
 import 'package:oobium_server/src/auth2/auth.schema.gen.models.dart';
 import 'package:oobium_server/src/server.dart';
 
+const WsProtocolHeader = 'sec-websocket-protocol';
+const WsAuthProtocol = 'authorized';
+
 class AuthService {
 
   final AuthData _db;
   final _codes = <String, String>{};
-  AuthService({String path = 'data/auth.db'}) : _db = AuthData(path);
+  AuthService({String path = 'data/auth'}) : _db = AuthData(path);
 
   List<WsSubscription> _subscriptions;
 
   Future<void> init() async {
     await _db.open();
-    final admin = _db.getAll<User>()
-        .firstWhere((user) => user.role == 'admin',
-        orElse: () => _db.put(User(name: 'admin', role: 'admin', token: Token())));
-    print('TOKEN ${admin.id}:${admin.token.id}');
+    final admin = _admin;
+    print('AuthToken: ${admin.id}-${admin.token.id}');
   }
 
   void connect(Host host) {
@@ -28,7 +29,15 @@ class AuthService {
         socket.on.get('/users/token/new', onGetUserToken(socket)),
         socket.on.get('/installs/token', onGetInstallToken(socket)),
       ];
-    })]);
+    }, protocol: (_) => WsAuthProtocol)]);
+    host.get('/auth/admin', [(req, res) {
+      if(req.settings.address == '127.0.0.1') {
+        final admin = _admin;
+        return res.sendJson({'id': admin.id, 'token': admin.token.id});
+      } else {
+        return res.send(code: HttpStatus.forbidden);
+      }
+    }]);
   }
 
   void cancel() {
@@ -39,11 +48,15 @@ class AuthService {
     }
   }
 
+  User get _admin => _db.getAll<User>()
+      .firstWhere((user) => user.role == 'admin',
+      orElse: () => _db.put(User(name: 'admin', role: 'admin', token: Token())));
+
   RequestHandler _auth(Host host) => (Request req, Response res) async {
-    final authHeader = req.header[HttpHeaders.authorizationHeader];
-    if(authHeader is String && authHeader.startsWith('TOKEN ')) {
-      if(authHeader.contains(':', 6)) {
-        final sa = authHeader.substring(6).split(':');
+    final authToken = _authToken(req);
+    if(authToken is String) {
+      if(authToken.contains('-')) {
+        final sa = authToken.split('-');
         final uid = sa[0];
         final token = sa[1];
         if(_db.get<User>(uid)?.token?.id == token) {
@@ -53,7 +66,7 @@ class AuthService {
           print('auth failed with token: $token');
         }
       } else {
-        final code = authHeader.substring(6);
+        final code = authToken;
         final tokenId = _codes.remove(code);
         final token = _db.remove<Token>(tokenId);
         final approval = await host.socket(token?.user?.id)?.get('/installs/approval');
@@ -68,6 +81,14 @@ class AuthService {
     }
     return res.send(code: HttpStatus.forbidden);
   };
+
+  String _authToken(Request req) {
+    final protocols = req.header[WsProtocolHeader]?.split(', ') ?? <String>[];
+    if(protocols.length == 2 && protocols[0] == WsAuthProtocol) {
+      return protocols[1];
+    }
+    return null;
+  }
 
   WsMessageHandler onGetUserId(ServerWebSocket socket) => (WsRequest req, WsResponse res) {
     res.send(data: _db.get<User>(socket.id).id);

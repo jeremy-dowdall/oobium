@@ -3,13 +3,14 @@ import 'package:oobium_common/src/websocket.dart';
 class AuthSocket extends WebSocket {
 
   @override
-  Future<AuthSocket> connect({String address, int port, String uid, String token, String path = '/auth', bool autoStart = true}) async {
-    final authToken = (uid != null) ? '$uid:$token' : token;
+  Future<AuthSocket> connect({String address, int port, String uid, String token, List<String> protocols, String path = '/auth', bool autoStart = true}) async {
+    final authToken = (uid != null) ? '$uid-$token' : token;
     assert(authToken != null);
-    final socket = await AuthSocket().connect(address: address, port: port, path: path, autoStart: autoStart);
-    socket._uid ??= (await socket.get('/users/id')).data;
-    socket._token = (await socket.get('/users/token')).data;
-    return socket;
+    protocols = ['authorized', authToken, ...?protocols];
+    await super.connect(address: address, port: port, path: path, protocols: protocols, autoStart: autoStart);
+    _uid ??= (await get('/users/id')).data;
+    _token = (await get('/users/token')).data;
+    return this;
   }
 
   bool get isConnected => isNotDone;

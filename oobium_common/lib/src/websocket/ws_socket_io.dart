@@ -6,13 +6,12 @@ class WsSocket {
   final WebSocket ws;
   WsSocket(this.ws);
 
-  static Future<WsSocket> upgrade(HttpRequest request) async {
-    return WsSocket(await WebSocketTransformer.upgrade(request));
+  static Future<WsSocket> upgrade(HttpRequest request, {String Function(List<String> protocols) protocol}) async {
+    return WsSocket(await WebSocketTransformer.upgrade(request, protocolSelector: protocol));
   }
 
-  static Future<WsSocket> connect(String url, [String authToken]) async {
-    final auth = (authToken != null) ? {'authorization': 'TOKEN $authToken'} : null;
-    return WsSocket(await WebSocket.connect(url, headers: auth));
+  static Future<WsSocket> connect(String url, {List<String> protocols}) async {
+    return WsSocket(await WebSocket.connect(url, protocols: protocols));
   }
 
   StreamSubscription listen(onData, {onError, onDone}) => ws.listen(onData, onError: onError, onDone: onDone);

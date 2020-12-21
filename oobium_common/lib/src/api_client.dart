@@ -33,7 +33,7 @@ abstract class ApiClient {
       final headers = createHeaders();
       try {
         final response = await http.get(url, headers: headers);
-        if (response.statusCode == 200) {
+        if(response.statusCode == 200) {
           final data = response.body;
           await cache?.put(path, data, expiresIn: Duration(days: 1));
           return data;

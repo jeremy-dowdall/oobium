@@ -1,16 +1,15 @@
 import 'dart:async';
 
-import 'package:oobium_common/src/data/data.dart';
 import 'package:oobium_common/src/database.dart';
 import 'package:oobium_common_test/oobium_common_test.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'database_sync_test.dart';
 
-hybridMain(StreamChannel channel, dynamic message) async {
+Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
   if(message[0] == 'clean') {
-    await Data(message[1]).destroy();
+    await Database.clean(message[1]);
   }
   if(message[0] == 'serve') {
     final server = DbTestServer();

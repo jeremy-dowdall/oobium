@@ -6,7 +6,7 @@ import 'package:oobium_common/src/json.dart';
 import 'package:oobium_common/src/router.extensions.dart';
 import 'package:oobium_common/src/websocket/ws_socket.dart';
 
-export 'package:oobium_common/src/websocket/ws_socket.dart';
+export 'package:oobium_common/src/websocket/ws_file.dart';
 
 const _GET_PUT_KEY = '_get';
 const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
@@ -18,18 +18,18 @@ class WebSocket {
   Completer _done = Completer();
   StreamSubscription _wsSubscription;
 
-  Future<WebSocket> upgrade(httpRequest, {bool autoStart = true}) async {
+  Future<WebSocket> upgrade(httpRequest, {String Function(List<String> protocols) protocol, bool autoStart = true}) async {
     await close();
-    _ws = await WsSocket.upgrade(httpRequest);
+    _ws = await WsSocket.upgrade(httpRequest, protocol: protocol);
     if(autoStart == true) {
       start();
     }
     return this;
   }
-  Future<WebSocket> connect({String address, int port, String path, bool autoStart = true}) async {
+  Future<WebSocket> connect({String address, int port, String path, List<String> protocols, bool autoStart = true}) async {
     await close();
     final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}${path ?? ''}';
-    _ws = await WsSocket.connect(url);
+    _ws = await WsSocket.connect(url, protocols: protocols);
     if(autoStart == true) {
       start();
     }
@@ -107,7 +107,7 @@ class WebSocket {
       // 1. 'client' sends the request
       if(_completer == null) {
         _completer = Completer<WsResult>();
-        if(message.method == 'PUT' && message.data is Stream) {
+        if(message.method == 'PUT' && message.data is Stream<List<int>>) {
           on.get(_GET_PUT_PATH, (req, res) {
             on._handlers.remove(_GET_PUT_PATH);
             res.send(data: message.data);
@@ -238,7 +238,7 @@ class WsMessage {
   toString() => '$type:$id:$method$path$_dataString';
 
   String get _dataString {
-    return (data == null || data is Stream) ? '' : ' ${Json.encode(data)}';
+    return (data == null || data is Stream<List<int>>) ? '' : ' ${Json.encode(data)}';
   }
 }
 
