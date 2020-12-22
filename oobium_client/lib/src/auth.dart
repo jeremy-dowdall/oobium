@@ -4,6 +4,7 @@ import 'package:oobium/src/json.dart';
 import 'package:oobium/src/string.extensions.dart';
 
 abstract class AuthStateValue { }
+class Unknown extends AuthStateValue {}
 class Anonymous extends AuthStateValue {}
 class SigningIn extends AuthStateValue {}
 class SettingUp extends AuthStateValue {}

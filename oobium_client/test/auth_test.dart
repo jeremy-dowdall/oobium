@@ -2,8 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:oobium_client/oobium_client.dart';
+import 'package:oobium_client/src/auth.dart';
 import 'package:oobium_client/src/models.dart';
-import 'package:oobium/oobium.dart';
 
 class TestAuthenticator extends Mock implements Authenticator { }
 class TestPersistor extends Mock implements Persistor { }

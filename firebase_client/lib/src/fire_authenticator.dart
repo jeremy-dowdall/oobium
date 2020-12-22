@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart' hide AuthResult;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:oobium/oobium.dart';
+import 'package:oobium_client/oobium_client.dart';
 
 class FireAuthenticator extends Authenticator {
 
