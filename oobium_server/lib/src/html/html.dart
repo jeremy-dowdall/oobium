@@ -1,5 +1,5 @@
 import 'package:meta/meta.dart';
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/server_settings.dart';
 
 abstract class PageBuilder<T extends Json> {

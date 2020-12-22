@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:oobium_client/src/client_auth.dart';
 import 'package:oobium_client/src/models.dart';
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Preferences {

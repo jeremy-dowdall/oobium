@@ -1,4 +1,4 @@
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 
 class AuthData extends Database {
   AuthData(String path)

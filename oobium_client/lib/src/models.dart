@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 
 abstract class Access implements JsonString {
 

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 
 void main() async {
 

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 

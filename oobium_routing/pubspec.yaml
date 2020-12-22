@@ -2,7 +2,7 @@ name: oobium_routing
 description: Simplified routing for Navigator 2.0
 version: 0.0.1
 author:
-homepage:
+homepage: ''
 publish_to: 'none'
 
 environment:

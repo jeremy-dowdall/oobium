@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/firebase_client/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/firebase_client/build" />
+      <excludeFolder url="file://$MODULE_DIR$/firebase_token_validator/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/firebase_token_validator/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_client/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_client/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_gen/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_gen/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_server/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_server/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_test/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_test/build" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Dart SDK" level="project" />
+    <orderEntry type="library" name="Dart Packages" level="project" />
+  </component>
+</module>

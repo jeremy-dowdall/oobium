@@ -7,7 +7,7 @@ Future<void> main() async {
 
   final server = Server(port: 8001);
 
-  server.get('/ws', [fireAuth, websocket((socket) {
+  server.get('/ws', [websocket((socket) {
     socket.on.get('/db', (req, res) {
       res.send(data: db.getAll());
     });

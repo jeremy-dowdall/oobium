@@ -5,10 +5,9 @@ import 'dart:isolate';
 import 'dart:math';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium_common/oobium_common.dart';
-import 'package:oobium_server/src/auth/validator.dart';
+import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/html/html.dart';
-import 'package:oobium_common/src/router.extensions.dart';
+import 'package:oobium/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
 
 class Host {
@@ -616,20 +615,20 @@ class StringContent implements Content {
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
 
-RequestHandler fireAuth = (req, res) async {
-  final authHeader = req.header[HttpHeaders.authorizationHeader];
-  if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
-    req.params['uid'] = authHeader.split(' ')[1];
-  } else {
-    final validator = Validator(req._host.settings.projectId);
-    final uid = await validator.validate(authHeader);
-    if(uid != null) {
-      req.params['uid'] = uid;
-    } else {
-      return res.send(code: HttpStatus.forbidden);
-    }
-  }
-};
+// TODO RequestHandler fireAuth = (req, res) async {
+//   final authHeader = req.header[HttpHeaders.authorizationHeader];
+//   if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
+//     req.params['uid'] = authHeader.split(' ')[1];
+//   } else {
+//     final validator = Validator(req._host.settings.projectId);
+//     final uid = await validator.validate(authHeader);
+//     if(uid != null) {
+//       req.params['uid'] = uid;
+//     } else {
+//       return res.send(code: HttpStatus.forbidden);
+//     }
+//   }
+// };
 
 RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols) protocol, bool autoStart = true}) => (req, res) async {
   final socket = req._websocket();

@@ -22,13 +22,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.6.0"
-  asn1lib:
-    dependency: transitive
-    description:
-      name: asn1lib
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.8.1"
   async:
     dependency: transitive
     description:
@@ -99,13 +92,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.1.1"
-  corsac_jwt:
-    dependency: "direct main"
-    description:
-      name: corsac_jwt
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.3.0"
   coverage:
     dependency: transitive
     description:
@@ -198,7 +184,7 @@ packages:
     source: hosted
     version: "1.3.0-nullsafety.5"
   mime:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: mime
       url: "https://pub.dartlang.org"
@@ -239,17 +225,17 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.1.1"
-  oobium_common:
+  oobium:
     dependency: "direct main"
     description:
-      path: "../oobium_common"
+      path: "../oobium"
       relative: true
     source: path
     version: "0.0.0"
-  oobium_common_test:
+  oobium_test:
     dependency: "direct dev"
     description:
-      path: "../oobium_common_test"
+      path: "../oobium_test"
       relative: true
     source: path
     version: "0.0.0"
@@ -274,13 +260,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.10.0-nullsafety.2"
-  pointycastle:
-    dependency: transitive
-    description:
-      name: pointycastle
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "2.0.0"
   pool:
     dependency: transitive
     description:
@@ -302,13 +281,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.1.4+1"
-  rsa_pkcs:
-    dependency: transitive
-    description:
-      name: rsa_pkcs
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.1.4"
   shelf:
     dependency: transitive
     description:
@@ -457,4 +429,4 @@ packages:
     source: hosted
     version: "2.2.1"
 sdks:
-  dart: ">=2.11.0-0.0 <2.12.0"
+  dart: ">=2.11.0-0.0 <=2.12.0-133.2.beta"

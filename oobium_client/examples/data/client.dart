@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 
 import 'data.schema.gen.models.dart';
 

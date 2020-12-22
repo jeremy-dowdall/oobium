@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/auth2/auth.schema.gen.models.dart';
 import 'package:oobium_server/src/server.dart';
 
@@ -63,7 +63,7 @@ class AuthService {
           req['uid'] = uid;
           return;
         } else {
-          print('auth failed with token: $token');
+          print('auth failed with token: $authToken');
         }
       } else {
         final code = authToken;
@@ -75,7 +75,7 @@ class AuthService {
           req['uid'] = user.id;
           return;
         } else {
-          print('auth failed with code: $code');
+          print('auth failed with code: $authToken');
         }
       }
     }

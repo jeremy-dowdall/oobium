@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:oobium_common/oobium_common.dart';
+import 'package:oobium/oobium.dart';
 
 class ClientAuth extends Auth {
 
