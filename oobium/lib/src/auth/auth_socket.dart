@@ -13,9 +13,6 @@ class AuthSocket extends WebSocket {
     return this;
   }
 
-  bool get isConnected => isNotDone;
-  bool get isNotConnected => !isConnected;
-
   String _uid;
   String _token;
   String get uid => _uid;

@@ -9,6 +9,7 @@ import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
+import 'package:oobium_server/src/services/services.dart';
 
 class Host {
 
@@ -16,6 +17,7 @@ class Host {
   final String _name;
   final _handlers = <String, List<RequestHandler>>{};
   final _loggers = <String, Logger>{};
+  ServiceRegistry _registry;
   Host._(this._server, this._name);
 
   ServerSettings get settings => _server.settings;
@@ -29,6 +31,22 @@ class Host {
 
   bool livePages = false;
 
+  void addService(Service2 service) {
+    if(_registry == null) {
+      _registry = ServiceRegistry();
+      _registry.add(HostService(this));
+    }
+    _registry.add(service);
+    if(service.hostType == HostService) {
+      service.onAttach(_registry.get<HostService>());
+    }
+  }
+  void addServices(List<Service2> services) {
+    for(var service in services) {
+      addService(service);
+    }
+  }
+  
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => _add('GET', path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => _add('HEAD', path, handlers, logger: logger);
   void options(String path, List<RequestHandler> handlers, {Logger logger}) => _add('OPTIONS', path, handlers, logger: logger);
@@ -62,7 +80,9 @@ class Host {
     }
   }
 
-  void subdomain(String name) => _server._hosts['$name.$_name'] = this;
+  void redirect(String from) => _server.hostRedirect(from: from, to: _name);
+  void subdomain(String name) => _server.hostSubdomain(host: _name, sub: name);
+  void subdomains(List<String> names) => _server.hostSubdomains(host: _name, subs: names);
 
   Iterable<File> _getFiles(String directoryPath, {optional = false}) {
     assert(directoryPath != null || optional, 'directoryPath cannot be null, unless optional is true');
@@ -164,6 +184,7 @@ class Server {
   final ServerSettings settings;
   final _hosts = <String, Host>{};
   final _redirects = <String, Redirect>{};
+  final _subdomains = <String, String>{};
   Server({
     String address,
     int port,
@@ -197,6 +218,16 @@ class Server {
     _redirects[from] = Redirect(to, temporary);
   }
   
+  void hostSubdomain({String host, String sub}) {
+    _subdomains['$sub.$host'] = host;
+  }
+
+  void hostSubdomains({String host, List<String> subs}) {
+    for(var sub in subs) {
+      _subdomains['$sub.$host'] = host;
+    }
+  }
+
   void pause() {
     httpSubscription?.pause();
     httpsSubscription?.pause();
@@ -208,6 +239,7 @@ class Server {
   }
 
   Future<void> start() async {
+    await _startServices();
     if(http == null) {
       await _createServers();
     }
@@ -224,6 +256,7 @@ class Server {
   }
 
   Future<void> stop() async {
+    await _stopServices();
     await httpSubscription?.cancel();
     await httpsSubscription?.cancel();
     httpSubscription = null;
@@ -256,7 +289,7 @@ class Server {
     if(redirect != null) {
       return _redirect(request, host: redirect.host, temporary: redirect.temporary);
     }
-    final host = _hosts[hostName] ?? _hosts[null];
+    final host = _hosts[hostName] ?? _hosts[_subdomains[hostName]] ?? _hosts[null];
     if(host == null) {
       return _send(request, code: 400, data: 'Bad Request - Invalid Host');
     }
@@ -292,6 +325,18 @@ class Server {
     await request.response.close();
   }
 
+  Future<void> _startServices() async {
+    for(var host in _hosts.values) {
+      await host._registry?.start();
+    }
+  }
+
+  Future<void> _stopServices() async {
+    for(var host in _hosts.values) {
+      await host._registry?.stop();
+    }
+  }
+
   
   //--- Default HOST Convenience Methods ---//
   RequestHandler get error404Handler => host().error404Handler;
@@ -303,6 +348,8 @@ class Server {
   bool get livePages => host().livePages;
   set livePages(bool value) => host().livePages = value;
 
+  void addService(Service2 service) => host().addService(service);
+  void addServices(List<Service2> services) => host().addServices(services);
   void delete(String path, List<RequestHandler> handlers, {Logger logger}) => host().delete(path, handlers, logger: logger);
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => host().get(path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => host().head(path, handlers, logger: logger);

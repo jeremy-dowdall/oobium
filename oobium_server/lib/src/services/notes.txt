@@ -1,0 +1,14 @@
+server (host / service registry)
+ - add -> add service to registry
+ - start -> start all services
+ - stop -> stop all services
+
+service
+ - register
+ - start
+ - stop
+
+
+flat or hierarchy?
+ - flat: easy lookup, but may waste starting resources that are not necessary... (unlikely though, and probably bad design)
+ - hierarchy: complexity :(

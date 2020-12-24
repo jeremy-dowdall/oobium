@@ -57,6 +57,9 @@ class WebSocket {
   bool get isStarted => _wsSubscription != null;
   bool get isNotStarted => !isStarted;
 
+  bool get isConnected => isStarted && isNotDone;
+  bool get isNotConnected => !isConnected;
+
   void start() {
     assert(_ws != null, 'attempted to start before native socket was attached');
     if(isNotStarted) {
