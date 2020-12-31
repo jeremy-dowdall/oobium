@@ -37,7 +37,19 @@ Future<void> main() async {
     });
   });
 
-  test('test replication', () async {
+  test('test replication reset', () async {
+    final port = nextPort();
+    final server = await serverHybrid(nextPath(), port);
+    final model = await server.dbPut(TestType1(name: 'test-01'));
+
+    final db = database(nextPath());
+    await db.reset(socket: await WebSocket().connect(port: port));
+
+    expect(db.size, 1);
+    expect(db.get<TestType1>(model.id)?.name, model.name);
+  });
+
+  test('test replication bind', () async {
     final port = nextPort();
     final server = await serverHybrid(nextPath(), port);
     final model = await server.dbPut(TestType1(name: 'test-01'));
@@ -52,7 +64,7 @@ Future<void> main() async {
   test('test bind(1 <-> 2) with pre-existing data', () async {
     final port = nextPort();
     final server = await serverHybrid(nextPath(), port);
-    final client = (await WebSocket().connect(port: port));
+    final client = await WebSocket().connect(port: port);
 
     final db2 = database(nextPath());
     await db2.reset(socket: client);
@@ -76,7 +88,7 @@ Future<void> main() async {
   test('test bind(1 <-> 2) fresh', () async {
     final port = nextPort();
     final server = await serverHybrid(nextPath(), port);
-    final client = (await WebSocket().connect(port: port));
+    final client = await WebSocket().connect(port: port);
 
     final db = database(nextPath());
     await db.reset(socket: client);
@@ -100,8 +112,8 @@ Future<void> main() async {
   test('test bind(2 <-> 1 <-> 3)', () async {
     final port = nextPort();
     final server = await serverHybrid(nextPath(), port);
-    final client1 = (await WebSocket().connect(port: port));
-    final client2 = (await WebSocket().connect(port: port));
+    final client1 = await WebSocket().connect(port: port);
+    final client2 = await WebSocket().connect(port: port);
 
     final db1 = database(nextPath());
     await db1.reset(socket: client1);

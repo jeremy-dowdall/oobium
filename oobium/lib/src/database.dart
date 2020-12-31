@@ -92,7 +92,7 @@ class DataRecord implements JsonString {
   final String id;
   final String type;
   final int timestamp;
-  final Map _data;
+  final Map<String, dynamic> _data;
   DataRecord(this.id, this.timestamp, [this.type, this._data]);
 
   factory DataRecord.delete(String id) {
@@ -119,7 +119,7 @@ class DataRecord implements JsonString {
     return DataRecord(model.id, model.timestamp, model.runtimeType.toString(), data);
   }
 
-  Map get data => {..._data, 'id': id, 'timestamp': timestamp};
+  Map<String, dynamic> get data => {..._data, 'id': id, 'timestamp': timestamp};
 
   bool get isDelete => (type == null);
   bool get isNotDelete => !isDelete;

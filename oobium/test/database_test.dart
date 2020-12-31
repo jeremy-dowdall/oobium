@@ -33,6 +33,20 @@ Future<void> main() async {
     expect(m2.timestamp, isNot(m1.timestamp));
   });
 
+  test('test database without builders', () async {
+    final db = Database('test-data/no-builders');
+    await db.open();
+    final model = db.put(DataModel({'name': 'test 01'}));
+    expect(db.get(model.id), model);
+
+    await db.close();
+    await db.open();
+
+    expect(db.get(model.id), isNotNull);
+    expect(db.get(model.id).isSameAs(model), isTrue);
+    expect(db.get(model.id), isNot(model));
+  });
+
   test('test data stored in memory', () async {
     final db = create();
     final model1 = db.put(TestType1(name: 'test01'));

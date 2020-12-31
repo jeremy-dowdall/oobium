@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:oobium/src/data/database.dart';
+import 'package:oobium/src/database.dart';
 
 Future<void> main() async {
   final count = 10000;
@@ -16,7 +16,7 @@ Future<void> main() async {
     db.put(TestType1(name: 'test-$i'));
   }
   final put = DateTime.now().millisecondsSinceEpoch;
-  await db.flush();
+  await db.close();
   final flush = DateTime.now().millisecondsSinceEpoch;
   print('  ${db.size} records\n  ${(await File(db.path).stat()).size}bytes\n  time: ${flush-start}ms (open: ${open-start}ms, find: ${find-open}ms, put: ${put-find}ms, flush: ${flush-put}ms)');
 }

@@ -1,17 +1,17 @@
 import 'dart:io';
 
-import 'package:oobium_server/oobium_server.dart';
+import 'package:oobium_server/src/services/auth_service.dart';
 import 'package:oobium_server/src/services/services.dart';
 import 'package:oobium_server/src/server.dart';
 
-class AdminService extends Service2<HostService> {
+class AdminService extends Service<HostService> {
 
   @override
   void onAttach(HostService service) {
     final host = service.host;
-    host.get('/admin/auth', [_auth, (req, res) {
+    host.get('/admin/account', [_auth, (req, res) {
       final admin = services.get<AuthService>().admin;
-      return res.sendJson({'id': admin.id, 'token': admin.token.id});
+      return res.sendJson({'uid': admin.id, 'token': admin.token.id});
     }]);
   }
 

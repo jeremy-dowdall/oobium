@@ -14,11 +14,16 @@ dependencies:
     sdk: flutter
   oobium:
     path: ../oobium
+  oobium_routing:
+    path: ../oobium_routing
+  connectivity: ^2.0.2
   provider: ^4.3.2
   path_provider: ^1.6.11
-  shared_preferences: ^0.5.12+4
 
 dev_dependencies:
+  oobium_test:
+    path: ../../oobium/oobium_test
   flutter_test:
     sdk: flutter
   mockito: ^4.1.2
+  stream_channel: ^2.0.0

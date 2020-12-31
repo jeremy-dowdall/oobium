@@ -11,6 +11,11 @@ import 'package:oobium/src/router.extensions.dart';
 import 'package:oobium_server/src/server_settings.dart';
 import 'package:oobium_server/src/services/services.dart';
 
+class HostService extends Service<Host> {
+  final Host host;
+  HostService(this.host);
+}
+
 class Host {
 
   final Server _server;
@@ -31,7 +36,7 @@ class Host {
 
   bool livePages = false;
 
-  void addService(Service2 service) {
+  void addService(Service service) {
     if(_registry == null) {
       _registry = ServiceRegistry();
       _registry.add(HostService(this));
@@ -41,7 +46,7 @@ class Host {
       service.onAttach(_registry.get<HostService>());
     }
   }
-  void addServices(List<Service2> services) {
+  void addServices(List<Service> services) {
     for(var service in services) {
       addService(service);
     }
@@ -348,8 +353,8 @@ class Server {
   bool get livePages => host().livePages;
   set livePages(bool value) => host().livePages = value;
 
-  void addService(Service2 service) => host().addService(service);
-  void addServices(List<Service2> services) => host().addServices(services);
+  void addService(Service service) => host().addService(service);
+  void addServices(List<Service> services) => host().addServices(services);
   void delete(String path, List<RequestHandler> handlers, {Logger logger}) => host().delete(path, handlers, logger: logger);
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => host().get(path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => host().head(path, handlers, logger: logger);

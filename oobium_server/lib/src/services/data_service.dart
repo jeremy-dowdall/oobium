@@ -5,7 +5,7 @@ import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/services/auth_service.dart';
 import 'package:oobium_server/src/services/services.dart';
 
-class DataService extends Service2<AuthService> {
+class DataService extends Service<AuthService> {
 
   final String path;
   final _databases = <String, Database>{};
@@ -14,7 +14,7 @@ class DataService extends Service2<AuthService> {
   @override
   void onAttach(AuthService authService) {
     final socket = authService.socket;
-    socket.on.put('/data/db/<name>/open', _onOpenDatabase(socket));
+    socket.on.get('/data/db/<name>/open', _onOpenDatabase(socket));
   }
 
   @override
@@ -38,5 +38,7 @@ class DataService extends Service2<AuthService> {
       _databases[name] = db;
       res.send(code: 201);
     }
+    print('server bind');
+    await _databases[name].bind(socket);
   };
 }

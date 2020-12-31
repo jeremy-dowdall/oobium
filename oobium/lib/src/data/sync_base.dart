@@ -79,10 +79,8 @@ class Sync implements Connection {
   }
   Future<void> _getReplicantData(WebSocket socket) async {
     final result = await socket.get(dataPath, retry: true);
-    if(result.isSuccess) {
-      if(result is WsStreamResult) {
-        await repo.put(result.data.transform(utf8.decoder).map((s) => DataRecord.fromLine(s)));
-      }
+    if(result.isSuccess && result is WsStreamResult) {
+      await repo.put(result.data.transform(utf8.decoder).map((s) => DataRecord.fromLine(s)));
     }
   }
 

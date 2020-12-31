@@ -5,6 +5,7 @@ import 'package:oobium/src/json.dart';
 class Models {
 
   Models([List<Function(Map data)> builders]) {
+    _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.toSet(), {});
     if(builders != null) for(var builder in builders) {
       final type = builder.runtimeType.toString().split(' => ')[1];
       _builders[type] = builder;
@@ -85,14 +86,14 @@ class Batch<T extends DataModel> {
   final records = <DataRecord>[];
 }
 
-abstract class DataModel extends JsonModel implements DataId {
+class DataModel extends JsonModel implements DataId {
 
   final int timestamp;
   final DataFields _fields;
 
-  DataModel(Map<String, dynamic> fields) :
+  DataModel([Map<String, dynamic> fields]) :
         timestamp = DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields(fields),
+        _fields = DataFields(fields ?? {}),
         super(ObjectId().hexString);
 
   DataModel.copyNew(DataModel original, Map<String, dynamic> fields) :
@@ -108,15 +109,15 @@ abstract class DataModel extends JsonModel implements DataId {
   DataModel.fromJson(data, Set<String> fields, Set<String> modelFields) :
         timestamp = Json.field(data, 'timestamp'),
         _fields = DataFields({
-          for(var k in fields) k: Json.field(data, k),
+          for(var k in fields.where((k) => k != 'id' && k != 'timestamp')) k: Json.field(data, k),
           for(var k in modelFields) k: DataId(Json.field(data, k))
         }),
         super.fromJson(data);
 
   dynamic operator [](String key) => _fields[key];
 
-  DataModel copyNew();
-  DataModel copyWith();
+  // DataModel copyNew();
+  // DataModel copyWith();
 
   DateTime get createdAt => ObjectId.fromHexString(id).timestamp;
   DateTime get updatedAt => DateTime.fromMillisecondsSinceEpoch(timestamp);

@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:oobium_client/src/client_auth.dart';
 import 'package:oobium_client/src/models.dart';
-import 'package:oobium_client/src/preferences.dart';
 import 'package:provider/provider.dart';
 
 export 'package:oobium_client/src/auth.dart';
@@ -15,6 +14,5 @@ extension BuildContextClientExtentions on BuildContext {
 
   ClientAuth get auth => Provider.of<ClientAuth>(this, listen: false);
   ModelContext get modelContext => Provider.of<ModelContext>(this, listen: false);
-  Preferences get preferences => Provider.of<Preferences>(this, listen: false);
 
 }

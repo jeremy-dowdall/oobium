@@ -3,13 +3,13 @@ import 'dart:math';
 
 import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/services/auth/auth.schema.gen.models.dart';
-import 'package:oobium_server/src/services/services.dart';
 import 'package:oobium_server/src/server.dart';
+import 'package:oobium_server/src/services/services.dart';
 
 const WsProtocolHeader = 'sec-websocket-protocol';
 const WsAuthProtocol = 'authorized';
 
-class AuthService extends Service2<HostService> {
+class AuthService extends Service<HostService> {
 
   final AuthData _db;
   final _codes = <String, InstallCode>{};
