@@ -78,8 +78,8 @@ extension StringExtensions on String {
   }
 
   String get camelCase => underscored.splitMapJoin('_',
-      onMatch: (m) => '',
-      onNonMatch: (n) => n.isEmpty ? '' : (n.length == 1) ? n.toUpperCase() : '${n[0].toUpperCase()}${n.substring(1).toLowerCase()}'
+    onMatch: (m) => '',
+    onNonMatch: (n) => n.isEmpty ? '' : (n.length == 1) ? n.toUpperCase() : '${n[0].toUpperCase()}${n.substring(1).toLowerCase()}'
   );
 
   String get titleized => underscored.splitMapJoin('_',

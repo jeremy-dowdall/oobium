@@ -1,4 +1,4 @@
-import 'package:oobium_client_gen/src2/model.dart';
+import 'package:oobium_gen/src2/model.dart';
 
 enum LibraryType { builders, models, scaffolding }
 

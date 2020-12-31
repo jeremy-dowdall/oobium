@@ -49,14 +49,18 @@ class Sync implements Connection {
     }
   }
 
-  Future<void> bind(WebSocket socket) {
+  Future<void> bind(WebSocket socket, {bool wait = true}) async {
     if(binders.containsKey(socket)) {
-      return Future.value();
+      return wait ? binders[socket].ready : Future.value();
     } else {
+      if(id == null) {
+        id = ObjectId().hexString;
+        await save();
+      }
       final binder = Binder(this, socket);
       binders[socket] = binder;
       binder.finished.then((_) => binders.remove(socket));
-      return binder.ready;
+      return wait ? binder.ready : Future.value();
     }
   }
 
@@ -66,16 +70,28 @@ class Sync implements Connection {
   }
 
   Future<void> replicate(WebSocket socket) async {
-    await _getReplicant(socket);
+    await _getReplicant(socket: socket);
     await _getReplicantData(socket);
   }
-  Future<void> _getReplicant(WebSocket socket) async {
-    final result = await socket.get(replicantPath, retry: true);
-    if(result.isSuccess) {
-      final response = result.data.split(':');
-      id = response[1]; // TODO assert this is null to begin with?
-      await _addReplicant(response[0]);
+  Future<Replicant> _getReplicant({String rid, WebSocket socket}) async {
+    if(rid != null) {
+      final replicant = replicants.firstWhere((r) => r.id == rid, orElse: () => null);
+      if(replicant == null) {
+        return _addReplicant(rid);
+      } else {
+        return Future.value(replicant);
+      }
     }
+    if(socket != null) {
+      final result = await socket.get(replicantPath, retry: true);
+      if(result.isSuccess) {
+        final response = result.data.split(':');
+        assert(id == null);
+        id = response[1]; // TODO assert this is null to begin with?
+        return _addReplicant(response[0]);
+      }
+    }
+    throw Exception('could not get replicant');
   }
   Future<void> _getReplicantData(WebSocket socket) async {
     final result = await socket.get(dataPath, retry: true);
@@ -93,7 +109,7 @@ class Sync implements Connection {
   Future<platform.Replicant> _addReplicant([String id]) async {
     final replicant = platform.Replicant(db, id ?? ObjectId().hexString);
     await replicant.open();
-    await replicant.save();
+    // await replicant.save();
     replicants.add(replicant);
     await save();
     return replicant;
@@ -120,13 +136,16 @@ class Binder {
     _socket.done.then((_) => cancel());
   }
 
-  String localId;
+  String get localId => _sync.id;
   String get remoteId => _replicant.id;
 
+  bool sentConnect = false;
   bool isConnected = false;
   bool isPeerConnected = false;
+  bool isPeerConnecting = false;
   bool isSynced = false;
   bool isPeerSynced = false;
+  bool isPeerSyncing = false;
 
   Future<void> onGetReplicant(WsRequest req, WsResponse res) async {
     res.send(data: await _sync.createReplicant());
@@ -137,21 +156,22 @@ class Binder {
   }
 
   Future<void> sendConnect() async {
-    localId = _sync.id;
-    if(localId != null && !isPeerConnected) {
+    sentConnect = true;
+    if(!isPeerConnecting && !isPeerConnected) {
+      isPeerConnecting = true;
       isPeerConnected = (await _socket.put(connectPath, localId, retry: true)).isSuccess;
+      isPeerConnecting = false;
     }
     await syncCheck();
   }
 
   Future<void> onConnect(WsData data) async {
     final rid = data.value as String;
-    final replicant = _sync.replicants.firstWhere((r) => r.id == rid, orElse: () => null);
-    assert(replicant != null, 'no replicant found with id $rid');
+    final replicant = await _sync._getReplicant(rid: rid);
     await attach(replicant);
-    isConnected = _replicant != null;
-    if(localId == null) await sendConnect();
-    else await syncCheck();
+    isConnected = true;
+    if(sentConnect) await syncCheck();
+    else await sendConnect();
   }
 
   Future<void> syncCheck() async {
@@ -161,11 +181,14 @@ class Binder {
   }
 
   Future<void> sendSync() async {
-    if(isConnected && isPeerConnected && !isPeerSynced) {
+    if(isConnected && isPeerConnected && !isPeerSynced && !isPeerSyncing) {
+      isPeerSyncing = true;
       final records = await _replicant.getSyncRecords(_sync.models);
       final data = await records.toList();
+      print('sendSync $data');
       // final data = records.map((r) => r.toJsonString()).transform(utf8.encoder);
       isPeerSynced = (await _socket.put(syncPath, data)).isSuccess;
+      isPeerSyncing = false;
     }
     readyCheck();
   }
@@ -175,6 +198,7 @@ class Binder {
     // final stream = data.stream.transform(utf8.decoder).map((s) => DataRecord.fromLine(s));
     // final records = await stream.toList();
     final records = (data.value as List).map((s) => DataRecord.fromLine(s)).toList();
+    print('onSync $records');
     final event = DataEvent(remoteId, records);
     await onData(event);
     await sendSync();

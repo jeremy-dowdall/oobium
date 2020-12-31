@@ -8,14 +8,17 @@ import 'test_client.dart';
 Future<void> main() async {
 
   setUpAll(() => TestClient.clean(root));
-  tearDownAll(() => TestClient.clean(root));
+  // tearDownAll(() => TestClient.clean(root));
 
   group('test with connection', () {
     test('something', () async {
       final path = nextPath();
       final port = nextPort();
       final server = await TestClient.start(path, port);
-      final authClient = AuthClient(port: port, root: root);
+
+      final clientPath = '$path/test_client';
+
+      final authClient = AuthClient(root: clientPath, port: port);
       await authClient.init();
       expect(authClient.auth.state, AuthState.Anonymous);
       expect(await authClient.requestInstallCode(), isNull);
@@ -33,8 +36,8 @@ Future<void> main() async {
       await authClient.setConnectionStatus(ConnectionStatus.wifi);
       expect(authClient.isConnected, isTrue);
 
-      final dataClient = DataClient(root: root, builder: (path) {
-        print('client: build');
+      final dataClient = DataClient(root: clientPath, builder: (path) {
+        print('client: build $path');
         return Database(path);
       });
 

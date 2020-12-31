@@ -1,5 +1,5 @@
-import 'package:oobium_client_gen/src/util/schema_builder.dart';
-import 'package:oobium_client_gen/src/util/schema_library.dart';
+import 'package:oobium_gen/src/util/schema_builder.dart';
+import 'package:oobium_gen/src/util/schema_library.dart';
 import 'package:oobium_test/oobium_test.dart';
 import 'package:test/test.dart';
 

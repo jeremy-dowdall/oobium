@@ -1,7 +1,7 @@
 import 'package:analyzer/dart/element/element.dart' ;
 import 'package:analyzer/dart/element/visitor.dart';
-import 'package:oobium_client_gen/src/util/model.dart';
-import 'package:oobium_client_gen/src/util/model_field.dart';
+import 'package:oobium_gen/src/util/model.dart';
+import 'package:oobium_gen/src/util/model_field.dart';
 
 class TypeVisitor extends SimpleElementVisitor {
 

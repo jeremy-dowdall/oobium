@@ -46,9 +46,6 @@ class DataClient {
     if(isConnected) {
       final result = await _socket.get('/data/db/$name/open');
       print('result: $result');
-      // if(_data.id == null) {
-      //   await _data.reset(socket: _socket);
-      // }
       print('client bind');
       await _data.bind(_socket);
       _dataBound = true;

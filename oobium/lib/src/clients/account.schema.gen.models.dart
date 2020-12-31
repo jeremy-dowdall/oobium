@@ -1,7 +1,8 @@
 import 'package:oobium/oobium.dart';
 
 class AccountData extends Database {
-  AccountData(String path) : super(path, [(data) => Account.fromJson(data)]);
+  AccountData(String path)
+      : super('$path/account', [(data) => Account.fromJson(data)]);
 }
 
 class Account extends DataModel {

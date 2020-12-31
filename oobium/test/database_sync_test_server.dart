@@ -29,8 +29,8 @@ class DbTestServer {
     db = Database(path, [(data) => TestType1.fromJson(data)]);
     await db.reset();
 
-    await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
-      db.bind(socket);
+    await TestWebsocketServer.start(port: port, onUpgrade: (socket) {
+      return db.bind(socket, wait: false);
     });
   }
 

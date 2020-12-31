@@ -39,6 +39,6 @@ class DataService extends Service<AuthService> {
       res.send(code: 201);
     }
     print('server bind');
-    await _databases[name].bind(socket);
+    return _databases[name].bind(socket, wait: false);
   };
 }

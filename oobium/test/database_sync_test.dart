@@ -49,16 +49,56 @@ Future<void> main() async {
     expect(db.get<TestType1>(model.id)?.name, model.name);
   });
 
-  test('test replication bind', () async {
+  test('test replication bind with no data', () async {
+    final port = nextPort();
+    await serverHybrid(nextPath(), port);
+
+    final db = database(nextPath());
+    await db.bind(await WebSocket().connect(port: port));
+
+    expect(db.size, 0);
+  });
+
+  test('test replication bind with server data', () async {
     final port = nextPort();
     final server = await serverHybrid(nextPath(), port);
     final model = await server.dbPut(TestType1(name: 'test-01'));
 
     final db = database(nextPath());
-    await db.reset(socket: await WebSocket().connect(port: port));
+    await db.bind(await WebSocket().connect(port: port));
 
     expect(db.size, 1);
     expect(db.get<TestType1>(model.id)?.name, model.name);
+  });
+
+  test('test replication bind with client data', () async {
+    final port = nextPort();
+    final server = await serverHybrid(nextPath(), port);
+
+    final db = database(nextPath());
+    final model = await db.put(TestType1(name: 'test-01'));
+    await db.bind(await WebSocket().connect(port: port));
+
+    expect(db.size, 1);
+    expect(await server.dbModelCount, 1);
+    expect((await server.dbGet(model.id))?.name, model.name);
+  });
+
+  test('test replication bind with mixed data', () async {
+    final port = nextPort();
+    final server = await serverHybrid(nextPath(), port);
+    final model1 = await server.dbPut(TestType1(name: 'test-01'));
+
+    final db = database(nextPath());
+    final model2 = await db.put(TestType1(name: 'test-02'));
+    await db.bind(await WebSocket().connect(port: port));
+
+    expect(db.size, 2);
+    expect(db.get<TestType1>(model1.id)?.name, model1.name);
+    expect(db.get<TestType1>(model2.id)?.name, model2.name);
+    expect(await server.dbModelCount, 2);
+    expect((await server.dbGet(model1.id))?.name, model1.name);
+    expect((await server.dbGet(model2.id))?.name, model2.name);
   });
 
   test('test bind(1 <-> 2) with pre-existing data', () async {

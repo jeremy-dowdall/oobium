@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:oobium_client_gen/src/generators.dart';
-import 'package:oobium_client_gen/src/util/schema_builder.dart';
-import 'package:oobium_client_gen/src/util/schema_library.dart';
+import 'package:oobium_gen/src/generators.dart';
+import 'package:oobium_gen/src/util/schema_builder.dart';
+import 'package:oobium_gen/src/util/schema_library.dart';
 
 Future<void> main(List<String> args) async {
   final params = _params(args);

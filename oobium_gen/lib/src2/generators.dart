@@ -1,5 +1,6 @@
-import 'package:oobium_client_gen/src2/model_builder.dart';
-import 'package:oobium_client_gen/src2/schema.dart';
+import 'package:oobium_gen/src2/model_builder.dart';
+import 'package:oobium_gen/src2/schema.dart';
+import 'package:oobium/src/string.extensions.dart';
 
 // String generateInitializersLibrary(Schema schema, String modelsImport) {
 //   final imports = <String>[
@@ -18,14 +19,14 @@ String generateModelsLibrary(Schema schema) {
     "import 'package:oobium/oobium.dart';",
   ].toSet().toList()..sort();
 
-  final dbname = '${schema.name[0].toUpperCase()}${schema.name.substring(1)}Data';
+  final dbname = '${schema.name.camelCase}Data';
   final models = schema.models.map((model) => ModelBuilder(model));
 
   return '''
       ${imports.join('\n')}
       
       class $dbname extends Database {
-        $dbname(String path) : super(path, [
+        $dbname(String path) : super('\$path/${schema.name.underscored}', [
           ${models.map((m) => '(data) => ${m.ctor}.fromJson(data)').join(',\n')}
         ]);
       }

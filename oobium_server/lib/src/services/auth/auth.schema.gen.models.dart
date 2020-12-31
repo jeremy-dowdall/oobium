@@ -2,7 +2,7 @@ import 'package:oobium/oobium.dart';
 
 class AuthData extends Database {
   AuthData(String path)
-      : super(path,
+      : super('$path/auth',
             [(data) => User.fromJson(data), (data) => Token.fromJson(data)]);
 }
 

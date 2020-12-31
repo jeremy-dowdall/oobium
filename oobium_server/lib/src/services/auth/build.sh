@@ -1,1 +1,1 @@
-dart run ../../../../../oobium/oobium_client_gen/lib/runner2.dart -client .
+dart run  ../../../../../oobium_gen/lib/runner2.dart -client .

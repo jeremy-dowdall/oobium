@@ -1,5 +1,5 @@
-import 'package:oobium_client_gen/src/util/model.dart';
-import 'package:oobium_client_gen/src/util/model_field.dart';
+import 'package:oobium_gen/src/util/model.dart';
+import 'package:oobium_gen/src/util/model_field.dart';
 
 class ModelBuilder {
 

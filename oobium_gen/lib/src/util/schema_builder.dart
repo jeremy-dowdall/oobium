@@ -1,7 +1,7 @@
-import 'package:oobium_client_gen/src/util/model.dart';
-import 'package:oobium_client_gen/src/util/model_field.dart';
-import 'package:oobium_client_gen/src/util/schema.dart';
-import 'package:oobium_client_gen/src/util/schema_library.dart';
+import 'package:oobium_gen/src/util/model.dart';
+import 'package:oobium_gen/src/util/model_field.dart';
+import 'package:oobium_gen/src/util/schema.dart';
+import 'package:oobium_gen/src/util/schema_library.dart';
 import 'package:oobium/oobium.dart' show StringExtensions;
 
 enum LibraryType { builders, models, scaffolding }

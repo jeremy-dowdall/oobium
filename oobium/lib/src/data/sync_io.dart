@@ -56,13 +56,19 @@ class Replicant extends base.Replicant {
 
   @override
   Stream<DataRecord> getSyncRecords(Models models) async* {
-    final lines = await file.readAsLines();
-    final lastSync = int.parse(lines[0]);
-    for(var model in models.getAll().where((model) => model.timestamp > lastSync)) {
-      yield(DataRecord.fromModel(model));
-    }
-    for(var record in lines.skip(1).map((l) => DataRecord.fromLine(l))) {
-      yield(record);
+    final lines = await _readFile();
+    if(lines.isEmpty) {
+      for(var model in models.getAll()) {
+        yield(DataRecord.fromModel(model));
+      }
+    } else {
+      final lastSync = int.parse(lines[0]);
+      for(var model in models.getAll().where((model) => model.timestamp > lastSync)) {
+        yield(DataRecord.fromModel(model));
+      }
+      for(var record in lines.skip(1).map((l) => DataRecord.fromLine(l))) {
+        yield(record);
+      }
     }
   }
 
@@ -80,5 +86,13 @@ class Replicant extends base.Replicant {
     }
     await sink.flush();
     await sink.close();
+  }
+
+  Future<List<String>> _readFile() async {
+    if(await file.exists()) {
+      return file.readAsLines();
+    } else {
+      return Future.value(<String>[]);
+    }
   }
 }

@@ -7,6 +7,8 @@ import 'package:stream_channel/stream_channel.dart';
 
 Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
+  print('server $message');
+
   if(message[0] == 'clean') {
     await Database.clean(message[1]);
   }
@@ -14,8 +16,8 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
     final server = Server(port: message[2]);
     server.addServices([
       AdminService(),
-      AuthService(path: message[1]),
-      DataService(path: message[1]),
+      AuthService(path: '${message[1]}/test_server'),
+      DataService(path: '${message[1]}/test_server'),
     ]);
     await server.start();
   }

@@ -87,7 +87,7 @@ class AuthClient {
   bool get isNotAttached => !isAttached;
 
   void init() async {
-    _accounts = AccountData('$root/accounts');
+    _accounts = AccountData(root);
     await _accounts.open();
     auth._attach(this);
     await _initAccount();

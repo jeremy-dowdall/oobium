@@ -1,4 +1,3 @@
-// @dart=2.9
 import 'dart:async';
 
 import 'package:oobium/src/data/data.dart';
@@ -72,7 +71,7 @@ class Database {
   T remove<T extends DataModel>(String id) => batch(remove: [id])[0];
   List<T> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
 
-  Future<void> bind(WebSocket socket) => _sync.bind(socket);
+  Future<void> bind(WebSocket socket, {bool wait = true}) => open().then((_) => _sync.bind(socket, wait: wait));
 
   Future<void> unbind(WebSocket socket) => _sync?.unbind(socket);
 

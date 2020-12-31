@@ -1,10 +1,10 @@
 
-import 'package:oobium_client_gen/src/util/initializers_builder.dart';
-import 'package:oobium_client_gen/src/util/model_builder.dart';
-import 'package:oobium_client_gen/src/util/scaffolding_detail_page_builder.dart';
-import 'package:oobium_client_gen/src/util/scaffolding_list_page_builder.dart';
-import 'package:oobium_client_gen/src/util/scaffolding_model.dart';
-import 'package:oobium_client_gen/src/util/schema.dart';
+import 'package:oobium_gen/src/util/initializers_builder.dart';
+import 'package:oobium_gen/src/util/model_builder.dart';
+import 'package:oobium_gen/src/util/scaffolding_detail_page_builder.dart';
+import 'package:oobium_gen/src/util/scaffolding_list_page_builder.dart';
+import 'package:oobium_gen/src/util/scaffolding_model.dart';
+import 'package:oobium_gen/src/util/schema.dart';
 
 String generateInitializersLibrary(Schema schema, String modelsImport) {
   final imports = <String>[
