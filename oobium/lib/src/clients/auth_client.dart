@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:oobium/oobium.dart';
 import 'package:oobium/src/clients/account.schema.gen.models.dart';
 import 'package:oobium/src/clients/auth_socket.dart';
+import 'package:oobium/src/database.dart';
 
 enum AuthState {
   Unknown, Anonymous, SigningUp, SigningIn, SignedIn, SigningOut

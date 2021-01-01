@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:oobium/oobium.dart';
+import 'package:oobium/src/websocket.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 

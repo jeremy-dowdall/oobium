@@ -1,5 +1,5 @@
+import 'package:oobium/src/string.extensions.dart';
 import 'package:test/test.dart';
-import 'package:oobium/oobium.dart';
 
 void main() {
   group('test camelCase', () {
