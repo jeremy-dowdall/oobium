@@ -5,10 +5,13 @@ import 'dart:isolate';
 import 'dart:math';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium/oobium.dart';
-import 'package:oobium_server/src/html/html.dart';
-import 'package:oobium_server/src/server_settings.dart';
-import 'package:oobium_server/src/services/services.dart';
+import 'package:oobium/src/server/html.dart';
+import 'package:oobium/src/json.dart';
+import 'package:oobium/src/router.extensions.dart';
+import 'package:oobium/src/server/server_settings.dart';
+import 'package:oobium/src/server/services/services.dart';
+import 'package:oobium/src/websocket.dart';
+import 'package:oobium/src/string.extensions.dart';
 
 class HostService extends Service<Host> {
   final Host host;
@@ -666,7 +669,8 @@ class StringContent implements Content {
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
 
-// TODO RequestHandler fireAuth = (req, res) async {
+// TODO firebase?
+// RequestHandler fireAuth = (req, res) async {
 //   final authHeader = req.header[HttpHeaders.authorizationHeader];
 //   if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
 //     req.params['uid'] = authHeader.split(' ')[1];
