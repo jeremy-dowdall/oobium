@@ -10,7 +10,7 @@ String generateInitializersLibrary(Schema schema, String modelsImport) {
   final imports = <String>[
     modelsImport,
     "import 'package:oobium/oobium.dart';",
-    "import 'package:oobium_client/oobium_client.dart';",
+    "import 'package:oobium_flutter/oobium_flutter.dart';",
   ].toSet().toList()..sort();
 
   final initializers = InitializersBuilder(imports: imports, models: schema.models);
@@ -21,7 +21,7 @@ String generateInitializersLibrary(Schema schema, String modelsImport) {
 String generateModelsLibrary(Schema schema) {
   final imports = <String>[
     ...schema.imports,
-    "import 'package:oobium_client/oobium_client.dart';",
+    "import 'package:oobium_flutter/oobium_flutter.dart';",
     "import 'package:oobium/oobium.dart';",
   ].toSet().toList()..sort();
 
@@ -40,7 +40,7 @@ String generateScaffoldingLibrary(Schema schema, String modelsImport) {
     ...schema.imports,
     "import 'dart:async';",
     "import 'package:flutter/material.dart';",
-    "import 'package:oobium_client/oobium_client.dart';",
+    "import 'package:oobium_flutter/oobium_flutter.dart';",
     "import 'package:oobium/oobium.dart';",
     "import 'package:provider/provider.dart';",
   ].toSet().toList()..sort();

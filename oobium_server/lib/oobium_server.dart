@@ -1,5 +1,7 @@
 library oobium_server;
 
+export 'package:oobium/oobium.dart';
+
 export 'package:oobium_server/src/services/admin_service.dart' show AdminService;
 export 'package:oobium_server/src/services/auth_service.dart' show AuthService;
 export 'package:oobium_server/src/services/data_service.dart' show DataService;

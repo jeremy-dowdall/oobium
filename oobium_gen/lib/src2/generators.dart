@@ -41,7 +41,7 @@ String generateModelsLibrary(Schema schema) {
 //     ...schema.imports,
 //     "import 'dart:async';",
 //     "import 'package:flutter/material.dart';",
-//     "import 'package:oobium_client/oobium_client.dart';",
+//     "import 'package:oobium_flutter/oobium_flutter.dart';",
 //     "import 'package:oobium/oobium.dart';",
 //     "import 'package:provider/provider.dart';",
 //   ].toSet().toList()..sort();

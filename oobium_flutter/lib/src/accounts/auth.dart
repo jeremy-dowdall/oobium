@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:connectivity/connectivity.dart';
 import 'package:flutter/material.dart';
 import 'package:oobium/oobium.dart';
-import 'package:oobium_client/src/accounts/account.schema.gen.models.dart';
 import 'package:oobium_routing/oobium_routing.dart';
 import 'package:provider/provider.dart';
 

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:oobium_client/oobium_client_2.dart';
+import 'package:oobium_flutter/oobium_flutter.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 Future<void> main() async {
