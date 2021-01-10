@@ -24,11 +24,9 @@ class Account extends DataModel {
           {},
         );
 
-  @override
   Account copyNew({String uid, String token}) =>
       Account.copyNew(this, uid: uid, token: token);
 
-  @override
   Account copyWith({String uid, String token}) =>
       Account.copyWith(this, uid: uid, token: token);
 }

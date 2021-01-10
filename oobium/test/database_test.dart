@@ -232,6 +232,6 @@ class TestType1 extends DataModel {
   TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
   TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
   TestType1.fromJson(data) : super.fromJson(data, {'name'}, {});
-  @override TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
-  @override TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
+  TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
+  TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
 }
