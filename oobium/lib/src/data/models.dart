@@ -74,8 +74,9 @@ class Models {
   }
 
   DataModel _build(DataRecord record) {
-    assert(_builders[record.type] != null, 'no builder registered for ${record.type}');
-    final value = _builders[record.type](record.data);
+    final builder = _builders[record.type] ?? _builders['DataModel'];
+    assert(builder != null, 'no builder registered for ${record.type}');
+    final value = builder(record.data);
     assert(value is DataModel, 'builder did not return a DataModel: $value');
     return (value as DataModel).._fields._context = this;
   }

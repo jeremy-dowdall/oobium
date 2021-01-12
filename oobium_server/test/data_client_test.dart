@@ -11,7 +11,7 @@ Future<void> main() async {
   // tearDownAll(() => TestClient.clean(root));
 
   group('test with connection', () {
-    test('something', () async {
+    test('sign up and connect data a connection', () async {
       final path = nextPath();
       final port = nextPort();
       final server = await TestClient.start(path, port);
@@ -36,10 +36,41 @@ Future<void> main() async {
       await authClient.setConnectionStatus(ConnectionStatus.wifi);
       expect(authClient.isConnected, isTrue);
 
-      final dataClient = DataClient(root: clientPath, builder: (path) {
-        print('client: build $path');
-        return Database(path);
-      });
+      final dataClient = DataClient(
+        root: clientPath,
+        create: () => [DbDefinition(name: 'test')],
+        builder: (root, ds) => Database('$root/${ds.name}')
+      );
+
+      await authClient.bindAccount(dataClient.setAccount);
+      await authClient.bindSocket(dataClient.setSocket);
+
+      expect(dataClient.isConnected, isTrue);
+      expect(dataClient.isBound, isTrue);
+
+      authClient.dispose();
+    });
+    test('private database and shared database', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+
+      final clientPath = '$path/test_client';
+
+      final authClient = AuthClient(root: clientPath, port: port);
+      await authClient.init();
+
+      final admin = await AdminClient(port: port).getAccount();
+
+      print('signIn(${admin.uid}, ${admin.token})');
+      await authClient.signIn(admin.uid, admin.token);
+      await authClient.setConnectionStatus(ConnectionStatus.wifi);
+
+      final dataClient = DataClient(
+        root: clientPath,
+        create: () => [DbDefinition(name: 'test')],
+        builder: (root, ds) => Database('$root/${ds.name}')
+      );
 
       await authClient.bindAccount(dataClient.setAccount);
       await authClient.bindSocket(dataClient.setSocket);

@@ -51,7 +51,9 @@ class DbTestServer {
         return db.get(id)?.toJson();
       case '/db/put':
         final model = TestType1.fromJson(data);
-        return db.put(model).toJson();
+        final result = db.put(model).toJson();
+        await db.flush();
+        return result;
       case '/db/count/models':
         return db.getAll().length;
       default:

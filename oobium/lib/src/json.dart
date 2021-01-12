@@ -4,7 +4,7 @@ import 'package:oobium/src/string.extensions.dart';
 abstract class Json implements JsonString {
 
   static decode(String json) => jsonDecode(json);
-  static String encode(data) => jsonEncode(Json.from(data));
+  static String encode(data) => jsonEncode(Json.from(data, full: true));
 
   const Json();
 
@@ -84,9 +84,9 @@ abstract class Json implements JsonString {
 
   static List<String> toStrings(data, String field) => toList(data, field, (e) => e.toString());
 
-  static from(field) {
+  static from(field, {bool full}) {
     if(field == null) return null;
-    if(field is JsonModel) return field.id;
+    if(field is JsonModel && full != true) return field.id;
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
     if(field is List) return fromList(field);

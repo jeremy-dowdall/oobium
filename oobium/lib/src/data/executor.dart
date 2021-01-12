@@ -7,6 +7,8 @@ class Executor {
 
   Future<void> add(FutureOr Function() op) => _add(op);
   
+  Future<void> flush() => close(cancel: false);
+
   Future<void> close({bool cancel = false}) {
     _canceled = cancel ?? false;
     return _last ?? Future.value();

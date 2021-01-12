@@ -8,13 +8,13 @@ import 'package:oobium_server/src/services/services.dart';
 class DataService extends Service<AuthService> {
 
   final String path;
-  final _databases = <String, Database>{};
+  final _datastores = <String, DataStore>{};
   DataService({this.path = 'data'});
 
   @override
   void onAttach(AuthService authService) {
     final socket = authService.socket;
-    socket.on.get('/data/db/<name>/open', _onOpenDatabase(socket));
+    socket.on.put('/data/db', _onPutDatabase(socket));
   }
 
   @override
@@ -24,21 +24,28 @@ class DataService extends Service<AuthService> {
 
   @override
   FutureOr<void> onStop() {
-    return Future.wait(_databases.values.map((db) => db.close()));
+    return Future.wait(_datastores.values.map((ds) => ds.database.close()));
   }
 
-  WsMessageHandler _onOpenDatabase(ServerWebSocket socket) => (WsRequest req, WsResponse res) async {
-    final name = req['name'];
-    assert(name is String);
-    if(_databases.containsKey(name)) {
+  WsMessageHandler _onPutDatabase(ServerWebSocket socket) => (WsRequest req, WsResponse res) async {
+    print('server _onPutDatabase(${req.data.value})');
+    final dbDef = DbDefinition.fromJson(req.data.value);
+    final dbPath = _path(path, dbDef, socket);
+    if(_datastores.containsKey(dbPath)) {
       res.send(code: 200);
     } else {
-      final db = Database('$path/${socket.id}/$name');
-      await db.open();
-      _databases[name] = db;
+      _datastores[dbPath] = DataStore(dbDef, await Database(dbPath).open());
       res.send(code: 201);
     }
-    print('server bind');
-    return _databases[name].bind(socket, wait: false);
+    print('server bind:${dbDef.name}');
+    return _datastores[dbPath].database.bind(socket, wait: false);
   };
+
+  String _path(String root, DbDefinition dbDef, ServerWebSocket socket) {
+    if(dbDef.shared == true) {
+      return '$path/${socket.id}/${dbDef.name}';
+    } else {
+      return '$path/${dbDef.name}'; // TODO groupId ???
+    }
+  }
 }

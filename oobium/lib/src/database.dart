@@ -26,28 +26,40 @@ class Database {
 
   int get size => _models.length;
   
-  Future<void> open() async {
+  Future<Database> open() async {
     if(_data == null) {
-      await (_data = Data(path)).create();
-      await (_repo = Repo(_data)).open();
+      _data = await Data(path).create();
+      _repo = await Repo(_data).open();
       await _models.load(_repo.get());
-      await (_sync = Sync(_data, _repo, _models)).open();
+      _sync = await Sync(_data, _repo, _models).open();
     }
+    return this;
   }
 
-  Future<void> close() => _data?.close()?.then((_) {
-    _models.clear();
-    _data = null;
-    _repo = null;
-    _sync = null;
-  });
+  Future<void> flush() async {
+    await _sync.flush();
+    await _repo.flush();
+  }
 
-  Future<void> destroy() => _data?.destroy()?.then((_) {
+  Future<void> close() async {
+    await _sync?.close();
+    await _repo?.close();
+    await _data?.close();
     _models.clear();
     _data = null;
     _repo = null;
     _sync = null;
-  });
+  }
+
+  Future<void> destroy() async {
+    await _sync?.close(cancel: true);
+    await _repo?.close(cancel: true);
+    await _data?.destroy();
+    _models.clear();
+    _data = null;
+    _repo = null;
+    _sync = null;
+  }
 
   Future<void> reset({WebSocket socket}) async {
     await destroy();
@@ -73,7 +85,7 @@ class Database {
 
   Future<void> bind(WebSocket socket, {bool wait = true}) => open().then((_) => _sync.bind(socket, wait: wait));
 
-  Future<void> unbind(WebSocket socket) => _sync?.unbind(socket);
+  void unbind(WebSocket socket) => _sync?.unbind(socket);
 
   List<T> _batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
     final batch = _models.batch(put: put, remove: remove);

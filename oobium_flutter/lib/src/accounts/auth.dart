@@ -260,7 +260,7 @@ class _AuthenticatedAppState extends State<AuthenticatedApp> {
       // await _data.bind(_socket);
       // _dataBound = true;
     } else {
-      await _data?.unbind(_socket);
+      _data?.unbind(_socket);
       _dataBound = false;
     }
   }

@@ -49,9 +49,9 @@ class Replicant extends base.Replicant {
   File file;
 
   @override
-  Future<Replicant> open() {
+  Replicant open() {
     file = File('${db.connect(this)}/sync.$id');
-    return startTracking().then((_) => Future.value(this));
+    return this;
   }
 
   @override

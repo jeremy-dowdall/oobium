@@ -54,14 +54,12 @@ class ModelBuilder {
       
       $copyAsMethod
       
-      @override
       $type copyNew({
         ${fields.map((f) => '${f.type} ${f.name}').join(',\n')}
       }) => $type.copyNew(this,
         ${fields.map((f) => '${f.name}: ${f.name}').join(',\n')}
       );
       
-      @override
       $type copyWith({
         ${fields.map((f) => '${f.type} ${f.name}').join(',\n')}
       }) => $type.copyWith(this,

@@ -144,6 +144,7 @@ Future<void> main() async {
 
     final m2 = TestType1(name: 'test02');
     db.put(m2);
+    await db.flush();
     expect(db.size, 2);
     expect(await server.dbModelCount, db.size);
     expect((await server.dbGet(m2.id)).name, 'test02');
@@ -178,6 +179,7 @@ Future<void> main() async {
 
     final m2 = TestType1(name: 'test02');
     db1.put(m2);
+    await db1.flush();
     expect(await server.dbModelCount, 2);
     expect(db1.size, 2);
     expect(db2.size, 2);
@@ -187,6 +189,7 @@ Future<void> main() async {
 
     final m3 = TestType1(name: 'test03');
     db2.put(m3);
+    await db2.flush();
     expect(await server.dbModelCount, 3);
     expect(db1.size, 3);
     expect(db2.size, 3);
@@ -257,6 +260,6 @@ class TestType1 extends DataModel {
   TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
   TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
   TestType1.fromJson(data) : super.fromJson(data, {'name'}, {});
-  @override TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
-  @override TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
+  TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
+  TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
 }

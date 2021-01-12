@@ -1,0 +1,3 @@
+DbDefinition
+    name String
+    shared bool

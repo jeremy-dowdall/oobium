@@ -48,9 +48,9 @@ class Replicant extends base.Replicant {
   Database idb;
 
   @override
-  Future<base.Replicant> open() {
+  Replicant open() {
     idb = db.connect(this);
-    return startTracking().then((_) => Future.value(this));
+    return this;
   }
 
   @override

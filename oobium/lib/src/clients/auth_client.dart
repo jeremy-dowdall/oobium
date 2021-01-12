@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:oobium/src/clients/account.schema.gen.models.dart';
 import 'package:oobium/src/clients/auth_socket.dart';
-import 'package:oobium/src/database.dart';
 
 enum AuthState {
   Unknown, Anonymous, SigningUp, SigningIn, SignedIn, SigningOut
@@ -73,7 +72,7 @@ class AuthClient {
   final _socketListeners = <FutureOr<void> Function(AuthSocket socket)>[];
   AuthClient({Auth auth, this.address='127.0.0.1', this.port=8001, this.root=''}) : auth = auth ?? Auth();
 
-  Database _accounts;
+  AccountData _accounts;
   Account _account;
 
   AuthSocket _socket;
