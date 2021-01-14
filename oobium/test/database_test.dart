@@ -33,7 +33,7 @@ Future<void> main() async {
     expect(m2.timestamp, isNot(m1.timestamp));
   });
 
-  test('test database without builders', () async {
+  test('test DataModel without builders', () async {
     final db = Database('test-data/no-builders');
     await db.open();
     final model = db.put(DataModel({'name': 'test 01'}));
@@ -47,8 +47,22 @@ Future<void> main() async {
     expect(db.get(model.id), isNot(model));
   });
 
+  test('test custom model without builders', () async {
+    final db = Database('test-data/custom-model_no-builders');
+    await db.open();
+    final model = db.put(TestType1(name: 'test 01'));
+    expect(db.get(model.id), model);
+
+    await db.close();
+    await db.open();
+
+    expect(db.get(model.id), isNotNull);
+    expect(db.get(model.id).isSameAs(model), isFalse); // runtimeType is different
+  });
+
   test('test data stored in memory', () async {
     final db = create();
+    await db.open();
     final model1 = db.put(TestType1(name: 'test01'));
     final model2 = db.get<TestType1>(model1.id);
     expect(model2.name, 'test01');
@@ -213,6 +227,84 @@ Future<void> main() async {
     await db2.open();
     expect(db2.getAll<TestType1>().length, 3);
     expect(db2.getAll<TestType1>().where((m) => m.name == 'test-02').length, 2);
+  });
+
+  test('test stream', () async {
+    final db = create();
+    await db.reset();
+    final model = TestType1(name: 'test-01');
+    db.stream<TestType1>(model.id).listen(expectAsync1<void, TestType1>((result) {
+      expect(result.name, 'test-02');
+    }, count: 1));
+    db.put(model.copyWith(name: 'test-02'));
+  });
+
+  test('test stream removal', () async {
+    final db = create();
+    await db.reset();
+    final model = db.put(TestType1(name: 'test-01'));
+    db.stream<TestType1>(model.id).listen(expectAsync1<void, TestType1>((result) {
+      expect(result, isNull);
+    }, count: 1));
+    db.remove(model.id);
+  });
+
+  test('test streamAll', () async {
+    final db = create();
+    await db.reset();
+    db.streamAll<TestType1>().listen(expectAsync1<void, Iterable<TestType1>>((results) {
+      expect(results.length, 3);
+    }, count: 1));
+    db.batch(put: [
+      TestType1(name: 'test-01'),
+      TestType1(name: 'test-02'),
+      TestType1(name: 'test-02'),
+    ]);
+  });
+
+  test('test streamAll removal', () async {
+    final db = create();
+    await db.reset();
+    db.batch(put: [
+      TestType1(name: 'test-01'),
+      TestType1(name: 'test-02'),
+      TestType1(name: 'test-02'),
+    ]);
+    db.streamAll<TestType1>().listen(expectAsync1<void, Iterable<TestType1>>((results) {
+      expect(results.length, 1);
+    }, count: 1));
+    db.batch(remove: db.getAll<TestType1>().where((m) => m.name == 'test-02').map((m) => m.id).toList());
+  });
+
+  test('test streamAll skips other types', () async {
+    final db = create();
+    await db.reset();
+    db.streamAll<TestType1>().listen(expectAsync1<void, Iterable<TestType1>>((results) {
+      expect(results.length, 1);
+    }, count: 1));
+    db.put(DataModel({'name': 'test-02'}));
+    db.put(TestType1(name: 'test-02'));
+  });
+
+  test('test streamAll accepting types', () async {
+    final db = create();
+    await db.reset();
+    db.streamAll().listen(expectAsync1<void, Iterable<DataModel>>((results) {
+      expect(results.length, 2);
+    }, count: 2));
+    db.put(DataModel({'name': 'test-02'}));
+    db.put(TestType1(name: 'test-02'));
+  });
+
+  test('test streamAll with where function', () async {
+    final db = create();
+    await db.reset();
+    db.streamAll<TestType1>(where: (model) => model.name == 'test-02').listen(expectAsync1<void, Iterable>((results) {
+      expect(results.length, 1);
+    }, count: 1));
+    db.put(TestType1(name: 'test-01'));
+    db.put(TestType1(name: 'test-02'));
+    db.put(TestType1(name: 'test-03'));
   });
 }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/database.dart';
 import 'package:oobium/src/json.dart';
@@ -14,8 +16,9 @@ class Models {
   
   final _builders = <String, Function(Map data)>{};
   final _models = <String, DataModel>{};
+  StreamController<Iterable<DataModel>> _controller;
 
-  Future<void> load(Stream<DataRecord> records) async {
+  Future<Models> load(Stream<DataRecord> records) async {
     await for(var record in records) {
       if(record.isDelete) {
         _models.remove(record.id);
@@ -23,6 +26,7 @@ class Models {
         _models[record.id] = _build(record);
       }
     }
+    return this;
   }
 
   void loadAll(Iterable<DataRecord> records) {
@@ -35,14 +39,39 @@ class Models {
     }
   }
 
-  void clear() {
+  Future<void> close() {
     _models.clear();
+    return _controller?.close() ?? Future.value();
   }
 
   int get length => _models.length;
 
   T get<T extends DataModel>(String id, {T Function() orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
   Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? _models.values : _models.values.whereType<T>();
+
+  Stream<T> stream<T extends DataModel>(String id) {
+    if(_controller == null) {
+      _controller = StreamController<Iterable<DataModel>>.broadcast(onCancel: () => _controller = null);
+    }
+    return _controller.stream
+      .where((updates) => updates.any((model) => (model.id == id)))
+      .map((updates) => _models[id]);
+  }
+
+  Stream<Iterable<T>> streamAll<T extends DataModel>({bool Function(T model) where}) {
+    if(_controller == null) {
+      _controller = StreamController<Iterable<DataModel>>.broadcast(onCancel: () => _controller = null);
+    }
+    if(where == null) {
+      return _controller.stream
+        .where((updates) => updates.any((model) => model is T))
+        .map((_) => _models.values.whereType<T>());
+    } else {
+      return _controller.stream
+        .where((updates) => updates.any((model) => (model is T) && where(model)))
+        .map((_) => _models.values.whereType<T>().where(where));
+    }
+  }
 
   Batch<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
     final batch = Batch<T>();
@@ -53,12 +82,12 @@ class Models {
       } else {
         _models[model.id] = model;
         batch.results.add(model);
-        batch.records.add(DataRecord.fromModel(model));
+        batch.put.add(model);
       }
       for(var member in model._fields.models) {
         if(member.isNotSameAs(_models[member.id])) {
           _models[member.id] = member;
-          batch.records.add(DataRecord.fromModel(member));
+          batch.put.add(member);
         }
       }
     }
@@ -66,8 +95,12 @@ class Models {
       final model = _models.remove(id);
       batch.results.add(model);
       if(model != null) {
-        batch.records.add(DataRecord.delete(id));
+        batch.remove.add(model);
       }
+    }
+
+    if(batch.isNotEmpty) {
+      _controller?.add(batch.updates);
     }
 
     return batch;
@@ -84,7 +117,12 @@ class Models {
 
 class Batch<T extends DataModel> {
   final results = <T>[];
-  final records = <DataRecord>[];
+  final put = <DataModel>[];
+  final remove = <DataModel>[];
+  bool get isEmpty => put.isEmpty && remove.isEmpty;
+  bool get isNotEmpty => !isEmpty;
+  Iterable<DataRecord> get records => [...put.map((m) => DataRecord.fromModel(m)), ...remove.map((m) => DataRecord.delete(m.id))];
+  Iterable<DataModel> get updates => [...put, ...remove];
 }
 
 class DataModel extends JsonModel implements DataId {

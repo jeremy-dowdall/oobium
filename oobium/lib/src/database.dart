@@ -15,22 +15,23 @@ class Database {
   static Future<void> clean(String path) => Data(path).destroy();
 
   final String path;
-  final Models _models;
-  Database(this.path, [List<Function(Map data)> builders]) : _models = Models(builders) {
+  final List<Function(Map data)> _builders;
+  Database(this.path, [this._builders]) {
     assert(path.isNotBlank, 'database path cannot be blank');
   }
 
+  Models _models;
   Data _data;
   Repo _repo;
   Sync _sync;
 
-  int get size => _models.length;
+  int get size => _models?.length ?? 0;
   
   Future<Database> open() async {
     if(_data == null) {
       _data = await Data(path).create();
       _repo = await Repo(_data).open();
-      await _models.load(_repo.get());
+      _models = await Models(_builders).load(_repo.get());
       _sync = await Sync(_data, _repo, _models).open();
     }
     return this;
@@ -45,7 +46,7 @@ class Database {
     await _sync?.close();
     await _repo?.close();
     await _data?.close();
-    _models.clear();
+    await _models.close();
     _data = null;
     _repo = null;
     _sync = null;
@@ -55,7 +56,8 @@ class Database {
     await _sync?.close(cancel: true);
     await _repo?.close(cancel: true);
     await _data?.destroy();
-    _models.clear();
+    await _models?.close();
+    _models = null;
     _data = null;
     _repo = null;
     _sync = null;
@@ -83,6 +85,9 @@ class Database {
   T remove<T extends DataModel>(String id) => batch(remove: [id])[0];
   List<T> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
 
+  Stream<T> stream<T extends DataModel>(String id) => _models.stream<T>(id);
+  Stream<Iterable<T>> streamAll<T extends DataModel>({bool Function(T model) where}) => _models.streamAll<T>(where: where);
+
   Future<void> bind(WebSocket socket, {bool wait = true}) => open().then((_) => _sync.bind(socket, wait: wait));
 
   void unbind(WebSocket socket) => _sync?.unbind(socket);
@@ -90,7 +95,7 @@ class Database {
   List<T> _batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
     final batch = _models.batch(put: put, remove: remove);
 
-    if(batch.records.isNotEmpty) {
+    if(batch.isNotEmpty) {
       _sync?.put(batch.records);
     }
 
