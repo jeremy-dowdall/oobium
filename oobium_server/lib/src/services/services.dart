@@ -2,57 +2,49 @@ import 'dart:async';
 
 class ServiceRegistry {
   
-  final _services = <Type, Service>{};
-  final _listeners = <Type, List<Type>>{};
+  final _services = <Service>[];
   
   void add(Service service) {
-    final st = service.runtimeType; // DataService extends Service<AuthService> (DS listens to AS -> )
-    final ht = service.hostType;
-    assert(ht != null);
-    assert(!_services.containsKey(st));
-    service.services.._registry = this.._service = service;
-    _services[st] = service;
-    _listeners.putIfAbsent(ht, () => <Type>[]).add(st);
+    assert(_services.any((s) => s.runtimeType == service.runtimeType) == false);
+    service.services.._registry = this;
+    _services.add(service);
   }
-  
-  T get<T extends Service>() => _services[T];
+
+  T get<T>() => _services.firstWhere((s) => s.runtimeType == T) as T;
  
-  void _attach(Service service) {
-    if(_listeners.containsKey(service.runtimeType)) {
-      for(var listener in _listeners[service.runtimeType]) {
-        _services[listener].onAttach(service);
-      }
+  void _attach(data) {
+    for(var consumer in _services.where((s) => s.consumes == data.runtimeType)) {
+      consumer.onAttach(data);
     }
   }
-  void _detach(Service service) {
-    if(_listeners.containsKey(service.runtimeType)) {
-      for(var listener in _listeners[service.runtimeType]) {
-        _services[listener].onDetach(service);
-      }
+  void _detach(data) {
+    for(var consumer in _services.where((s) => s.consumes == data.runtimeType)) {
+      consumer.onDetach(data);
     }
   }
   
-  Future<void> start() => Future.forEach<Service>(_services.values, (service) => service.onStart());
-  Future<void> stop() => Future.forEach<Service>(_services.values, (service) => service.onStop());
+  Future<void> start() => Future.forEach<Service>(_services, (service) => service.onStart());
+  Future<void> stop() => Future.forEach<Service>(_services, (service) => service.onStop());
 }
 
-class Services {
-  Service _service;
+class Services<P> {
   ServiceRegistry _registry;
 
-  void attach() => _registry._attach(_service);
-  void detach() => _registry._detach(_service);
-  T get<T extends Service>() => _registry.get<T>();
+  void attach(P data) => _registry._attach(data);
+  void detach(P data) => _registry._detach(data);
+
+  T get<T>() => _registry.get<T>();
 }
 
-abstract class Service<H> {
+abstract class Service<C, P> {
   
-  final services = Services();
-  Type get hostType => H;
+  final services = Services<P>();
 
-  void onAttach(H host)    {}
-  void onDetach(H host)    {}
+  Type get consumes => C;
+  Type get provides => P;
+
+  void onAttach(C host)    {}
+  void onDetach(C host)    {}
   FutureOr<void> onStart() => Future.value();
   FutureOr<void> onStop()  => Future.value();
-
 }

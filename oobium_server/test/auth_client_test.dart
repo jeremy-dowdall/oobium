@@ -28,10 +28,8 @@ Future<void> main() async {
 
       print('signIn(${admin.uid}, ${admin.token})');
       await client.signIn(admin.uid, admin.token);
-      expect(client.isConnected, isTrue);
+      // expect(client.isConnected, isTrue);
       expect(client.auth.isSignedIn, isTrue);
-
-
 
       client.dispose();
     });

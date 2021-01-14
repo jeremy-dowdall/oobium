@@ -2,8 +2,12 @@ import 'package:oobium/oobium.dart';
 
 class AuthData extends Database {
   AuthData(String path)
-      : super('$path/auth',
-            [(data) => User.fromJson(data), (data) => Token.fromJson(data)]);
+      : super('$path/auth', [
+          (data) => User.fromJson(data),
+          (data) => Token.fromJson(data),
+          (data) => Group.fromJson(data),
+          (data) => Membership.fromJson(data)
+        ]);
 }
 
 class User extends DataModel {
@@ -69,7 +73,6 @@ class User extends DataModel {
           {'token', 'referredBy'},
         );
 
-  @override
   User copyNew(
           {String name,
           String avatar,
@@ -85,7 +88,6 @@ class User extends DataModel {
           path: path,
           role: role);
 
-  @override
   User copyWith(
           {String name,
           String avatar,
@@ -120,9 +122,59 @@ class Token extends DataModel {
           {'user'},
         );
 
-  @override
   Token copyNew({User user}) => Token.copyNew(this, user: user);
 
-  @override
   Token copyWith({User user}) => Token.copyWith(this, user: user);
+}
+
+class Group extends DataModel {
+  String get name => this['name'];
+  User get owner => this['owner'];
+
+  Group({String name, User owner}) : super({'name': name, 'owner': owner});
+
+  Group.copyNew(Group original, {String name, User owner})
+      : super.copyNew(original, {'name': name, 'owner': owner});
+
+  Group.copyWith(Group original, {String name, User owner})
+      : super.copyWith(original, {'name': name, 'owner': owner});
+
+  Group.fromJson(data)
+      : super.fromJson(
+          data,
+          {'name'},
+          {'owner'},
+        );
+
+  Group copyNew({String name, User owner}) =>
+      Group.copyNew(this, name: name, owner: owner);
+
+  Group copyWith({String name, User owner}) =>
+      Group.copyWith(this, name: name, owner: owner);
+}
+
+class Membership extends DataModel {
+  User get user => this['user'];
+  Group get group => this['group'];
+
+  Membership({User user, Group group}) : super({'user': user, 'group': group});
+
+  Membership.copyNew(Membership original, {User user, Group group})
+      : super.copyNew(original, {'user': user, 'group': group});
+
+  Membership.copyWith(Membership original, {User user, Group group})
+      : super.copyWith(original, {'user': user, 'group': group});
+
+  Membership.fromJson(data)
+      : super.fromJson(
+          data,
+          {},
+          {'user', 'group'},
+        );
+
+  Membership copyNew({User user, Group group}) =>
+      Membership.copyNew(this, user: user, group: group);
+
+  Membership copyWith({User user, Group group}) =>
+      Membership.copyWith(this, user: user, group: group);
 }

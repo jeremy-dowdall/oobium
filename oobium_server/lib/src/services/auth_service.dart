@@ -9,47 +9,75 @@ import 'package:oobium_server/src/services/services.dart';
 const WsProtocolHeader = 'sec-websocket-protocol';
 const WsAuthProtocol = 'authorized';
 
-class AuthService extends Service<HostService> {
+class AuthConnection {
 
-  final AuthData _db;
-  final _codes = <String, InstallCode>{};
-  AuthService({String path = 'data/auth'}) : _db = AuthData(path);
+  final Database _db;
+  final InstallCodes _codes;
+  final ServerWebSocket _socket;
+  AuthConnection._(this._db, this._codes, this._socket) {
+    _socket.on.get('/users/id', (req, res) => res.send(data: uid));
+    _socket.on.get('/users/token', (req, res) => res.send(data: getUserToken()));
+    _socket.on.get('/users/token/new', (req, res) => res.send(data: getUserToken(forceNew: true)));
+    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _codes.createInstallCode(uid)));
+  }
 
-  ServerWebSocket _socket;
   ServerWebSocket get socket => _socket;
+  String get uid => _socket.id;
+
+  String getUserToken({bool forceNew = false}) {
+    final user = _db.get<User>(uid);
+    final token = user.token;
+    if(forceNew || token.createdAt.isBefore(DateTime.now().subtract(Duration(days: 2)))) {
+      final newToken = token.copyNew();
+      _db.put(user.copyWith(token: newToken));
+      return newToken.id;
+    } else {
+      return token.id;
+    }
+  }
+}
+
+class AuthService extends Service<Host, AuthConnection> {
+  
+  final String path;
+  final _connections = <AuthConnection>[];
+  AuthService({this.path = 'data/auth'});
+
+  AuthData _db;
+  InstallCodes _codes;
 
   @override
-  void onAttach(HostService service) {
-    final host = service.host;
+  void onAttach(Host host) {
     host.get('/auth', [_auth(host), websocket((socket) {
-      _socket = socket;
-      socket.on.get('/users/id', onGetUserId(socket));
-      socket.on.get('/users/token', onGetUserToken(socket));
-      socket.on.get('/users/token/new', onGetUserToken(socket));
-      socket.on.get('/installs/token', onGetInstallToken(socket));
-      services.attach();
-      socket.done.then((_) => services.detach());
+      final connection = AuthConnection._(_db, _codes, socket);
+      _connections.add(connection);
+      services.attach(connection);
+      socket.done.then((_) {
+        _connections.remove(connection);
+        services.detach(connection);
+      });
     }, protocol: (_) => WsAuthProtocol)]);
-    // host.get('/auth/admin', [(req, res) {
-    //   if(req.settings.address == '127.0.0.1') {
-    //     final admin = _admin;
-    //     return res.sendJson({'id': admin.id, 'token': admin.token.id});
-    //   } else {
-    //     return res.send(code: HttpStatus.forbidden);
-    //   }
-    // }]);
+  }
+
+  @override
+  void onDetach(Host host) {
+    _connections.clear();
   }
 
   @override
   Future<void> onStart() async {
-    await _db.open();
+    _db = await AuthData(path).open();
+    _codes = InstallCodes(_db);
     final admin = this.admin;
     print('AuthToken: ${admin.id}-${admin.token.id}');
   }
 
   @override
   Future<void> onStop() async {
-    return Future.wait([_socket?.close(), _db.close()]);
+    _connections.clear();
+    await _db.close();
+    _db = null;
+    _codes = null;
   }
 
   User get admin => _db.getAll<User>()
@@ -57,7 +85,7 @@ class AuthService extends Service<HostService> {
       orElse: () => _db.put(User(name: 'admin', role: 'admin', token: Token())));
 
   RequestHandler _auth(Host host) => (Request req, Response res) async {
-    final authToken = _authToken(req);
+    final authToken = _parseAuthToken(req);
     if(authToken is String) {
       if(authToken.contains('-')) {
         final sa = authToken.split('-');
@@ -69,8 +97,7 @@ class AuthService extends Service<HostService> {
         }
         print('auth failed with token: $authToken');
       } else {
-        final code = authToken;
-        final tokenId = _codes.remove(code)?.token;
+        final tokenId = _codes.consume(authToken);
         if(tokenId != null) {
           final token = _db.remove<Token>(tokenId);
           final approval = await host.socket(token?.user?.id)?.get('/installs/approval');
@@ -86,37 +113,33 @@ class AuthService extends Service<HostService> {
     return res.send(code: HttpStatus.forbidden);
   };
 
-  String _authToken(Request req) {
+  String _parseAuthToken(Request req) {
     final protocols = req.header[WsProtocolHeader]?.split(', ') ?? <String>[];
     if(protocols.length == 2 && protocols[0] == WsAuthProtocol) {
       return protocols[1];
     }
     return null;
   }
+}
 
-  WsMessageHandler onGetUserId(ServerWebSocket socket) => (WsRequest req, WsResponse res) {
-    res.send(data: _db.get<User>(socket.id).id);
-  };
+class InstallCode {
+  final String user;
+  final String token;
+  InstallCode(this.user, this.token);
+}
 
-  WsMessageHandler onGetUserToken(ServerWebSocket socket,{bool forceNew = false}) => (WsRequest req, WsResponse res) {
-    final user = _db.get<User>(socket.id);
-    final token = user.token;
-    if(forceNew || token.createdAt.isBefore(DateTime.now().subtract(Duration(days: 2)))) {
-      final newToken = token.copyNew();
-      _db.put(user.copyWith(token: newToken));
-      res.send(data: newToken.id);
-    } else {
-      res.send(data: token.id);
-    }
-  };
+class InstallCodes {
 
-  WsMessageHandler onGetInstallToken(ServerWebSocket socket) => (WsRequest req, WsResponse res) {
-    final user = _db.get<User>(socket.id);
-    final code = _createInstallCode(user);
-    res.send(code: 201, data: code);
-  };
+  final Database _db;
+  final _codes = <String, InstallCode>{};
+  InstallCodes(this._db);
 
-  String _createInstallCode(User user) {
+  String consume(String code) {
+    return _codes.remove(code)?.token;
+  }
+
+  String createInstallCode(String userId) {
+    final user = _db.get<User>(userId);
     final old = _codes.keys.firstWhere((k) => _codes[k].user == user.id, orElse: () => null);
     if(old != null) {
       print('found old code ($old), removing');
@@ -139,10 +162,4 @@ class AuthService extends Service<HostService> {
     }
     return digits.join();
   }
-}
-
-class InstallCode {
-  final String user;
-  final String token;
-  InstallCode(this.user, this.token);
 }

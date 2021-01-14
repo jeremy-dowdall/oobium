@@ -10,11 +10,6 @@ import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium_server/src/server_settings.dart';
 import 'package:oobium_server/src/services/services.dart';
 
-class HostService extends Service<Host> {
-  final Host host;
-  HostService(this.host);
-}
-
 class Host {
 
   final Server _server;
@@ -36,13 +31,10 @@ class Host {
   bool livePages = false;
 
   void addService(Service service) {
-    if(_registry == null) {
-      _registry = ServiceRegistry();
-      _registry.add(HostService(this));
-    }
+    _registry ??= ServiceRegistry();
     _registry.add(service);
-    if(service.hostType == HostService) {
-      service.onAttach(_registry.get<HostService>());
+    if(service.consumes == Host) {
+      service.onAttach(this);
     }
   }
   void addServices(List<Service> services) {

@@ -11,7 +11,7 @@ Future<void> main() async {
   // tearDownAll(() => TestClient.clean(root));
 
   group('test with connection', () {
-    test('sign up and connect data a connection', () async {
+    test('sign up and connect a data connection', () async {
       final path = nextPath();
       final port = nextPort();
       final server = await TestClient.start(path, port);
@@ -39,7 +39,7 @@ Future<void> main() async {
       final dataClient = DataClient(
         root: clientPath,
         create: () => [DbDefinition(name: 'test')],
-        builder: (root, ds) => Database('$root/${ds.name}')
+        builder: (root, def) => Database('$root/${def.name}')
       );
 
       await authClient.bindAccount(dataClient.setAccount);
@@ -68,8 +68,11 @@ Future<void> main() async {
 
       final dataClient = DataClient(
         root: clientPath,
-        create: () => [DbDefinition(name: 'test')],
-        builder: (root, ds) => Database('$root/${ds.name}')
+        create: () => [
+          DbDefinition(name: 'private-db'),
+          DbDefinition(name: 'shared-db', shared: true)
+        ],
+        builder: (root, def) => Database('$root/${def.name}')
       );
 
       await authClient.bindAccount(dataClient.setAccount);

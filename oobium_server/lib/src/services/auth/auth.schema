@@ -3,8 +3,15 @@ User
   avatar String
   token Token
   referredBy User
-  path String
   role String
 
 Token
   user User
+
+Group
+  name String
+  owner User
+
+Membership
+  user User
+  group Group

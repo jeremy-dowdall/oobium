@@ -14,13 +14,13 @@ Future<void> main() async {
     final server = await TestClient.start('test-data/test-01', 8001);
 
     final admin = await AdminClient(port: 8001).getAccount();
-    expect(admin.id, isNotEmpty);
+    expect(admin.uid, isNotEmpty);
     expect(admin.token, isNotEmpty);
 
     print('connecting');
-    final clientA = await AuthSocket().connect(port: 8001, uid: admin.id, token: admin.token);
+    final clientA = await AuthSocket().connect(port: 8001, uid: admin.uid, token: admin.token);
     print('connected');
-    expect(clientA.uid, admin.id);
+    expect(clientA.uid, admin.uid);
     expect(clientA.token, admin.token);
 
     print('get installCode');
@@ -28,9 +28,9 @@ Future<void> main() async {
     print('got installCode: $installCode');
     expect(installCode.length, 6);
 
-    await Future.delayed(Duration(seconds: 10));
+    await Future.delayed(Duration(seconds: 2));
     clientA.onApprove = () async {
-      await Future.delayed(Duration(seconds: 10));
+      await Future.delayed(Duration(seconds: 2));
       return true;
     };
 
