@@ -13,7 +13,7 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
   }
   if(message[0] == 'serve') {
     final server = DbTestServer();
-    await server.start(message[1], message[2]);
+    await server.start(message[1], message[2], message[3]);
     server.listen(channel);
   }
 
@@ -25,12 +25,14 @@ class DbTestServer {
   Database db;
   TestWebsocketServer server;
 
-  Future<void> start(String path, int port) async {
+  Future<void> start(String path, int port, [List<String> databases]) async {
     db = Database(path, [(data) => TestType1.fromJson(data)]);
     await db.reset();
 
-    await TestWebsocketServer.start(port: port, onUpgrade: (socket) {
-      return db.bind(socket, wait: false);
+    await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
+      for(var name in databases) {
+        await db.bind(socket, name: name, wait: false);
+      }
     });
   }
 

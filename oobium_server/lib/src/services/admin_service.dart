@@ -8,10 +8,24 @@ class AdminService extends Service<Host, Object> {
 
   @override
   void onAttach(Host host) {
-    host.get('/admin/account', [_auth, (req, res) {
-      final admin = services.get<AuthService>().admin;
-      return res.sendJson({'uid': admin.id, 'token': admin.token.id});
-    }]);
+    host.get('/admin', [_auth, websocket((socket) {
+      socket.on.get('/account', (req, res) {
+        final admin = services.get<AuthService>().getAdmin(orCreate: true);
+        res.send(data: {'uid': admin.id, 'token': admin.token.id});
+      });
+      socket.on.get('/account/<id>', (req, res) {
+        final user = services.get<AuthService>().getUser(req['id']);
+        if(user != null) {
+          res.send(data: {'uid': user.id, 'token': user.token.id});
+        } else {
+          res.send(code: 404);
+        }
+      });
+      socket.on.put('/account/new', (req, res) {
+        final user = services.get<AuthService>().createUser(req.data.value);
+        res.send(data: {'uid': user.id, 'token': user.token.id});
+      });
+    })]);
   }
 
   Future<void> _auth(Request req, Response res) async {

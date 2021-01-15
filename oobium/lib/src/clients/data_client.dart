@@ -6,8 +6,6 @@ import 'package:oobium/src/clients/storage.schema.gen.models.dart';
 import 'package:oobium/src/database.dart';
 import 'package:oobium/src/websocket.dart';
 
-export 'package:oobium/src/clients/storage.schema.gen.models.dart';
-
 class DataStore {
   
   final DbDefinition definition;
@@ -39,6 +37,8 @@ class DataClient {
   WebSocket _socket;
   bool get isConnected => _socket?.isConnected == true;
   bool get isNotConnected => !isConnected;
+
+  T db<T extends Database>(String name) => _datastores[name]?.database;
 
   Future<void> setAccount(Account account) async {
     if(account?.uid != _account?.uid) {
@@ -111,7 +111,7 @@ class DataClient {
     final result = await socket.put('/data/db', ds.definition);
     if(result.isSuccess) {
       print('client bind:${ds.name}');
-      await ds.database.bind(socket);
+      await ds.database.bind(socket, name: ds.name);
     }
   }
 }

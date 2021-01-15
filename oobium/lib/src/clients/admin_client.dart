@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
+import 'package:oobium/oobium.dart';
 import 'package:oobium/src/clients/account.schema.gen.models.dart';
 
 class AdminClient {
@@ -8,14 +6,45 @@ class AdminClient {
   final int port;
   AdminClient({this.port = 8001});
 
-  Future<Account> getAccount({String id}) async {
-    final response = await http.get('http://127.0.0.1:$port/admin/account');
-    if(response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return Account.fromJson(data);
-    } else {
-      throw Exception('error: ${response.statusCode}-${response.reasonPhrase}');
+  Future<Account> createAccount(String name) async {
+    final socket = await WebSocket().connect(address: '127.0.0.1', port: port, path: '/admin');
+    try {
+      final result = await socket.put('/account/new', {'name': name});
+      if(result.isSuccess) {
+        return Account.fromJson(result.data);
+      } else {
+        throw Exception('error: ${result.code}');
+      }
+    } finally {
+      await socket.close();
     }
   }
-  
+
+  Future<Account> getAccount(String id) async {
+    final socket = await WebSocket().connect(address: '127.0.0.1', port: port, path: '/admin');
+    try {
+      final result = await socket.get('/account/$id');
+      if(result.isSuccess) {
+        return Account.fromJson(result.data);
+      } else {
+        throw Exception('error: ${result.code}');
+      }
+    } finally {
+      await socket.close();
+    }
+  }
+
+  Future<Account> getAdmin({String id}) async {
+    final socket = await WebSocket().connect(address: '127.0.0.1', port: port, path: '/admin');
+    try {
+      final result = await socket.get('/account');
+      if(result.isSuccess) {
+        return Account.fromJson(result.data);
+      } else {
+        throw Exception('error: ${result.code}');
+      }
+    } finally {
+      await socket.close();
+    }
+  }
 }

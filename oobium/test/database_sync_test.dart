@@ -53,7 +53,7 @@ Future<void> main() async {
     final port = nextPort();
     await serverHybrid(nextPath(), port);
 
-    final db = database(nextPath());
+    final db = await database(nextPath()).open();
     await db.bind(await WebSocket().connect(port: port));
 
     expect(db.size, 0);
@@ -64,7 +64,7 @@ Future<void> main() async {
     final server = await serverHybrid(nextPath(), port);
     final model = await server.dbPut(TestType1(name: 'test-01'));
 
-    final db = database(nextPath());
+    final db = await database(nextPath()).open();
     await db.bind(await WebSocket().connect(port: port));
 
     expect(db.size, 1);
@@ -75,8 +75,8 @@ Future<void> main() async {
     final port = nextPort();
     final server = await serverHybrid(nextPath(), port);
 
-    final db = database(nextPath());
-    final model = await db.put(TestType1(name: 'test-01'));
+    final db = await database(nextPath()).open();
+    final model = db.put(TestType1(name: 'test-01'));
     await db.bind(await WebSocket().connect(port: port));
 
     expect(db.size, 1);
@@ -89,8 +89,8 @@ Future<void> main() async {
     final server = await serverHybrid(nextPath(), port);
     final model1 = await server.dbPut(TestType1(name: 'test-01'));
 
-    final db = database(nextPath());
-    final model2 = await db.put(TestType1(name: 'test-02'));
+    final db = await database(nextPath()).open();
+    final model2 = db.put(TestType1(name: 'test-02'));
     await db.bind(await WebSocket().connect(port: port));
 
     expect(db.size, 2);
@@ -197,10 +197,22 @@ Future<void> main() async {
     expect(db1.get<TestType1>(m3.id)?.name, 'test03');
     expect(db2.get<TestType1>(m3.id)?.name, 'test03');
   });
+
+  test('test bind 2 databases on 1 socket', () async {
+    final port = nextPort();
+    final server = await serverHybrid(nextPath(), port, ['db1', 'db2']);
+    final socket = await WebSocket().connect(port: port);
+
+    final db1 = await database(nextPath()).open();
+    final db2 = await database(nextPath()).open();
+
+    await db1.bind(socket, name: 'db1');
+    await db2.bind(socket, name: 'db2');
+  });
 }
 
 Database database(String path) => Database(path, [(data) => TestType1.fromJson(data)]);
-Future<DbTestServerClient> serverHybrid(String path, int port) => DbTestServerClient.start(path, port);
+Future<DbTestServerClient> serverHybrid(String path, int port, [List<String> databases]) => DbTestServerClient.start(path, port, databases);
 Future<void> cleanHybrid(String path) => DbTestServerClient.clean(path);
 
 int dbCount = 0;
@@ -210,8 +222,8 @@ int nextPort() => 8000 + (serverCount++);
 
 class DbTestServerClient {
 
-  static Future<DbTestServerClient> start(String path, int port) async {
-    final server = DbTestServerClient(spawnHybridUri('database_sync_test_server.dart', message: ['serve', path, port]));
+  static Future<DbTestServerClient> start(String path, int port, [List<String> databases]) async {
+    final server = DbTestServerClient(spawnHybridUri('database_sync_test_server.dart', message: ['serve', path, port, databases ?? [null]]));
     await server.ready;
     return server;
   }

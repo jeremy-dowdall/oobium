@@ -14,10 +14,10 @@ import 'sync_base.dart'
   if (dart.library.io) 'sync_io.dart'
   if (dart.library.html) 'sync_html.dart' as platform;
 
-const replicantPath = '/db/replicant';
-const connectPath = '/db/connect';
-const syncPath = '/db/sync';
-const dataPath = '/db/data';
+String replicantPath([String name]) => (name != null) ? '/db/$name/replicant' : '/db/replicant';
+String connectPath([String name]) => (name != null) ? '/db/$name/connect' : '/db/connect';
+String syncPath([String name]) => (name != null) ? '/db/$name/sync' : '/db/sync';
+String dataPath([String name]) => (name != null) ? '/db/$name/data' : '/db/data';
 
 class Sync implements Connection {
 
@@ -27,7 +27,7 @@ class Sync implements Connection {
   Sync(this.db, this.repo, [this.models]);
 
   String id;
-  final binders = <WebSocket, Binder>{};
+  final binders = <String, Binder>{};
   final replicants = <platform.Replicant>[];
 
   Future<Sync> open() => throw UnsupportedError('platform not supported');
@@ -60,16 +60,17 @@ class Sync implements Connection {
     }
   }
 
-  Future<void> bind(WebSocket socket, {bool wait = true}) async {
-    if(binders.containsKey(socket)) {
+  Future<void> bind(WebSocket socket, {String name, bool wait = true}) async {
+    final key = '${socket.hashCode}:$name';
+    if(binders.containsKey(key)) {
       return wait ? binders[socket].ready : Future.value();
     } else {
       if(id == null) {
         id = ObjectId().hexString;
         await save();
       }
-      final binder = Binder(this, socket);
-      binders[socket] = binder;
+      final binder = Binder(this, socket, name);
+      binders[key] = binder;
       binder.finished.then((_) => binders.remove(socket));
       return wait ? binder.ready : Future.value();
     }
@@ -94,7 +95,7 @@ class Sync implements Connection {
       }
     }
     if(socket != null) {
-      final result = await socket.get(replicantPath, retry: true);
+      final result = await socket.get(replicantPath(), retry: true);
       if(result.isSuccess) {
         final response = result.data.split(':');
         assert(id == null);
@@ -105,7 +106,7 @@ class Sync implements Connection {
     throw Exception('could not get replicant');
   }
   Future<void> _getReplicantData(WebSocket socket) async {
-    final result = await socket.get(dataPath, retry: true);
+    final result = await socket.get(dataPath(), retry: true);
     if(result.isSuccess && result is WsStreamResult) {
       await repo.put(result.data.transform(utf8.decoder).map((s) => DataRecord.fromLine(s)));
     }
@@ -130,18 +131,19 @@ class Binder {
 
   final Sync _sync;
   final WebSocket _socket;
+  final String _name;
   final _ready = Completer();
   final _finished = Completer();
   final _subscriptions = <WsSubscription>[];
   platform.Replicant _replicant;
-  Binder(this._sync, this._socket) {
+  Binder(this._sync, this._socket, this._name) {
     _socket.ready.then((_) => sendConnect());
     _subscriptions.addAll([
-      _socket.on.get(replicantPath, onGetReplicant),
-      _socket.on.get(dataPath, onGetData),
-      _socket.on.put(connectPath, (req, res) => onConnect(req.data)),
-      _socket.on.put(dataPath, (req, res) => onData(req.data)),
-      _socket.on.put(syncPath, (req, res) async => onSync(req.data)),
+      _socket.on.get(replicantPath(_name), onGetReplicant),
+      _socket.on.get(dataPath(_name), onGetData),
+      _socket.on.put(connectPath(_name), (req, res) => onConnect(req.data)),
+      _socket.on.put(dataPath(_name), (req, res) => onData(req.data)),
+      _socket.on.put(syncPath(_name), (req, res) => onSync(req.data)),
     ]);
     _socket.done.then((_) => cancel());
   }
@@ -169,7 +171,7 @@ class Binder {
     sentConnect = true;
     if(!isPeerConnecting && !isPeerConnected) {
       isPeerConnecting = true;
-      isPeerConnected = (await _socket.put(connectPath, localId, retry: true)).isSuccess;
+      isPeerConnected = (await _socket.put(connectPath(_name), localId, retry: true)).isSuccess;
       isPeerConnecting = false;
     }
     await syncCheck();
@@ -178,7 +180,7 @@ class Binder {
   Future<void> onConnect(WsData data) async {
     final rid = data.value as String;
     final replicant = await _sync._getReplicant(rid: rid);
-    await attach(replicant);
+    attach(replicant);
     isConnected = true;
     if(sentConnect) await syncCheck();
     else await sendConnect();
@@ -195,9 +197,9 @@ class Binder {
       isPeerSyncing = true;
       final records = await _replicant.getSyncRecords(_sync.models);
       final data = await records.toList();
-      print('sendSync(${_sync.id}) $data');
+      // print('sendSync(${_sync.id}) $data');
       // final data = records.map((r) => r.toJsonString()).transform(utf8.encoder);
-      isPeerSynced = (await _socket.put(syncPath, data)).isSuccess;
+      isPeerSynced = (await _socket.put(syncPath(_name), data)).isSuccess;
       isPeerSyncing = false;
     }
     readyCheck();
@@ -208,7 +210,7 @@ class Binder {
     // final stream = data.stream.transform(utf8.decoder).map((s) => DataRecord.fromLine(s));
     // final records = await stream.toList();
     final records = (data.value as List).map((s) => DataRecord.fromLine(s)).toList();
-    print('onSync(${_sync.id}) $records');
+    // print('onSync(${_sync.id}) $records');
     final event = DataEvent(remoteId, records);
     await onData(event);
     await sendSync();
@@ -216,7 +218,6 @@ class Binder {
 
   void readyCheck() {
     if(isConnected && isPeerConnected && isSynced && isPeerSynced) {
-      print('ready($localId->$remoteId)');
       _ready.complete();
     }
   }
@@ -225,7 +226,7 @@ class Binder {
   Future<bool> sendData(data) async {
     final event = (data is DataEvent) ? data : (data is List<DataRecord>) ? DataEvent(localId, data) : null;
     if(event != null && event.isNotEmpty) {
-      return (await _socket.put(dataPath, event)).isSuccess;
+      return (await _socket.put(dataPath(_name), event)).isSuccess;
     }
     return true; // nothing to do
   }

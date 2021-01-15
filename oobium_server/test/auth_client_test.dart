@@ -21,7 +21,7 @@ Future<void> main() async {
       expect(client.auth.state, AuthState.Anonymous);
       expect(await client.requestInstallCode(), isNull);
 
-      final admin = await AdminClient(port: port).getAccount();
+      final admin = await AdminClient(port: port).getAdmin();
 
       expect(admin?.uid, isNotNull);
       expect(admin?.token, isNotNull);

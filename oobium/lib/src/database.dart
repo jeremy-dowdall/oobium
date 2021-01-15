@@ -88,7 +88,7 @@ class Database {
   Stream<T> stream<T extends DataModel>(String id) => _models.stream<T>(id);
   Stream<Iterable<T>> streamAll<T extends DataModel>({bool Function(T model) where}) => _models.streamAll<T>(where: where);
 
-  Future<void> bind(WebSocket socket, {bool wait = true}) => open().then((_) => _sync.bind(socket, wait: wait));
+  Future<void> bind(WebSocket socket, {String name, bool wait = true}) => _sync.bind(socket, name: name, wait: wait);
 
   void unbind(WebSocket socket) => _sync?.unbind(socket);
 

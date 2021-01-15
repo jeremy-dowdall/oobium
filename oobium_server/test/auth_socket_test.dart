@@ -13,7 +13,7 @@ Future<void> main() async {
   test('test invitation process', () async {
     final server = await TestClient.start('test-data/test-01', 8001);
 
-    final admin = await AdminClient(port: 8001).getAccount();
+    final admin = await AdminClient(port: 8001).getAdmin();
     expect(admin.uid, isNotEmpty);
     expect(admin.token, isNotEmpty);
 

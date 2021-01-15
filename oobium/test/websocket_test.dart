@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:oobium/src/websocket.dart';
+import 'package:oobium_test/oobium_test.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
@@ -55,6 +56,19 @@ Future<void> main() async {
       expect(input.toString(), 'REQ:0123456789012:GET/path [1,2,3]');
       final output = WsMessage.parse(input.toString());
       expect(output.data, [1, 2, 3]);
+    });
+  });
+
+  group('test on routing', () {
+    test('error on duplicate path', () {
+      final ws = WebSocket();
+      ws.on.get('/dup', (req, res) => print('hi'));
+      expectError(() => ws.on.get('/dup', (req, res) => print('hi')), 'duplicate route: GET/dup');
+    });
+    test('error on duplicate path with variables', () {
+      final ws = WebSocket();
+      ws.on.get('/dup/<id>', (req, res) => print('hi'));
+      expectError(() => ws.on.get('/dup/<name>', (req, res) => print('hi')), 'duplicate route: GET/dup/<name>');
     });
   });
 
@@ -125,24 +139,7 @@ Future<void> main() async {
       expect(result.code, 200);
       expect(await server.data, data);
     });
-    test('put file', () async {
-      final server = await WsTestServerClient.start(8001);
-      final client = await WebSocket().connect(port: 8001);
-      final result = await client.put('/file', WsFile('assets/test-file-01.txt'));
-      expect(result.code, 200);
-      expect(await server.data, [[1,2,3]]);
-    });
   });
-  // group('test x-client', () {
-  //   test('put String', () async {
-  //     server.on.put('/register', (data) {
-  //
-  //     });
-  //     final result = await client.put('/string', 'test-string');
-  //     expect(result.isSuccess, isTrue);
-  //     expect(result.code, 200);
-  //   });
-  // });
 }
 
 class WsTestServerClient {

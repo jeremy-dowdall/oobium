@@ -68,7 +68,7 @@ class AuthService extends Service<Host, AuthConnection> {
   Future<void> onStart() async {
     _db = await AuthData(path).open();
     _codes = InstallCodes(_db);
-    final admin = this.admin;
+    final admin = getAdmin(orCreate: true);
     print('AuthToken: ${admin.id}-${admin.token.id}');
   }
 
@@ -80,9 +80,13 @@ class AuthService extends Service<Host, AuthConnection> {
     _codes = null;
   }
 
-  User get admin => _db.getAll<User>()
+  User createUser(data) => _db.put(User.fromJson(data).copyNew(token: Token()));
+
+  User getAdmin({bool orCreate = false}) => _db.getAll<User>()
       .firstWhere((user) => user.role == 'admin',
-      orElse: () => _db.put(User(name: 'admin', role: 'admin', token: Token())));
+      orElse: () => orCreate ? _db.put(User(name: 'admin', role: 'admin', token: Token())) : null);
+
+  User getUser(String id) => _db.get<User>(id);
 
   RequestHandler _auth(Host host) => (Request req, Response res) async {
     final authToken = _parseAuthToken(req);

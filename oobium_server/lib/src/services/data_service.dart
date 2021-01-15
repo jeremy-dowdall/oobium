@@ -21,14 +21,15 @@ class DataConnection {
     print('server _onPutDatabase(${req.data.value})');
     final dbDef = DbDefinition.fromJson(req.data.value);
     final dbPath = _path(dbDef);
+    int code;
     if(_datastores.containsKey(dbPath)) {
-      res.send(code: 200);
+      code = 200;
     } else {
       _datastores[dbPath] = DataStore(dbDef, await Database(dbPath).open());
-      res.send(code: 201);
+      code = 201;
     }
-    print('server bind:${dbDef.name}');
-    return _datastores[dbPath].database.bind(socket, wait: false);
+    await _datastores[dbPath].database.bind(socket, name: dbDef.name, wait: false);
+    res.send(code: code);
   }
 
   String _path(DbDefinition dbDef) {

@@ -5,8 +5,6 @@ import 'package:oobium/src/json.dart';
 import 'package:oobium/src/router.extensions.dart';
 import 'package:oobium/src/websocket/ws_socket.dart';
 
-export 'package:oobium/src/websocket/ws_file.dart';
-
 const _GET_PUT_KEY = '_get';
 const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
 
@@ -325,14 +323,24 @@ class WsHandler {
 
   WsHandler(this._socket);
 
-  WsSubscription get(String path, WsMessageHandler handler) {
-    _handlers['GET$path'] = handler;
-    return WsSubscription(() => _handlers.remove('GET$path'));
+  WsSubscription get(String path, WsMessageHandler handler)  => _add('GET', path, handler);
+  WsSubscription put(String path, WsMessageHandler handler) => _add('PUT', path, handler);
+
+  WsSubscription _add(String method, String path, WsMessageHandler handler) {
+    final route = _checkedRoute(method, path);
+    _handlers[route] = handler;
+    return WsSubscription(() => _handlers.remove(route));
   }
 
-  WsSubscription put(String path, WsMessageHandler handler) {
-    _handlers['PUT$path'] = handler;
-    return WsSubscription(() => _handlers.remove('PUT$path'));
+  String _checkedRoute(String method, String path) {
+    final route = '$method$path';
+    final sa = route.verifiedSegments;
+    for(var handlerRoute in _handlers.keys) {
+      if(sa.matches(handlerRoute.segments)) {
+        throw Exception('duplicate route: $route');
+      }
+    }
+    return route;
   }
 
   Future<void> _handleMessage(WsMessage message) async {
