@@ -16,7 +16,7 @@ Future<void> main() async {
   group('sync lifecycle', () {
     test('test no id first open', () async {
       final path = nextPath();
-      final data = await Data(path).create();
+      final data = await Data(path).open();
       final sync = Sync(data, Repo(data));
       await sync.open();
       expect(sync.id, isNull);
@@ -24,7 +24,7 @@ Future<void> main() async {
 
     test('test id auto-generated on replicate and maintained on open', () async {
       final path = nextPath();
-      final data = await Data(path).create();
+      final data = await Data(path).open();
       final sync = Sync(data, Repo(data));
       await sync.open();
       await sync.createReplicant();
@@ -271,7 +271,7 @@ class TestType1 extends DataModel {
   TestType1({String name}) : super({'name': name});
   TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
   TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
-  TestType1.fromJson(data) : super.fromJson(data, {'name'}, {});
+  TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
   TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
   TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
 }

@@ -1,48 +1,58 @@
 import 'dart:async';
 
-import 'package:oobium/oobium.dart';
+import 'package:meta/meta.dart';
 import 'package:oobium/src/clients/account.schema.gen.models.dart';
-import 'package:oobium/src/clients/storage.schema.gen.models.dart';
+import 'package:oobium/src/clients/data_client.schema.gen.models.dart';
+import 'package:oobium/src/data/executor.dart';
 import 'package:oobium/src/database.dart';
 import 'package:oobium/src/websocket.dart';
 
+const SchemaName = '__schema__';
+
 class DataStore {
   
-  final DbDefinition definition;
+  final Definition definition;
   final Database database;
   DataStore(this.definition, this.database);
 
   String get name => definition.name;
-  bool get isPrivate => isNotShared;
-  bool get isNotPrivate => !isPrivate;
-  bool get isShared => definition.shared;
-  bool get isNotShared => !isShared;
-
+  String get access => definition.access;
 }
 
 class DataClient {
 
   final String root;
-  final List<DbDefinition> Function() create;
-  final Database Function(String root, DbDefinition ds) builder;
+  final List<Definition> Function() create;
+  final FutureOr<Database> Function(String root, Definition ds) builder;
   DataClient({@required this.root, @required this.create, @required this.builder});
 
+  String get path => '$root/${_account?.uid}';
+
   Account _account;
+  DataClientData _schema;
+  StreamSubscription _schemaSub;
   final _datastores = <String, DataStore>{};
-
-  bool _dataBound = false;
-  bool get isBound => _dataBound;
-  bool get isNotBound => !isBound;
-
   WebSocket _socket;
-  bool get isConnected => _socket?.isConnected == true;
-  bool get isNotConnected => !isConnected;
+  Executor _executor;
 
   T db<T extends Database>(String name) => _datastores[name]?.database;
 
+  List<Definition> get schema => _schema?.getAll<Definition>()?.toList() ?? <Definition>[];
+
+  Future<void> add(Definition def) => (_schema..put(def)).flush();
+
+  void remove(String name) => _schema.remove(_datastores[name]?.definition?.id);
+
   Future<void> setAccount(Account account) async {
     if(account?.uid != _account?.uid) {
+      await _executor?.cancel();
+      _executor = null;
+
       if(_account != null) {
+        _schemaSub.cancel();
+        _schemaSub = null;
+        await _schema.close();
+        _schema = null;
         await Future.forEach<DataStore>(_datastores.values, (ds) => ds.database.close());
         _datastores.clear();
       }
@@ -50,68 +60,75 @@ class DataClient {
       _account = account;
 
       if(_account != null) {
-        final path = '$root/${_account.uid}';
-        final ds = await _getStorageDataStore(path);
-        for(var def in _getDefinitions(ds.database)) {
-          final db = builder(path, def);
-          if(db != null) {
-            _datastores[def.name] = DataStore(def, await db.open());
+        _schema = await DataClientData(path).open(onUpgrade: (event) async* {
+          for(var def in create()) {
+            yield(def.toDataRecord());
           }
-        }
-        await _updateBindings();
+        });
+        await _addAll(_schema.getAll<Definition>());
+        _schemaSub = _schema.streamAll<Definition>().listen((event) => _onDataModelEvent(event));
+        await _bind(_schema, SchemaName);
       }
     }
   }
 
   Future<void> setSocket(WebSocket socket) async {
-    _socket = socket;
-    await _updateBindings();
-  }
+    if(socket != _socket) {
+      await _executor?.cancel();
+      _executor = null;
 
-  Future<DataStore> _getStorageDataStore(String path) async {
-    final data = DataStore(
-      DbDefinition(name: '_', shared: false),
-      await StorageData(path).open()
-    );
-    _datastores[data.name] = data;
-    return data;
-  }
-
-  Iterable<DbDefinition> _getDefinitions(Database data) {
-    final definitions = data.getAll<DbDefinition>();
-    if(definitions.isNotEmpty) {
-      return definitions;
-    } else {
-      for(var def in create()) {
-        data.put(def);
+      if(_socket != null) {
+        _schema?.unbind(_socket, name: SchemaName);
+        for(var ds in _datastores.values) {
+          ds.database.unbind(_socket, name: ds.name);
+        }
       }
-      return data.getAll<DbDefinition>();
+
+      _socket = socket;
+
+      if(_socket != null) {
+        _bind(_schema, SchemaName);
+        for(var ds in _datastores.values) {
+          _bind(ds.database, ds.name);
+        }
+      }
     }
   }
 
-  Future<void> _updateBindings() async {
-    if(_account == null) {
-      return; // nothing to do
-    }
-    if(isConnected) {
-      for(var ds in _datastores.values) {
-        await _bind(ds, _socket);
-      }
-      _dataBound = true;
-    } else {
-      for(var ds in _datastores.values) {
-        ds.database.unbind(_socket);
-      }
-      _dataBound = false;
+  void _bind(Database db, String name) {
+    if(_socket != null && db != null) {
+      _executor ??= Executor();
+      _executor.add(() => db.bind(_socket, name: name));
     }
   }
 
-  Future<void> _bind(DataStore ds, WebSocket socket) async {
-    print('client socket.put(${ds.definition})');
-    final result = await socket.put('/data/db', ds.definition);
-    if(result.isSuccess) {
-      print('client bind:${ds.name}');
-      await ds.database.bind(socket, name: ds.name);
+  Future<void> _add(Definition def) async {
+    if(!_datastores.containsKey(def.name)) {
+      final db = await builder(path, def);
+      if(db != null) {
+        _datastores[def.name] = DataStore(def, await db.open());
+        _bind(db, def.name);
+      }
     }
+  }
+
+  Future<void> _addAll(Iterable<Definition> defs) => Future.forEach<Definition>(defs, (def) => _add(def));
+
+  DataStore _remove(String name) {
+    final ds = _datastores.remove(name);
+    ds?.database?.unbind(_socket, name: name);
+    return ds;
+  }
+
+  void _removeAll(Iterable<Definition> defs) {
+    for(var def in defs) {
+      _remove(def.name);
+    }
+  }
+
+  Future<void> _onDataModelEvent(DataModelEvent<Definition> event) async {
+    print('client(${root.split('/').last}) onDataModelEvent($event)');
+    await _addAll(event.puts);
+    _removeAll(event.removes);
   }
 }

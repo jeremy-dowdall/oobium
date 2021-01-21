@@ -9,8 +9,8 @@ class Repo implements Connection {
   Repo(this.db);
 
   Future<Repo> open() => throw UnsupportedError('platform not supported');
-  Future<void> flush() => executor.close(cancel: false);
-  Future<void> close({bool cancel = false}) => executor.close(cancel: cancel ?? false);
+  Future<void> flush() => executor.flush();
+  Future<void> close() => executor.cancel();
 
   Stream<DataRecord> get([int timestamp]) => throw UnsupportedError('platform not supported');
   Future<void> put(Stream<DataRecord> records) => throw UnsupportedError('platform not supported');

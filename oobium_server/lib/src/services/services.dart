@@ -12,16 +12,10 @@ class ServiceRegistry {
 
   T get<T>() => _services.firstWhere((s) => s.runtimeType == T) as T;
  
-  void _attach(data) {
-    for(var consumer in _services.where((s) => s.consumes == data.runtimeType)) {
-      consumer.onAttach(data);
-    }
-  }
-  void _detach(data) {
-    for(var consumer in _services.where((s) => s.consumes == data.runtimeType)) {
-      consumer.onDetach(data);
-    }
-  }
+  Iterable _consumers(data) => _services.where((s) => s.consumes == data.runtimeType);
+  
+  Future<void> _attach(data) => Future.forEach<Service>(_consumers(data), (c) => c.onAttach(data));
+  Future<void> _detach(data) => Future.forEach<Service>(_consumers(data), (c) => c.onDetach(data));
   
   Future<void> start() => Future.forEach<Service>(_services, (service) => service.onStart());
   Future<void> stop() => Future.forEach<Service>(_services, (service) => service.onStop());
@@ -30,8 +24,8 @@ class ServiceRegistry {
 class Services<P> {
   ServiceRegistry _registry;
 
-  void attach(P data) => _registry._attach(data);
-  void detach(P data) => _registry._detach(data);
+  Future<void> attach(P data) => _registry._attach(data);
+  Future<void> detach(P data) => _registry._detach(data);
 
   T get<T>() => _registry.get<T>();
 }
@@ -43,8 +37,8 @@ abstract class Service<C, P> {
   Type get consumes => C;
   Type get provides => P;
 
-  void onAttach(C host)    {}
-  void onDetach(C host)    {}
+  FutureOr<void> onAttach(C host) => Future.value();
+  FutureOr<void> onDetach(C host) => Future.value();
   FutureOr<void> onStart() => Future.value();
   FutureOr<void> onStop()  => Future.value();
 }

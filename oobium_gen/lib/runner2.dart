@@ -6,15 +6,14 @@ import 'package:oobium_gen/src2/schema_library.dart';
 
 Future<void> main(List<String> args) async {
   final params = _params(args);
-  final clientDir = params['client'] ?? 'lib';
-  final serverDir = params['server'];
+  final directory = _directory(params);
 
-  print('scanning $clientDir for schema...');
-  final directory = (clientDir == '.') ? Directory.current : Directory(clientDir);
+  print('scanning ${directory.path} for schema...');
   final files = await directory.list(recursive: true).where((file) => file.path.endsWith('.schema')).toList();
   if(files.isEmpty) {
     print('no schema found');
   }
+
   for(var file in files) {
     final path = file.path.substring(directory.path.length + 1); // remove leading slash
     print('found $path (${file.path}... processing...');
@@ -32,7 +31,6 @@ Future<void> main(List<String> args) async {
     // }
     if(modelsLibrary != null ) {
       outputs.add(await File('$path.gen.models.dart').writeAsString(modelsLibrary));
-      if(serverDir != null) outputs.add(await File('$serverDir/$path.gen.models.dart').writeAsString(modelsLibrary));
     }
     // if(scaffoldingLibrary != null) {
     //   outputs.add(await File('$path.gen.scaffolding.dart').writeAsString(scaffoldingLibrary));
@@ -43,6 +41,11 @@ Future<void> main(List<String> args) async {
     final results = await Process.run('dart', ['format', ...outputs.map((f) => f.path).toList()]);
     print(results.stdout);
   }
+}
+
+Directory _directory(Map<String, String> params) {
+  final clientDir = params['d'] ?? params['dir'] ?? '.';
+  return (clientDir == '.') ? Directory.current : Directory(clientDir);
 }
 
 Map<String, String> _params(List<String> args) {

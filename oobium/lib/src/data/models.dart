@@ -5,9 +5,8 @@ import 'package:oobium/src/database.dart';
 import 'package:oobium/src/json.dart';
 
 class Models {
-
   Models([List<Function(Map data)> builders]) {
-    _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.toSet(), {});
+    _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.toSet(), {}, false);
     if(builders != null) for(var builder in builders) {
       final type = builder.runtimeType.toString().split(' => ')[1];
       _builders[type] = builder;
@@ -16,7 +15,11 @@ class Models {
   
   final _builders = <String, Function(Map data)>{};
   final _models = <String, DataModel>{};
-  StreamController<Iterable<DataModel>> _controller;
+  StreamController<Batch> _controller;
+  Stream<Batch> get _stream {
+    _controller ??= StreamController<Batch>.broadcast(onCancel: () => _controller = null);
+    return _controller.stream;
+  }
 
   Future<Models> load(Stream<DataRecord> records) async {
     await for(var record in records) {
@@ -29,15 +32,10 @@ class Models {
     return this;
   }
 
-  void loadAll(Iterable<DataRecord> records) {
-    for(var record in records) {
-      if(record.isDelete) {
-        _models.remove(record.id);
-      } else {
-        _models[record.id] = _build(record);
-      }
-    }
-  }
+  void loadAll(Iterable<DataRecord> records) => batch(
+    put: records.where((r) => r.isNotDelete).map((r) => _build(r)),
+    remove: records.where((r) => r.isDelete).map((r) => r.id),
+  );
 
   Future<void> close() {
     _models.clear();
@@ -50,27 +48,15 @@ class Models {
   Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? _models.values : _models.values.whereType<T>();
 
   Stream<T> stream<T extends DataModel>(String id) {
-    if(_controller == null) {
-      _controller = StreamController<Iterable<DataModel>>.broadcast(onCancel: () => _controller = null);
-    }
-    return _controller.stream
-      .where((updates) => updates.any((model) => (model.id == id)))
-      .map((updates) => _models[id]);
+    return _stream
+      .where((batch) => batch.updates.any((model) => (model.id == id)))
+      .map((_) => _models[id]);
   }
 
-  Stream<Iterable<T>> streamAll<T extends DataModel>({bool Function(T model) where}) {
-    if(_controller == null) {
-      _controller = StreamController<Iterable<DataModel>>.broadcast(onCancel: () => _controller = null);
-    }
-    if(where == null) {
-      return _controller.stream
-        .where((updates) => updates.any((model) => model is T))
-        .map((_) => _models.values.whereType<T>());
-    } else {
-      return _controller.stream
-        .where((updates) => updates.any((model) => (model is T) && where(model)))
-        .map((_) => _models.values.whereType<T>().where(where));
-    }
+  Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model) where}) {
+    return _stream
+      .where((batch) => batch.updates.any((model) => (model is T) && ((where == null) || where(model))))
+      .map((batch) => DataModelEvent<T>._(this, batch, where));
   }
 
   Batch<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
@@ -82,25 +68,30 @@ class Models {
       } else {
         _models[model.id] = model;
         batch.results.add(model);
-        batch.put.add(model);
+        batch.puts.add(model);
       }
       for(var member in model._fields.models) {
         if(member.isNotSameAs(_models[member.id])) {
           _models[member.id] = member;
-          batch.put.add(member);
+          batch.puts.add(member);
         }
       }
     }
+
     if(remove != null) for(var id in remove) {
       final model = _models.remove(id);
       batch.results.add(model);
       if(model != null) {
-        batch.remove.add(model);
+        batch.removes.add(model);
       }
     }
 
+    for(var model in batch.puts) {
+      model._fields._context ??= this;
+    }
+
     if(batch.isNotEmpty) {
-      _controller?.add(batch.updates);
+      _controller?.add(batch);
     }
 
     return batch;
@@ -117,16 +108,46 @@ class Models {
 
 class Batch<T extends DataModel> {
   final results = <T>[];
-  final put = <DataModel>[];
-  final remove = <DataModel>[];
-  bool get isEmpty => put.isEmpty && remove.isEmpty;
+  final puts = <DataModel>[];
+  final removes = <DataModel>[];
+  bool get isEmpty => puts.isEmpty && removes.isEmpty;
   bool get isNotEmpty => !isEmpty;
-  Iterable<DataRecord> get records => [...put.map((m) => DataRecord.fromModel(m)), ...remove.map((m) => DataRecord.delete(m.id))];
-  Iterable<DataModel> get updates => [...put, ...remove];
+  Iterable<DataRecord> get records => [...puts.map((m) => DataRecord.fromModel(m)), ...removes.map((m) => DataRecord.delete(m.id))];
+  Iterable<DataModel> get updates => [...puts, ...removes];
+}
+
+class DataModelEvent<T extends DataModel> {
+  final Models _models;
+  final Batch _batch;
+  final bool Function(T model) _where;
+  DataModelEvent._(this._models, this._batch, this._where);
+
+  Iterable<T> get all {
+    if(_where == null) {
+      return _models._models.values.whereType<T>();
+    } else {
+      return _models._models.values.whereType<T>().where(_where);
+    }
+  }
+
+  Iterable<T> get puts {
+    if(_where == null) {
+      return _batch.puts.whereType<T>();
+    } else {
+      return _batch.puts.whereType<T>().where(_where);
+    }
+  }
+
+  Iterable<T> get removes {
+    if(_where == null) {
+      return _batch.removes.whereType<T>();
+    } else {
+      return _batch.removes.whereType<T>().where(_where);
+    }
+  }
 }
 
 class DataModel extends JsonModel implements DataId {
-
   final int timestamp;
   final DataFields _fields;
 
@@ -145,18 +166,15 @@ class DataModel extends JsonModel implements DataId {
         _fields = DataFields({...original._fields._map}..addAll(fields??{})),
         super(original.id);
 
-  DataModel.fromJson(data, Set<String> fields, Set<String> modelFields) :
-        timestamp = Json.field(data, 'timestamp'),
+  DataModel.fromJson(data, Set<String> fields, Set<String> modelFields, bool newId) :
+        timestamp = Json.field<int, int>(data, 'timestamp') ?? DateTime.now().millisecondsSinceEpoch,
         _fields = DataFields({
           for(var k in fields.where((k) => k != 'id' && k != 'timestamp')) k: Json.field(data, k),
           for(var k in modelFields) k: DataId(Json.field(data, k))
         }),
-        super.fromJson(data);
+        super(newId ? ObjectId().hexString : ObjectId.fromHexString(Json.field(data, 'id')).hexString);
 
   dynamic operator [](String key) => _fields[key];
-
-  // DataModel copyNew();
-  // DataModel copyWith();
 
   DateTime get createdAt => ObjectId.fromHexString(id).timestamp;
   DateTime get updatedAt => DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -164,17 +182,19 @@ class DataModel extends JsonModel implements DataId {
   @override
   bool isSameAs(other) =>
       (runtimeType == other?.runtimeType) &&
-          (id == other.id) && (timestamp == other.timestamp) &&
-          _fields == other._fields;
+      (id == other.id) && (timestamp == other.timestamp) &&
+      _fields == other._fields;
 
   @override
   bool isNotSameAs(other) => !isSameAs(other);
+
+  DataRecord toDataRecord() => DataRecord.fromModel(this);
 
   @override
   Map<String, dynamic> toJson() => {
     'id': id,
     'timestamp': timestamp,
-    for(var e in _fields._map.entries) e.key: e.value
+    for(var e in _fields._map.entries) e.key: Json.from(e.value)
   };
 
   @override
@@ -189,7 +209,6 @@ class DataId implements JsonString {
 }
 
 class DataFields {
-
   final Map<String, dynamic> _map;
   DataFields(this._map);
 
@@ -206,7 +225,7 @@ class DataFields {
 
   bool operator ==(other) => (other is DataFields) && (_map.length == other._map.length) && _map.keys.every((k) => _(k) == other._(k));
 
-  String _(String key) {
+  dynamic _(String key) {
     final obj = _map[key];
     if(obj is DataId) return obj.id;
     return obj;

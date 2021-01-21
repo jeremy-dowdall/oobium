@@ -23,76 +23,207 @@ Future<void> main() async {
       expect(authClient.auth.state, AuthState.Anonymous);
       expect(await authClient.requestInstallCode(), isNull);
 
-      final admin = await AdminClient(port: port).getAdmin();
+      final user = await AdminClient(port: port).createUser('test-1');
 
-      expect(admin?.uid, isNotNull);
-      expect(admin?.token, isNotNull);
+      expect(user['id'], isNotNull);
+      expect(user['token'], isNotNull);
 
-      print('signIn(${admin.uid}, ${admin.token})');
-      await authClient.signIn(admin.uid, admin.token);
+      await authClient.signIn(user['id'], user['token']);
       expect(authClient.auth.isSignedIn, isTrue);
       expect(authClient.isConnected, isFalse);
 
       await authClient.setConnectionStatus(ConnectionStatus.wifi);
       expect(authClient.isConnected, isTrue);
 
-      final dataClient = DataClient(
-        root: clientPath,
-        create: () => [DbDefinition(name: 'test')],
-        builder: (root, def) => Database('$root/${def.name}')
-      );
+      final dataClient = DataClient(root: clientPath, create: () => [], builder: (root, def) => null);
 
       await authClient.bindAccount(dataClient.setAccount);
       await authClient.bindSocket(dataClient.setSocket);
-
-      expect(dataClient.isConnected, isTrue);
-      expect(dataClient.isBound, isTrue);
-
-      authClient.dispose();
     });
    
-    test('private database and shared database', () async {
+    test('create client with initial definitions', () async {
+      final client = DataClient(
+        root: nextPath(),
+        create: () => [Definition(name: 'private-db')],
+        builder: (root, def) => Database('$root/${def.name}')
+      );
+
+      await client.setAccount(Account(uid: 'test-user-id'));
+
+      expect(client.db('private-db'), isNotNull);
+    });
+   
+    test('create client with initial, name selective, database', () async {
+      final client = DataClient(
+        root: nextPath(),
+        create: () => [Definition(name: 'db1'), Definition(name: 'db2')],
+        builder: (root, def) => (def.name == 'db2') ? Database('$root/${def.name}') : null
+      );
+
+      await client.setAccount(Account(uid: 'test-user-id'));
+
+      expect(client.db('db1'), isNull);
+      expect(client.db('db2'), isNotNull);
+    });
+   
+    test('private database, dynamic create, 1 user, 2 clients', () async {
       final path = nextPath();
       final port = nextPort();
       final server = await TestClient.start(path, port);
-      final account1 = await AdminClient(port: port).createAccount('test-1');
-      final account2 = await AdminClient(port: port).createAccount('test-2');
-      final client1 = await createClient('$path/test_client_1', port, account1);
-      final client2 = await createClient('$path/test_client_2', port, account2);
+      final user = await AdminClient(port: port).createUser('test-1');
+      final client1 = await createClient('$path/test_client_1', port, user, []);
+      final client2 = await createClient('$path/test_client_2', port, user, []);
 
-      client1.db('private-db').put(TestType1(name: 'test-01'));
-      await client1.db('private-db').flush();
+      await client1.add(Definition(name: 'private-db'));
+      await Future.delayed(Duration(milliseconds: 100));
 
-      final model = client1.db('shared-db').put(TestType1(name: 'test-02'));
-      await client1.db('shared-db').flush();
+      expect(client1.schema.length, 1);
+      expect(client2.schema.length, 1);
+      expect(client1.db('private-db'), isNotNull);
+      expect(client2.db('private-db'), isNotNull);
+    });
+   
+    test('private database, dynamic create, 1 user, 2 clients, delayed', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user = await AdminClient(port: port).createUser('test-1');
+      final client1 = await createClient('$path/test_client_1', port, user, []);
 
-      final privateModels = client2.db('private-db').getAll<TestType1>().toList();
-      expect(privateModels.isEmpty, isTrue);
+      await client1.add(Definition(name: 'private-db'));
+      await Future.delayed(Duration(milliseconds: 100));
 
-      final sharedModels = client2.db('shared-db').getAll<TestType1>().toList();
-      expect(sharedModels.length, 1);
-      expect(sharedModels[0].isSameAs(model), isTrue);
+      expect(client1.schema.length, 1);
+      expect(client1.db('private-db'), isNotNull);
+
+      final client2 = await createClient('$path/test_client_2', port, user, []);
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client2.schema.length, 1);
+      expect(client2.db('private-db'), isNotNull);
+    });
+   
+    test('private database, dynamic create, 1 user, 2 clients, staggered', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user = await AdminClient(port: port).createUser('test-1');
+      final client1 = await createClient('$path/test_client_1', port, user, []);
+
+      await client1.add(Definition(name: 'private-db'));
+      expect(client1.schema.length, 1);
+      expect(client1.db('private-db'), isNotNull);
+
+      await client1.setAccount(null);
+      expect(client1.schema, isEmpty);
+      expect(client1.db('private-db'), isNull);
+
+      final client2 = await createClient('$path/test_client_2', port, user, []);
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client2.schema.length, 1);
+      expect(client2.db('private-db'), isNotNull);
+    });
+   
+    test('private database, dynamic create, 2 users', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user1 = await AdminClient(port: port).createUser('test-1');
+      final user2 = await AdminClient(port: port).createUser('test-2');
+      final client1 = await createClient('$path/test_client_1', port, user1, []);
+      final client2 = await createClient('$path/test_client_2', port, user2, []);
+
+      await client1.add(Definition(name: 'private-db'));
+
+      expect(client1.schema.length, 1);
+      expect(client2.schema, isEmpty);
+      expect(client1.db('private-db'), isNotNull);
+      expect(client2.db('private-db'), isNull);
+    });
+   
+    test('shared database, dynamic create, 2 users', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user1 = await AdminClient(port: port).createUser('test-1');
+      final user2 = await AdminClient(port: port).createUser('test-2');
+      final group = await AdminClient(port: port).createGroup('test-group-1');
+      await AdminClient(port: port).createMembership(user: user1['id'], group: group['id']);
+      await AdminClient(port: port).createMembership(user: user2['id'], group: group['id']);
+      final client1 = await createClient('$path/test_client_1', port, user1, []);
+      final client2 = await createClient('$path/test_client_2', port, user2, []);
+
+      await client1.add(Definition(name: 'shared-db', access: group['id']));
+      await Future.delayed(Duration(milliseconds: 100));
+
+      expect(client1.schema.length, 1);
+      expect(client2.schema.length, 1);
+      expect(client1.db('shared-db'), isNotNull);
+      expect(client2.db('shared-db'), isNotNull);
+    });
+   
+    test('shared database, dynamic create, 2 users, 2nd delayed', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user1 = await AdminClient(port: port).createUser('test-1');
+      final user2 = await AdminClient(port: port).createUser('test-2');
+      final group = await AdminClient(port: port).createGroup('test-group-1');
+      await AdminClient(port: port).createMembership(user: user1['id'], group: group['id']);
+      await AdminClient(port: port).createMembership(user: user2['id'], group: group['id']);
+      final client1 = await createClient('$path/test_client_1', port, user1, []);
+
+      await client1.add(Definition(name: 'shared-db', access: group['id']));
+      expect(client1.schema.length, 1);
+      expect(client1.db('shared-db'), isNotNull);
+
+      await Future.delayed(Duration(milliseconds: 100));
+
+      final client2 = await createClient('$path/test_client_2', port, user2, []);
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client2.schema.length, 1);
+      expect(client2.db('shared-db'), isNotNull);
+    });
+   
+    test('shared database, dynamic create, 2 users, staggered', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user1 = await AdminClient(port: port).createUser('test-1');
+      final user2 = await AdminClient(port: port).createUser('test-2');
+      final group = await AdminClient(port: port).createGroup('test-group-1');
+      await AdminClient(port: port).createMembership(user: user1['id'], group: group['id']);
+      await AdminClient(port: port).createMembership(user: user2['id'], group: group['id']);
+      final client1 = await createClient('$path/test_client_1', port, user1, []);
+
+      await client1.add(Definition(name: 'shared-db', access: group['id']));
+      expect(client1.schema.length, 1);
+      expect(client1.db('shared-db'), isNotNull);
+
+      await client1.setAccount(null);
+      expect(client1.schema, isEmpty);
+      expect(client1.db('shared-db'), isNull);
+
+      await Future.delayed(Duration(milliseconds: 100));
+
+      final client2 = await createClient('$path/test_client_2', port, user2, []);
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client2.schema.length, 1);
+      expect(client2.db('shared-db'), isNotNull);
     });
   });
 }
 
-Future<DataClient> createClient(String path, int port, Account account) async {
+Future<DataClient> createClient(String path, int port, Map user, List<Definition> defs) async {
   final authClient = AuthClient(root: path, port: port);
-  await authClient.init();
-
-  print('signIn(${account.uid}, ${account.token})');
-  await authClient.signIn(account.uid, account.token);
-  await authClient.setConnectionStatus(ConnectionStatus.wifi);
-
   final dataClient = DataClient(
     root: path,
-    create: () => [
-      DbDefinition(name: 'private-db'),
-      DbDefinition(name: 'shared-db', shared: true)
-    ],
+    create: () => defs,
     builder: (root, def) => Database('$root/${def.name}', [(data) => TestType1.fromJson(data)])
   );
 
+  await authClient.init();
+  await authClient.signIn(user['id'], user['token']);
+  await authClient.setConnectionStatus(ConnectionStatus.wifi);
   await authClient.bindAccount(dataClient.setAccount);
   await authClient.bindSocket(dataClient.setSocket);
 
@@ -110,7 +241,7 @@ class TestType1 extends DataModel {
   TestType1({String name}) : super({'name': name});
   TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
   TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
-  TestType1.fromJson(data) : super.fromJson(data, {'name'}, {});
+  TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
   TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
   TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
 }

@@ -171,8 +171,9 @@ class Host {
     return res.send(code: code);
   }
 
-  final _sockets = <String, ServerWebSocket>{};
-  WebSocket socket(String uid) => _sockets[uid];
+  final _sockets = <String, List<ServerWebSocket>>{};
+  // List<ServerWebSocket> socket(String uid) => _sockets[uid];
+  WsProxy socket(String uid) => WsProxy(uid, this);
 }
 
 class Server {
@@ -358,11 +359,11 @@ class Server {
 
 class ServerWebSocket extends WebSocket {
   
-  final String id;
+  final String uid;
   final Host _host;
-  ServerWebSocket._(String id, this._host) : id = id ?? ObjectId().hexString;
+  ServerWebSocket._(String id, this._host) : uid = id ?? ObjectId().hexString;
   
-  WsProxy proxy(String id) => WsProxy(id, _host);
+  WsProxy proxy(String uid) => WsProxy(uid, _host);
 }
 
 class WsProxy {
@@ -371,21 +372,51 @@ class WsProxy {
   final Host _host;
   WsProxy(this._id, this._host);
 
-  Future<WsResult> get(String path) async {
-    final socket = _host._sockets[_id];
-    if(socket != null) {
-      return socket.get(path);
+  Future<Iterable<WsResult>> getAll(String path) {
+    final sockets = _host._sockets[_id];
+    if(sockets != null) {
+      return Future.wait(sockets.map((s) => s.get(path)));
     } else {
-      return WsResult(502, 'Socket not available');
+      return Future.value([]);
     }
   }
 
-  Future<WsResult> put(String path, data) async {
-    final socket = _host._sockets[_id];
-    if(socket != null) {
-      return socket.put(path, data);
+  Future<WsResult> getAny(String path) async {
+    final sockets = _host._sockets[_id];
+    if(sockets != null) {
+      for(var socket in sockets) {
+        final result = await socket.get(path);
+        if(result.isSuccess) {
+          return result;
+        }
+      }
+      return WsResult(406, 'No socket succeeded');
     } else {
-      return WsResult(502, 'Socket not available');
+      return WsResult(404, 'Socket not found');
+    }
+  }
+
+  Future<Iterable<WsResult>> putAll(String path, data) {
+    final sockets = _host._sockets[_id];
+    if(sockets != null) {
+      return Future.wait(sockets.map((s) => s.put(path, data)));
+    } else {
+      return Future.value([]);
+    }
+  }
+
+  Future<WsResult> putAny(String path, data) async {
+    final sockets = _host._sockets[_id];
+    if(sockets != null) {
+      for(var socket in sockets) {
+        final result = await socket.put(path, data);
+        if(result.isSuccess) {
+          return result;
+        }
+      }
+      return WsResult(406, 'No socket succeeded');
+    } else {
+      return WsResult(404, 'Socket not found');
     }
   }
 }
@@ -453,9 +484,9 @@ class Request {
 
   ServerWebSocket _websocket() {
     final socket = ServerWebSocket._(params['uid'], _host);
-    _host._sockets[socket.id] = socket;
+    _host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
     socket.done.then((_) {
-      _host._sockets.remove(socket.id);
+      _host._sockets.remove(socket.uid);
     });
     _response._closed = true; // don't _actually_ close this response, the websocket will handle it
     return socket;

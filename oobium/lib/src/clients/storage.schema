@@ -1,4 +1,0 @@
-DbDefinition
-  name String
-  shared bool
-  access List<String>

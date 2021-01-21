@@ -1,5 +1,8 @@
+import 'package:oobium/oobium.dart';
 import 'package:oobium/src/data/data.dart';
+import 'package:oobium/src/data/models.dart';
 import 'package:oobium/src/database.dart';
+import 'package:oobium_test/oobium_test.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
@@ -8,8 +11,29 @@ Future<void> main() async {
 
   test('test data create / destroy', () async {
     final data = Data('test-db');
-    await data.create();
+    await data.open();
     await data.destroy();
+    await data.destroy(); // ensure it can be called repeatedly
+  });
+
+  test('test data version upgrade', () async {
+    final data = Data('test-db');
+    await data.destroy();
+    await data.open(onUpgrade: expectAsync1((event) {
+      expect(event.oldVersion, 0);
+      expect(event.oldData, isNull);
+      expect(event.newVersion, 1);
+      expect(event.newData, isNotNull);
+      return true;
+    }, count: 1));
+    await data.close();
+    await data.open(version: 2, onUpgrade: expectAsync1((event) {
+      expect(event.oldVersion, 1);
+      expect(event.oldData, isNotNull);
+      expect(event.newVersion, 2);
+      expect(event.newData, isNotNull);
+      return true;
+    }, count: 1));
     await data.destroy();
   });
 
@@ -31,6 +55,48 @@ Future<void> main() async {
     final m2 = m1.copyWith();
     expect(m2.id, m1.id);
     expect(m2.timestamp, isNot(m1.timestamp));
+  });
+
+  test('test fromJson with nested model, context not set', () {
+    final m1 = TestType1(name: 'test01');
+    final m2 = TestType2.fromJson({'name': 'test02', 'type1': m1.id}, newId: true);
+    expect(() => m2.type1, throwsNoSuchMethodError);
+  });
+
+  test('test fromJson with nested model, context set', () async {
+    final db = await create().open();
+    final m1 = db.put(TestType1(name: 'test01'));
+    final m2 = db.put(TestType2.fromJson({'name': 'test02', 'type1': m1.id}, newId: true));
+    expect(m2.type1, m1);
+  });
+
+  test('test toJson with nested model, context set', () async {
+    final db = await create().open();
+    final m1 = db.put(TestType1(name: 'test01'));
+    final m2 = db.put(TestType2.fromJson({'name': 'test02', 'type1': m1.id}, newId: true));
+    expect(Json.encode(m2), isNotEmpty);
+  });
+
+  // test('test fromJson put nested model, context not set', () async {
+  //   final m1 = TestType1(name: 'test01');
+  //   final m2 = TestType2.fromJson({'name': 'test02', 'type1': m1}, newId: true);
+  //   expect(() => m2.type1, throwsNoSuchMethodError);
+  // });
+
+  // test('test fromJson put nested model, context set', () async {
+  //   final db = await create().open();
+  //   final m1 = TestType1(name: 'test01');
+  //   final m2 = TestType2.fromJson({'name': 'test02', 'type1': m1}, newId: true);
+  //   expect(db.put(m2).type1, m1);
+  // });
+
+  test('test data initialization', () async {
+    final model = TestType1();
+    final db = await create().open(onUpgrade: (event) {
+      return Stream.value(model.toDataRecord());
+    });
+    expect(db.size, 1);
+    expect(db.get<TestType1>(model.id).isSameAs(model), isTrue);
   });
 
   test('test DataModel without builders', () async {
@@ -252,8 +318,8 @@ Future<void> main() async {
   test('test streamAll', () async {
     final db = create();
     await db.reset();
-    db.streamAll<TestType1>().listen(expectAsync1<void, Iterable<TestType1>>((results) {
-      expect(results.length, 3);
+    db.streamAll<TestType1>().listen(expectAsync1<void, DataModelEvent<TestType1>>((results) {
+      expect(results.all.length, 3);
     }, count: 1));
     db.batch(put: [
       TestType1(name: 'test-01'),
@@ -270,8 +336,8 @@ Future<void> main() async {
       TestType1(name: 'test-02'),
       TestType1(name: 'test-02'),
     ]);
-    db.streamAll<TestType1>().listen(expectAsync1<void, Iterable<TestType1>>((results) {
-      expect(results.length, 1);
+    db.streamAll<TestType1>().listen(expectAsync1<void, DataModelEvent<TestType1>>((results) {
+      expect(results.all.length, 1);
     }, count: 1));
     db.batch(remove: db.getAll<TestType1>().where((m) => m.name == 'test-02').map((m) => m.id).toList());
   });
@@ -279,8 +345,8 @@ Future<void> main() async {
   test('test streamAll skips other types', () async {
     final db = create();
     await db.reset();
-    db.streamAll<TestType1>().listen(expectAsync1<void, Iterable<TestType1>>((results) {
-      expect(results.length, 1);
+    db.streamAll<TestType1>().listen(expectAsync1<void, DataModelEvent<TestType1>>((results) {
+      expect(results.all.length, 1);
     }, count: 1));
     db.put(DataModel({'name': 'test-02'}));
     db.put(TestType1(name: 'test-02'));
@@ -289,8 +355,8 @@ Future<void> main() async {
   test('test streamAll accepting types', () async {
     final db = create();
     await db.reset();
-    db.streamAll().listen(expectAsync1<void, Iterable<DataModel>>((results) {
-      expect(results.length, 2);
+    db.streamAll().listen(expectAsync1<void, DataModelEvent>((results) {
+      expect(results.all.length, 2);
     }, count: 2));
     db.put(DataModel({'name': 'test-02'}));
     db.put(TestType1(name: 'test-02'));
@@ -299,8 +365,8 @@ Future<void> main() async {
   test('test streamAll with where function', () async {
     final db = create();
     await db.reset();
-    db.streamAll<TestType1>(where: (model) => model.name == 'test-02').listen(expectAsync1<void, Iterable>((results) {
-      expect(results.length, 1);
+    db.streamAll<TestType1>(where: (model) => model.name == 'test-02').listen(expectAsync1<void, DataModelEvent>((results) {
+      expect(results.all.length, 1);
     }, count: 1));
     db.put(TestType1(name: 'test-01'));
     db.put(TestType1(name: 'test-02'));
@@ -323,7 +389,18 @@ class TestType1 extends DataModel {
   TestType1({String name}) : super({'name': name});
   TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
   TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
-  TestType1.fromJson(data) : super.fromJson(data, {'name'}, {});
+  TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
   TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
   TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
+}
+
+class TestType2 extends DataModel {
+  String get name => this['name'];
+  TestType1 get type1 => this['type1'];
+  TestType2({String name, TestType1 type1}) : super({'name': name});
+  TestType2.copyNew(TestType2 original, {String name, TestType1 type1}) : super.copyNew(original, {'name': name, 'type1': type1});
+  TestType2.copyWith(TestType2 original, {String name, TestType1 type1}) : super.copyWith(original, {'name': name, 'type1': type1});
+  TestType2.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {'type1'}, newId);
+  TestType2 copyNew({String name, TestType1 type1}) => TestType2.copyNew(this, name: name, type1: type1);
+  TestType2 copyWith({String name, TestType1 type1}) => TestType2.copyWith(this, name: name, type1: type1);
 }

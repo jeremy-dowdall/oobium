@@ -93,8 +93,6 @@ class ModelField {
   bool get isNotDateTime => !isDateTime;
   bool get isNullable => isDateTime; // there may be more... but right now this is it
   bool get isNotNullable => !isNullable;
-  bool get isResolve => metadata.any((meta) => meta == 'resolve');
-  bool get isNotResolve => !isResolve;
   bool get isString => _type == 'String';
   bool get isNotString => !isString;
   bool get isIterable => _type == 'Iterable' || _type.startsWith('Iterable<');
@@ -111,6 +109,11 @@ class ModelField {
   bool get isNotDouble => !isDouble;
   bool get isModel => _isModel;
   bool get isNotModel => !isModel;
+
+  bool get isResolve => metadata.contains('resolve');
+  bool get isNotResolve => !isResolve;
+  bool get isRequired => metadata.contains('required');
+  bool get isNotRequired => !isRequired;
 
   bool get isGeneric => model.isGeneric && rawTypeArgument == model.typeParameter;
   bool get isNotGeneric => !isGeneric;

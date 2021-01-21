@@ -1,8 +1,8 @@
 import 'package:oobium/oobium.dart';
 
-class Models extends Database {
-  Models(String path)
-      : super(path,
+class ModelGenTestData extends Database {
+  ModelGenTestData(String path)
+      : super('$path/model_gen_test',
             [(data) => User.fromJson(data), (data) => Message.fromJson(data)]);
 }
 
@@ -17,17 +17,11 @@ class User extends DataModel {
   User.copyWith(User original, {String name})
       : super.copyWith(original, {'name': name});
 
-  User.fromJson(data)
-      : super.fromJson(
-          data,
-          {'name'},
-          {},
-        );
+  User.fromJson(data, {bool newId = false})
+      : super.fromJson(data, {'name'}, {}, newId);
 
-  @override
   User copyNew({String name}) => User.copyNew(this, name: name);
 
-  @override
   User copyWith({String name}) => User.copyWith(this, name: name);
 }
 
@@ -45,18 +39,12 @@ class Message extends DataModel {
   Message.copyWith(Message original, {User from, User to, String message})
       : super.copyWith(original, {'from': from, 'to': to, 'message': message});
 
-  Message.fromJson(data)
-      : super.fromJson(
-          data,
-          {'message'},
-          {'from', 'to'},
-        );
+  Message.fromJson(data, {bool newId = false})
+      : super.fromJson(data, {'message'}, {'from', 'to'}, newId);
 
-  @override
   Message copyNew({User from, User to, String message}) =>
       Message.copyNew(this, from: from, to: to, message: message);
 
-  @override
   Message copyWith({User from, User to, String message}) =>
       Message.copyWith(this, from: from, to: to, message: message);
 }

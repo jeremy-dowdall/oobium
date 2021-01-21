@@ -13,15 +13,15 @@ Future<void> main() async {
   test('test invitation process', () async {
     final server = await TestClient.start('test-data/test-01', 8001);
 
-    final admin = await AdminClient(port: 8001).getAdmin();
-    expect(admin.uid, isNotEmpty);
-    expect(admin.token, isNotEmpty);
+    final user = await AdminClient(port: 8001).createUser('test-1');
+    expect(user['id'], isNotEmpty);
+    expect(user['token'], isNotEmpty);
 
     print('connecting');
-    final clientA = await AuthSocket().connect(port: 8001, uid: admin.uid, token: admin.token);
+    final clientA = await AuthSocket().connect(port: 8001, uid: user['id'], token: user['token']);
     print('connected');
-    expect(clientA.uid, admin.uid);
-    expect(clientA.token, admin.token);
+    expect(clientA.uid, user['id']);
+    expect(clientA.token, user['token']);
 
     print('get installCode');
     final installCode = await clientA.newInstallToken();

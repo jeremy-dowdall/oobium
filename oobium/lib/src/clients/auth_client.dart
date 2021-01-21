@@ -52,7 +52,7 @@ class Auth {
   }
 
   void _setState(AuthState state) {
-    print('setState($_state -> $state)');
+    // print('setState($_state -> $state)');
     if(_state != state) {
       _state = state;
       for(var listener in _listeners.toList(growable: false)) {
@@ -74,6 +74,9 @@ class AuthClient {
 
   AccountData _accounts;
   Account _account;
+
+  Account get account => _account;
+  AuthSocket get socket => _socket;
 
   AuthSocket _socket;
   ConnectionStatus _connectionStatus;
@@ -205,7 +208,7 @@ class AuthClient {
   }
 
   Future<void> _onSocketDone(event) {
-    print('onSocketDone');
+    // print('onSocketDone');
     return _updateConnection();
   }
 }

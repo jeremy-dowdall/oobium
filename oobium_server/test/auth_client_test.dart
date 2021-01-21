@@ -12,23 +12,24 @@ Future<void> main() async {
   tearDownAll(() => TestClient.clean(root));
 
   group('test with connection', () {
-    test('something', () async {
+    test('create user and sign in', () async {
       final path = nextPath();
       final port = nextPort();
       final server = await TestClient.start(path, port);
       final client = AuthClient(port: port, root: root);
       await client.init();
+      await client.setConnectionStatus(ConnectionStatus.wifi);
+
       expect(client.auth.state, AuthState.Anonymous);
       expect(await client.requestInstallCode(), isNull);
 
-      final admin = await AdminClient(port: port).getAdmin();
+      final user = await AdminClient(port: port).createUser('test-1');
 
-      expect(admin?.uid, isNotNull);
-      expect(admin?.token, isNotNull);
+      expect(user['id'], isNotNull);
+      expect(user['token'], isNotNull);
 
-      print('signIn(${admin.uid}, ${admin.token})');
-      await client.signIn(admin.uid, admin.token);
-      // expect(client.isConnected, isTrue);
+      await client.signIn(user['id'], user['token']);
+      expect(client.isConnected, isTrue);
       expect(client.auth.isSignedIn, isTrue);
 
       client.dispose();

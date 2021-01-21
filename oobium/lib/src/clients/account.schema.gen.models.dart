@@ -8,25 +8,47 @@ class AccountData extends Database {
 class Account extends DataModel {
   String get uid => this['uid'];
   String get token => this['token'];
+  String get avatar => this['avatar'];
+  String get description => this['description'];
 
-  Account({String uid, String token}) : super({'uid': uid, 'token': token});
+  Account(
+      {@required String uid, String token, String avatar, String description})
+      : super({
+          'uid': uid,
+          'token': token,
+          'avatar': avatar,
+          'description': description
+        });
 
-  Account.copyNew(Account original, {String uid, String token})
-      : super.copyNew(original, {'uid': uid, 'token': token});
+  Account.copyNew(Account original,
+      {String uid, String token, String avatar, String description})
+      : super.copyNew(original, {
+          'uid': uid,
+          'token': token,
+          'avatar': avatar,
+          'description': description
+        });
 
-  Account.copyWith(Account original, {String uid, String token})
-      : super.copyWith(original, {'uid': uid, 'token': token});
+  Account.copyWith(Account original,
+      {String uid, String token, String avatar, String description})
+      : super.copyWith(original, {
+          'uid': uid,
+          'token': token,
+          'avatar': avatar,
+          'description': description
+        });
 
-  Account.fromJson(data)
+  Account.fromJson(data, {bool newId = false})
       : super.fromJson(
-          data,
-          {'uid', 'token'},
-          {},
-        );
+            data, {'uid', 'token', 'avatar', 'description'}, {}, newId);
 
-  Account copyNew({String uid, String token}) =>
-      Account.copyNew(this, uid: uid, token: token);
+  Account copyNew(
+          {String uid, String token, String avatar, String description}) =>
+      Account.copyNew(this,
+          uid: uid, token: token, avatar: avatar, description: description);
 
-  Account copyWith({String uid, String token}) =>
-      Account.copyWith(this, uid: uid, token: token);
+  Account copyWith(
+          {String uid, String token, String avatar, String description}) =>
+      Account.copyWith(this,
+          uid: uid, token: token, avatar: avatar, description: description);
 }

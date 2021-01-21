@@ -7,10 +7,10 @@ class Executor {
 
   Future<void> add(FutureOr Function() op) => _add(op);
   
-  Future<void> flush() => close(cancel: false);
+  Future<void> flush() => _last ?? Future.value();
 
-  Future<void> close({bool cancel = false}) {
-    _canceled = cancel ?? false;
+  Future<void> cancel()  {
+    _canceled = true;
     return _last ?? Future.value();
   }
 

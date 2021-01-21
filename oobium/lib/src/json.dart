@@ -18,10 +18,10 @@ abstract class Json implements JsonString {
     if(data is Map) {
       return data.entries.map((entry) => builder(entry.key, entry.value)).toList();
     }
-    return List();
+    return <T>[];
   }
 
-  static V value<V>(data, String field) => (data is Map) ? (data[field] as V) : null;
+  static V value<V>(data, String field) => (data is Map && (data[field] is V)) ? (data[field] as V) : null;
 
   static T field<T,V>(data, String field, [T builder(V value)]) {
     return (builder != null) ? builder(value<V>(data, field)) : value<V>(data, field);
@@ -62,7 +62,7 @@ abstract class Json implements JsonString {
   }
 
   static List<T> toList<T>(data, String field, T builder(element)) {
-    if(!(data is Map) || !(data[field] is List)) return List<T>();
+    if(!(data is Map) || !(data[field] is List)) return <T>[];
     return (data[field] as List).map((element) => builder(element)).toList();
   }
 
@@ -134,7 +134,7 @@ abstract class JsonModel extends Json {
 
   bool isSameAs(other) => !isNotSameAs(other);
   bool isNotSameAs(other) {
-    if(runtimeType == other?.runtimeType && id == other?.id) {
+    if(runtimeType == other?.runtimeType && id == other?.uid) {
       final json1 = toJson(), json2 = other.toJson();
       return json1.keys.any((k) => json1[k] != json2[k]);
     }

@@ -1,10 +1,11 @@
+import 'dart:async';
+
 class Data {
 
   final String path;
-  final int version;
-  Data(this.path, {this.version = 1});
+  Data(this.path);
 
-  Future<Data> create() => throw UnsupportedError('platform not supported');
+  Future<Data> open({int version, FutureOr<bool> Function(DataUpgradeEvent event) onUpgrade}) => throw UnsupportedError('platform not supported');
   Future<void> destroy() => throw UnsupportedError('platform not supported');
 
   final _connections = <Connection>[];
@@ -13,13 +14,21 @@ class Data {
     _connections.add(connection);
   }
 
-  Future<void> close({bool cancel = false}) async {
+  Future<void> close() async {
     for(var connection in _connections) {
-      await connection.close(cancel: cancel);
+      await connection.close();
     }
   }
 }
 
 abstract class Connection {
-  Future<void> close({bool cancel = false});
+  Future<void> close();
+}
+
+class DataUpgradeEvent {
+  final int oldVersion;
+  final Data oldData;
+  final int newVersion;
+  final Data newData;
+  DataUpgradeEvent(this.oldVersion, this.oldData, this.newVersion, this.newData);
 }

@@ -1,0 +1,11 @@
+User
+  name String(required)
+  avatar String
+
+Group
+  name String(required)
+  owner User(required)
+
+Membership
+  user User(required)
+  group Group(required)

@@ -1,3 +1,5 @@
 Account
-  uid String
+  uid String(required)
   token String
+  avatar String
+  description String

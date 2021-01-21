@@ -1,0 +1,4 @@
+ClientDefinition
+  key String(required)
+  name String(required)
+  access String(required)

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:oobium/oobium.dart';
-import 'package:oobium_server/src/services/auth/auth.schema.gen.models.dart';
+import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/services/services.dart';
 
@@ -14,15 +14,24 @@ class AuthConnection {
   final Database _db;
   final InstallCodes _codes;
   final ServerWebSocket _socket;
+  final _subscriptions = <WsSubscription>[];
   AuthConnection._(this._db, this._codes, this._socket) {
-    _socket.on.get('/users/id', (req, res) => res.send(data: uid));
-    _socket.on.get('/users/token', (req, res) => res.send(data: getUserToken()));
-    _socket.on.get('/users/token/new', (req, res) => res.send(data: getUserToken(forceNew: true)));
-    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _codes.createInstallCode(uid)));
+    _subscriptions.addAll([
+      _socket.on.get('/users/id', (req, res) => res.send(data: uid)),
+      _socket.on.get('/users/token', (req, res) => res.send(data: getUserToken())),
+      _socket.on.get('/users/token/new', (req, res) => res.send(data: getUserToken(forceNew: true))),
+      _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _codes.createInstallCode(uid)))
+    ]);
+  }
+
+  void close() {
+    for(var sub in _subscriptions) {
+      sub.cancel();
+    }
   }
 
   ServerWebSocket get socket => _socket;
-  String get uid => _socket.id;
+  String get uid => _socket.uid;
 
   String getUserToken({bool forceNew = false}) {
     final user = _db.get<User>(uid);
@@ -40,18 +49,19 @@ class AuthConnection {
 class AuthService extends Service<Host, AuthConnection> {
   
   final String path;
+  final AuthServiceData _db;
   final _connections = <AuthConnection>[];
-  AuthService({this.path = 'data/auth'});
+  AuthService({this.path = 'data/auth'}) : _db = AuthServiceData(path);
 
-  AuthData _db;
   InstallCodes _codes;
 
   @override
   void onAttach(Host host) {
-    host.get('/auth', [_auth(host), websocket((socket) {
+    host.get('/auth', [_auth(host), websocket((socket) async {
       final connection = AuthConnection._(_db, _codes, socket);
       _connections.add(connection);
-      services.attach(connection);
+      await services.attach(connection);
+      // ignore: unawaited_futures
       socket.done.then((_) {
         _connections.remove(connection);
         services.detach(connection);
@@ -61,31 +71,37 @@ class AuthService extends Service<Host, AuthConnection> {
 
   @override
   void onDetach(Host host) {
+    for(var connection in _connections) {
+      connection.close();
+    }
     _connections.clear();
   }
 
   @override
   Future<void> onStart() async {
-    _db = await AuthData(path).open();
+    await _db.open();
     _codes = InstallCodes(_db);
-    final admin = getAdmin(orCreate: true);
-    print('AuthToken: ${admin.id}-${admin.token.id}');
   }
 
   @override
   Future<void> onStop() async {
     _connections.clear();
     await _db.close();
-    _db = null;
     _codes = null;
   }
 
-  User createUser(data) => _db.put(User.fromJson(data).copyNew(token: Token()));
+  Group createGroup(data) => _db.put(Group.fromJson(data, newId: true));
+  Group getGroup(String id) => _db.get<Group>(id);
 
-  User getAdmin({bool orCreate = false}) => _db.getAll<User>()
-      .firstWhere((user) => user.role == 'admin',
-      orElse: () => orCreate ? _db.put(User(name: 'admin', role: 'admin', token: Token())) : null);
+  Membership createMembership(data) => _db.put(Membership.fromJson(data, newId: true)); // TODO other attrs
+  Membership getMembership(String id) => _db.get<Membership>(id);
+  Iterable<Membership> getMemberships({String user, String group}) {
+    return _db.getAll<Membership>().where((m) {
+      return ((user == null) || (m.user.id == user)) && ((group == null) || (m.group.id == group));
+    });
+  }
 
+  User createUser(data) => _db.put(User.fromJson(data, newId: true).copyWith(token: Token()));
   User getUser(String id) => _db.get<User>(id);
 
   RequestHandler _auth(Host host) => (Request req, Response res) async {
@@ -104,7 +120,7 @@ class AuthService extends Service<Host, AuthConnection> {
         final tokenId = _codes.consume(authToken);
         if(tokenId != null) {
           final token = _db.remove<Token>(tokenId);
-          final approval = await host.socket(token?.user?.id)?.get('/installs/approval');
+          final approval = await host.socket(token?.user?.id)?.getAny('/installs/approval');
           if(approval?.isSuccess == true && approval.data == true) {
             final user = _db.put(User(token: token.copyNew(), referredBy: token.user));
             req['uid'] = user.id;

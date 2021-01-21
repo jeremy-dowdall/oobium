@@ -3,10 +3,10 @@ export 'package:oobium/src/clients/admin_client.dart';
 export 'package:oobium/src/clients/auth_client.dart';
 export 'package:oobium/src/clients/auth_socket.dart';
 export 'package:oobium/src/clients/data_client.dart';
-export 'package:oobium/src/clients/storage.schema.gen.models.dart';
+export 'package:oobium/src/clients/data_client.schema.gen.models.dart';
 
 export 'package:oobium/src/api_client.dart';
-export 'package:oobium/src/database.dart' show Database, DataModel;
+export 'package:oobium/src/database.dart' show Database, DataModel, DataModelEvent;
 export 'package:oobium/src/file_cache.dart';
 export 'package:oobium/src/json.dart' show Json, JsonModel, JsonString;
 export 'package:oobium/src/router.extensions.dart';

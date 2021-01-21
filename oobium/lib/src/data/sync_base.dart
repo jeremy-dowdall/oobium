@@ -39,13 +39,13 @@ class Sync implements Connection {
     await repo.flush();
   }
   
-  Future<void> close({bool cancel = false}) async {
+  Future<void> close() async {
     for(var binder in binders.values) {
       binder.cancel();
     }
     binders.clear();
     for(var replicant in replicants) {
-      await replicant.close(cancel: cancel ?? false);
+      await replicant.close();
     }
     replicants.clear();
     id = null;
@@ -60,26 +60,32 @@ class Sync implements Connection {
     }
   }
 
+  bool get isBound => binders.isNotEmpty;
+  bool get isNotBound => !isBound;
+
   Future<void> bind(WebSocket socket, {String name, bool wait = true}) async {
-    final key = '${socket.hashCode}:$name';
+    final key = _key(socket, name);
     if(binders.containsKey(key)) {
-      return wait ? binders[socket].ready : Future.value();
+      return wait ? binders[key].ready : Future.value();
     } else {
       if(id == null) {
         id = ObjectId().hexString;
         await save();
       }
+      // print('localId: $id');
       final binder = Binder(this, socket, name);
       binders[key] = binder;
-      binder.finished.then((_) => binders.remove(socket));
+      print('binders: $binders');
+      binder.finished.then((_) => binders.remove(key));
       return wait ? binder.ready : Future.value();
     }
   }
 
-  void unbind(WebSocket socket) {
-    final binder = binders.remove(socket);
-    if(binder != null) binder.cancel();
+  void unbind(WebSocket socket, {String name}) {
+    binders.remove(_key(socket, name))?.cancel();
   }
+
+  String _key(WebSocket socket, String name) => (name != null) ? '${socket?.hashCode}:$name' : '${socket?.hashCode}';
 
   Future<void> replicate(WebSocket socket) async {
     await _getReplicant(socket: socket);
@@ -149,7 +155,7 @@ class Binder {
   }
 
   String get localId => _sync.id;
-  String get remoteId => _replicant.id;
+  String get remoteId => _replicant?.id;
 
   bool sentConnect = false;
   bool isConnected = false;
@@ -197,7 +203,7 @@ class Binder {
       isPeerSyncing = true;
       final records = await _replicant.getSyncRecords(_sync.models);
       final data = await records.toList();
-      // print('sendSync(${_sync.id}) $data');
+      // print('sendSync($_name: ${_sync.id}) $data');
       // final data = records.map((r) => r.toJsonString()).transform(utf8.encoder);
       isPeerSynced = (await _socket.put(syncPath(_name), data)).isSuccess;
       isPeerSyncing = false;
@@ -210,7 +216,7 @@ class Binder {
     // final stream = data.stream.transform(utf8.decoder).map((s) => DataRecord.fromLine(s));
     // final records = await stream.toList();
     final records = (data.value as List).map((s) => DataRecord.fromLine(s)).toList();
-    // print('onSync(${_sync.id}) $records');
+    // print('onSync($_name: ${_sync.id}) $records');
     final event = DataEvent(remoteId, records);
     await onData(event);
     await sendSync();
@@ -225,6 +231,7 @@ class Binder {
   /// new local records -> send them out via put(dataPath, event)
   Future<bool> sendData(data) async {
     final event = (data is DataEvent) ? data : (data is List<DataRecord>) ? DataEvent(localId, data) : null;
+    print('sendData($_name: ${_sync.id}) $event');
     if(event != null && event.isNotEmpty) {
       return (await _socket.put(dataPath(_name), event)).isSuccess;
     }
@@ -234,9 +241,11 @@ class Binder {
   /// new remote records -> update local db and then notify other binders (with same event)
   Future<void> onData(data) async {
     final event = (data is DataEvent) ? data : (data is WsData) ? DataEvent.fromJson(data.value) : null;
+    // print('onData($_name: ${_sync.id}) $event');
     if(event != null && event.isNotEmpty && event.visit(localId)) {
       _sync.models.loadAll(event.records);
       _sync.repo.putAll(event.records);
+      // print('onDataBinders(${_sync.binders})');
       for(var binder in _sync.binders.values) {
         if(event.notVisitedBy(binder.remoteId)) {
           await binder.sendData(event);
@@ -264,6 +273,9 @@ class Binder {
     _subscriptions.clear();
     if(!_finished.isCompleted) _finished.complete();
   }
+
+  @override
+    String toString() => '$runtimeType(lid: $localId, rid: $remoteId)';
 }
 
 class Replicant implements Connection {
@@ -274,8 +286,8 @@ class Replicant implements Connection {
   Replicant(this.db, this.id);
 
   Replicant open() => throw UnsupportedError('platform not supported');
-  Future<void> flush() => _executor.close(cancel: false);
-  Future<void> close({bool cancel = false}) => _executor.close(cancel: cancel ?? false);
+  Future<void> flush() => _executor.flush();
+  Future<void> close() => _executor.cancel();
 
   Stream<DataRecord> getSyncRecords(Models models) => throw UnsupportedError('platform not supported');
 
