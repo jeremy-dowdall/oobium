@@ -42,7 +42,12 @@ class Models {
     return _controller?.close() ?? Future.value();
   }
 
+  bool any(String id) => _models.containsKey(id);
+  bool none(String id) => !any(id);
+
   int get length => _models.length;
+  bool get isEmpty => _models.isEmpty;
+  bool get isNotEmpty => _models.isNotEmpty;
 
   T get<T extends DataModel>(String id, {T Function() orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
   Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? _models.values : _models.values.whereType<T>();
@@ -158,12 +163,12 @@ class DataModel extends JsonModel implements DataId {
 
   DataModel.copyNew(DataModel original, Map<String, dynamic> fields) :
         timestamp = DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields({...original._fields._map}..addAll(fields??{})),
+        _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))),
         super(ObjectId().hexString);
 
   DataModel.copyWith(DataModel original, Map<String, dynamic> fields) :
         timestamp = DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields({...original._fields._map}..addAll(fields??{})),
+        _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))),
         super(original.id);
 
   DataModel.fromJson(data, Set<String> fields, Set<String> modelFields, bool newId) :

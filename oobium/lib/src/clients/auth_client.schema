@@ -1,11 +1,5 @@
-User
-  name String(required)
+Account
+  uid String(required)
+  token String
   avatar String
-
-Group
-  name String(required)
-  owner User(required)
-
-Membership
-  user User(required)
-  group Group(required)
+  description String

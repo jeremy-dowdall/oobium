@@ -2,33 +2,32 @@ import 'package:oobium/oobium.dart';
 
 class DataServiceData extends Database {
   DataServiceData(String path)
-      : super(
-            '$path/data_service', [(data) => ClientDefinition.fromJson(data)]);
+      : super('$path/data_service', [(data) => Definition.fromJson(data)]);
 }
 
-class ClientDefinition extends DataModel {
+class Definition extends DataModel {
   String get key => this['key'];
   String get name => this['name'];
   String get access => this['access'];
 
-  ClientDefinition(
+  Definition(
       {@required String key, @required String name, @required String access})
       : super({'key': key, 'name': name, 'access': access});
 
-  ClientDefinition.copyNew(ClientDefinition original,
+  Definition.copyNew(Definition original,
       {String key, String name, String access})
       : super.copyNew(original, {'key': key, 'name': name, 'access': access});
 
-  ClientDefinition.copyWith(ClientDefinition original,
+  Definition.copyWith(Definition original,
       {String key, String name, String access})
       : super.copyWith(original, {'key': key, 'name': name, 'access': access});
 
-  ClientDefinition.fromJson(data, {bool newId = false})
+  Definition.fromJson(data, {bool newId = false})
       : super.fromJson(data, {'key', 'name', 'access'}, {}, newId);
 
-  ClientDefinition copyNew({String key, String name, String access}) =>
-      ClientDefinition.copyNew(this, key: key, name: name, access: access);
+  Definition copyNew({String key, String name, String access}) =>
+      Definition.copyNew(this, key: key, name: name, access: access);
 
-  ClientDefinition copyWith({String key, String name, String access}) =>
-      ClientDefinition.copyWith(this, key: key, name: name, access: access);
+  Definition copyWith({String key, String name, String access}) =>
+      Definition.copyWith(this, key: key, name: name, access: access);
 }

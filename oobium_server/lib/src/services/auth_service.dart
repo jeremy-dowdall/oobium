@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:oobium/oobium.dart';
+import 'package:oobium/oobium.dart' hide User, Group, Membership;
 import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
 import 'package:oobium_server/src/server.dart';
-import 'package:oobium_server/src/services/services.dart';
+import 'package:oobium_server/src/service.dart';
 
 const WsProtocolHeader = 'sec-websocket-protocol';
 const WsAuthProtocol = 'authorized';
@@ -53,6 +53,28 @@ class AuthService extends Service<Host, AuthConnection> {
   final _connections = <AuthConnection>[];
   AuthService({this.path = 'data/auth'}) : _db = AuthServiceData(path);
 
+  bool any(String id) => _db.any(id);
+  bool none(String id) => _db.none(id);
+
+  List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => _db.batch<T>(put: put, remove: remove);
+
+  Group getGroup(String id) => _db.get<Group>(id);
+  Iterable<Group> getGroups() => _db.getAll<Group>();
+  Group putGroup(Group group) => _db.put(group);
+  Group removeGroup(String id) => _db.remove(_db.get<Group>(id)?.id);
+
+  Membership getMembership(String id) => _db.get<Membership>(id);
+  Iterable<Membership> getMemberships() => _db.getAll<Membership>();
+  Membership putMembership(Membership membership) => _db.put(membership);
+  Membership removeMembership(String id) => _db.remove(_db.get<Membership>(id)?.id);
+
+  User getUser(String id) => _db.get<User>(id);
+  Iterable<User> getUsers() => _db.getAll<User>();
+  User putUser(User user) => any(user.id) ? _db.put(user) : _db.put(user.copyWith(token: Token()));
+  User removeUser(String id) => _db.remove(_db.get<User>(id)?.id);
+
+  Stream<DataModelEvent> streamAll() => _db.streamAll();
+
   InstallCodes _codes;
 
   @override
@@ -89,20 +111,6 @@ class AuthService extends Service<Host, AuthConnection> {
     await _db.close();
     _codes = null;
   }
-
-  Group createGroup(data) => _db.put(Group.fromJson(data, newId: true));
-  Group getGroup(String id) => _db.get<Group>(id);
-
-  Membership createMembership(data) => _db.put(Membership.fromJson(data, newId: true)); // TODO other attrs
-  Membership getMembership(String id) => _db.get<Membership>(id);
-  Iterable<Membership> getMemberships({String user, String group}) {
-    return _db.getAll<Membership>().where((m) {
-      return ((user == null) || (m.user.id == user)) && ((group == null) || (m.group.id == group));
-    });
-  }
-
-  User createUser(data) => _db.put(User.fromJson(data, newId: true).copyWith(token: Token()));
-  User getUser(String id) => _db.get<User>(id);
 
   RequestHandler _auth(Host host) => (Request req, Response res) async {
     final authToken = _parseAuthToken(req);

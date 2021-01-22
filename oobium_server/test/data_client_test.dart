@@ -8,7 +8,7 @@ import 'test_client.dart';
 Future<void> main() async {
 
   setUpAll(() => TestClient.clean(root));
-  // tearDownAll(() => TestClient.clean(root));
+  tearDownAll(() => TestClient.clean(root));
 
   group('test with connection', () {
     test('sign up and connect a data connection', () async {
@@ -207,6 +207,53 @@ Future<void> main() async {
 
       final client2 = await createClient('$path/test_client_2', port, user2, []);
       await Future.delayed(Duration(milliseconds: 100));
+      expect(client2.schema.length, 1);
+      expect(client2.db('shared-db'), isNotNull);
+    });
+   
+    test('add fails when user is not member of group', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user = await AdminClient(port: port).createUser('test-1');
+      final group = await AdminClient(port: port).createGroup('test-1');
+      final client = await createClient('$path/test_client_1', port, user, []);
+
+      await client.add(Definition(name: 'shared-db', access: group['id']));
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client.schema.length, 0);
+      expect(client.db('shared-db'), isNull);
+    });
+
+    test('shared database, dynamic create, 2 users, add to/remove from group', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final user1 = await AdminClient(port: port).createUser('test-1');
+      final user2 = await AdminClient(port: port).createUser('test-2');
+      final group = await AdminClient(port: port).createGroup('test-group-1');
+      final membership = await AdminClient(port: port).createMembership(user: user1['id'], group: group['id']);
+      final client1 = await createClient('$path/test_client_1', port, user1, []);
+      final client2 = await createClient('$path/test_client_2', port, user2, []);
+
+      await client1.add(Definition(name: 'shared-db', access: group['id']));
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client1.schema.length, 1);
+      expect(client1.db('shared-db'), isNotNull);
+      expect(client2.schema, isEmpty);
+      expect(client2.db('shared-db'), isNull);
+
+      await AdminClient(port: port).createMembership(user: user2['id'], group: group['id']);
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client1.schema.length, 1);
+      expect(client1.db('shared-db'), isNotNull);
+      expect(client2.schema.length, 1);
+      expect(client2.db('shared-db'), isNotNull);
+
+      await AdminClient(port: port).removeMembership(membership['id']);
+      await Future.delayed(Duration(milliseconds: 100));
+      expect(client1.schema, isEmpty);
+      expect(client1.db('shared-db'), isNull);
       expect(client2.schema.length, 1);
       expect(client2.db('shared-db'), isNotNull);
     });

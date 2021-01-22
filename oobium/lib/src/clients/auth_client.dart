@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:oobium/src/clients/account.schema.gen.models.dart';
+import 'package:meta/meta.dart';
+import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
 import 'package:oobium/src/clients/auth_socket.dart';
 
 enum AuthState {
@@ -70,9 +71,9 @@ class AuthClient {
   final String root;
   final _accountListeners = <FutureOr<void> Function(Account account)>[];
   final _socketListeners = <FutureOr<void> Function(AuthSocket socket)>[];
-  AuthClient({Auth auth, this.address='127.0.0.1', this.port=8001, this.root=''}) : auth = auth ?? Auth();
+  AuthClient({@required this.root, Auth auth, this.address='127.0.0.1', this.port=8001}) : auth = auth ?? Auth();
 
-  AccountData _accounts;
+  AuthClientData _accounts;
   Account _account;
 
   Account get account => _account;
@@ -89,7 +90,7 @@ class AuthClient {
   bool get isNotAttached => !isAttached;
 
   void init() async {
-    _accounts = AccountData(root);
+    _accounts = AuthClientData(root);
     await _accounts.open();
     auth._attach(this);
     await _initAccount();

@@ -34,6 +34,18 @@ Future<void> main() async {
 
       client.dispose();
     });
+
+    test('create user, group, add user to group', () async {
+      final path = nextPath();
+      final port = nextPort();
+      final server = await TestClient.start(path, port);
+      final client = AuthClient(port: port, root: root);
+      await client.init();
+      await client.setConnectionStatus(ConnectionStatus.wifi);
+      final user = await AdminClient(port: port).createUser('test-1');
+      await client.signIn(user['id'], user['token']);
+
+    });
   });
 }
 

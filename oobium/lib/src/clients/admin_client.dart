@@ -10,6 +10,8 @@ class AdminClient {
 
   Future<Map> createMembership({@required String user, @required String group}) => _put('/memberships/new', {'user': user, 'group': group});
   Future<Map> getMembership(String id) => _get('/memberships/$id');
+  Future<void> putMembership(String id, Map data) => _put('/memberships/$id', data);
+  Future<void> removeMembership(String id) => _put('/memberships/$id', null);
 
   Future<Map> createUser(String name) => _put('/users/new', {'name': name});
   Future<Map> getUser(String id) => _get('/users/$id');

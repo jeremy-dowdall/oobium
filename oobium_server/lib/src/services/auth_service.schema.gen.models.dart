@@ -76,63 +76,50 @@ class Token extends DataModel {
 
 class Group extends DataModel {
   String get name => this['name'];
+  User get owner => this['owner'];
 
-  Group({String name}) : super({'name': name});
+  Group({String name, User owner}) : super({'name': name, 'owner': owner});
 
-  Group.copyNew(Group original, {String name})
-      : super.copyNew(original, {'name': name});
+  Group.copyNew(Group original, {String name, User owner})
+      : super.copyNew(original, {'name': name, 'owner': owner});
 
-  Group.copyWith(Group original, {String name})
-      : super.copyWith(original, {'name': name});
+  Group.copyWith(Group original, {String name, User owner})
+      : super.copyWith(original, {'name': name, 'owner': owner});
 
   Group.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name'}, {}, newId);
+      : super.fromJson(data, {'name'}, {'owner'}, newId);
 
-  Group copyNew({String name}) => Group.copyNew(this, name: name);
+  Group copyNew({String name, User owner}) =>
+      Group.copyNew(this, name: name, owner: owner);
 
-  Group copyWith({String name}) => Group.copyWith(this, name: name);
+  Group copyWith({String name, User owner}) =>
+      Group.copyWith(this, name: name, owner: owner);
 }
 
 class Membership extends DataModel {
   User get user => this['user'];
   Group get group => this['group'];
   User get invitedBy => this['invitedBy'];
-  String get role => this['role'];
 
-  Membership({User user, Group group, User invitedBy, String role})
-      : super({
-          'user': user,
-          'group': group,
-          'invitedBy': invitedBy,
-          'role': role
-        });
+  Membership({User user, Group group, User invitedBy})
+      : super({'user': user, 'group': group, 'invitedBy': invitedBy});
 
   Membership.copyNew(Membership original,
-      {User user, Group group, User invitedBy, String role})
-      : super.copyNew(original, {
-          'user': user,
-          'group': group,
-          'invitedBy': invitedBy,
-          'role': role
-        });
+      {User user, Group group, User invitedBy})
+      : super.copyNew(
+            original, {'user': user, 'group': group, 'invitedBy': invitedBy});
 
   Membership.copyWith(Membership original,
-      {User user, Group group, User invitedBy, String role})
-      : super.copyWith(original, {
-          'user': user,
-          'group': group,
-          'invitedBy': invitedBy,
-          'role': role
-        });
+      {User user, Group group, User invitedBy})
+      : super.copyWith(
+            original, {'user': user, 'group': group, 'invitedBy': invitedBy});
 
   Membership.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'role'}, {'user', 'group', 'invitedBy'}, newId);
+      : super.fromJson(data, {}, {'user', 'group', 'invitedBy'}, newId);
 
-  Membership copyNew({User user, Group group, User invitedBy, String role}) =>
-      Membership.copyNew(this,
-          user: user, group: group, invitedBy: invitedBy, role: role);
+  Membership copyNew({User user, Group group, User invitedBy}) =>
+      Membership.copyNew(this, user: user, group: group, invitedBy: invitedBy);
 
-  Membership copyWith({User user, Group group, User invitedBy, String role}) =>
-      Membership.copyWith(this,
-          user: user, group: group, invitedBy: invitedBy, role: role);
+  Membership copyWith({User user, Group group, User invitedBy}) =>
+      Membership.copyWith(this, user: user, group: group, invitedBy: invitedBy);
 }

@@ -9,9 +9,9 @@ Token
 
 Group
   name String
+  owner User
 
 Membership
   user User
   group Group
   invitedBy User
-  role String

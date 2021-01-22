@@ -109,6 +109,9 @@ class Database {
     await open();
   }
 
+  bool any(String id) => _models?.any(id) == true;
+  bool none(String id) => _models?.none(id) == true;
+
   List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => _batch(put: put, remove: remove);
 
   T get<T extends DataModel>(String id, {T Function() orElse}) => _models.get<T>(id, orElse: orElse);

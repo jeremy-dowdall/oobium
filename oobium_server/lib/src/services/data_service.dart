@@ -1,31 +1,20 @@
 import 'dart:async';
 
-import 'package:oobium/oobium.dart';
+import 'package:oobium/oobium.dart' hide Definition;
+import 'package:oobium/oobium.dart' as c show Definition;
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/services/auth_service.dart';
-import 'package:oobium_server/src/services/data_service.schema.gen.models.dart';
-import 'package:oobium_server/src/services/services.dart';
+import 'package:oobium_server/src/services/data_service.schema.gen.models.dart' as s;
+import 'package:oobium_server/src/service.dart';
 
 class DataService extends Service<AuthConnection, Null> {
 
   final String path;
-  final DataServiceData _schema;
+  final s.DataServiceData _schema;
   final _clients = <String/*uid*/, DataClientData>{};
   final _sockets = <String/*uid*/, List<ServerWebSocket>>{};
   final _datastores = <String/*path*/, DataStore>{};
-  DataService({this.path = 'data'}) : _schema = DataServiceData(path);
-
-  /// uid -> List<Databases for user>
-  /// DataStore.usedBy(uid) -> private | group.contains(uid) -> set of uids? listens to groups
-  /// DataStore.definition.group
-  /// DataStore.definition.owner
-  /// DataStore.definition.user? (for 1-to-1?)
-  /// 
-  /// add/remove databases according to schema (for each user)
-  /// _schemas =   <String:uid, StorageData>{};
-  /// _sockets =   <String:uid, List<ServerWebSocket>>{}; // just like Host.sockets
-  /// _datastore = <String:path, DataStore>{};
-  /// 
+  DataService({this.path = 'data'}) : _schema = s.DataServiceData(path);
 
   @override
   Future<void> onAttach(AuthConnection auth) => _addSocket(auth.socket);
@@ -67,54 +56,59 @@ class DataService extends Service<AuthConnection, Null> {
   Future<DataClientData> _openClient(String uid) async {
     final client = await DataClientData(_path(uid, name: SchemaName)).open();
 
-    final keys = client.getAll<Definition>()
-      .map((d) => _path(uid, def: d)).toSet();
     final groups = services.get<AuthService>().getMemberships()
       .where((m) => m.user.id == uid)
       .map((m) => m.group.id).toSet();
-    final definitions = _schema.getAll<ClientDefinition>()
-      .where((d) => ((d.access == uid) || groups.contains(d.access)) && !keys.contains(d.key))
-      .map((d) => Definition(name: d.name, access: (d.access != uid) ? d.access : null));
-    if(definitions.isNotEmpty) {
-      await (client..putAll(definitions)).flush();
-    }
+    final cKeys = client.getAll<c.Definition>()
+      .map((d) => _path(uid, def: d)).toSet();
+    final sKeys = _schema.getAll<s.Definition>()
+      .map((d) => d.key).toSet();
+    client.batch(
+      put: _schema.getAll<s.Definition>()
+        .where((d) => ((uid == d.access) || groups.contains(d.access)) && !cKeys.contains(d.key))
+        .map((d) => c.Definition(name: d.name, access: (d.access != uid) ? d.access : null)),
+      remove: client.getAll<c.Definition>()
+        .where((d) => !((uid == d.access) || groups.contains(d.access)) || !sKeys.contains(_path(uid, def: d)))
+        .map((d) => d.id)
+    );
+    await client.flush();
 
-    await _addDefinitions(uid, client.getAll<Definition>());
-    client.streamAll<Definition>().listen((event) => _onDataModelEvent(uid, event));
+    await _addDefinitions(uid, client.getAll<c.Definition>());
+    client.streamAll<c.Definition>().listen((event) => _onDataModelEvent(uid, event));
 
     return client;
   }
 
-  Future<void> _addDefinition(String uid, Definition def) async {
+  Future<void> _addDefinition(String uid, c.Definition def) async {
     print('_addDefinition(${_path(uid, def: def)})');
     final path = _path(uid, def: def);
-    if(!_schema.getAll<ClientDefinition>().any((d) => d.key == path)) {
-      _schema.put(ClientDefinition(key: path, name: def.name, access: def.access ?? uid));
+    if(!_schema.getAll<s.Definition>().any((d) => d.key == path)) {
+      _schema.put(s.Definition(key: path, name: def.name, access: def.access ?? uid));
     }
     final ds = _datastores[path] ??= DataStore(def, await Database(path).open());
     await _bind(uid, ds);
     await _share(uid, ds);
   }
 
-  void _removeDefinition(String uid, Definition def) {
+  void _removeDefinition(String uid, c.Definition def) {
     print('_removeDefinition(${_path(uid, def: def)})');
     final path = _path(uid, def: def);
     final ds = _datastores.remove(path);
     if(ds != null) {
-      _schema.remove(_schema.getAll<ClientDefinition>().firstWhere((d) => d.key == path).id);
+      _schema.remove(_schema.getAll<s.Definition>().firstWhere((d) => d.key == path).id);
       _unbind(uid, ds);
     }
   }
 
-  Future<void> _addDefinitions(String uid, Iterable<Definition> defs) => Future.forEach<Definition>(defs, (def) => _addDefinition(uid, def));
+  Future<void> _addDefinitions(String uid, Iterable<c.Definition> defs) => Future.forEach<c.Definition>(defs, (def) => _addDefinition(uid, def));
 
-  void _removeDefinitions(String uid, Iterable<Definition> defs) {
+  void _removeDefinitions(String uid, Iterable<c.Definition> defs) {
     for(var def in defs) {
       _removeDefinition(uid, def);
     }
   }
 
-  Future<void> _onDataModelEvent(String uid, DataModelEvent<Definition> event) async {
+  Future<void> _onDataModelEvent(String uid, DataModelEvent<c.Definition> event) async {
     await _addDefinitions(uid, event.puts);
     _removeDefinitions(uid, event.removes);
   }
@@ -131,7 +125,7 @@ class DataService extends Service<AuthConnection, Null> {
 
   Future<void> _share(String uid, DataStore ds) {
     if(ds.access != null) {
-      final schemas = services.get<AuthService>().getMemberships(group: ds.access)
+      final schemas = services.get<AuthService>().getMemberships().where((m) => m.group.id == ds.access)
         .where((m) => (m.user.id != uid) && _clients.containsKey(m.user.id))
         .map((m) => _clients[m.user.id]);
       return Future.wait(schemas.map((s) => (s..put(ds.definition)).flush()));
@@ -141,9 +135,9 @@ class DataService extends Service<AuthConnection, Null> {
 
   Iterable<ServerWebSocket> _dsSockets(String uid, DataStore ds) => (ds.access == null)
     ? _sockets[uid]
-    : services.get<AuthService>().getMemberships(group: ds.access).expand((m) => _sockets[m.user.id] ?? []);
+    : services.get<AuthService>().getMemberships().where((m) => m.group.id == ds.access).expand((m) => _sockets[m.user.id] ?? []);
 
-  String _path(String uid, {Definition def, String name}) {
+  String _path(String uid, {c.Definition def, String name}) {
     return '$path/${def?.access ?? uid}/${def?.name ?? name}';
   }
 }

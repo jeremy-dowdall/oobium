@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:meta/meta.dart';
-import 'package:oobium/src/clients/account.schema.gen.models.dart';
+import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
 import 'package:oobium/src/clients/data_client.schema.gen.models.dart';
 import 'package:oobium/src/data/executor.dart';
 import 'package:oobium/src/database.dart';

@@ -8,7 +8,7 @@ import 'package:objectid/objectid.dart';
 import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium_server/src/server_settings.dart';
-import 'package:oobium_server/src/services/services.dart';
+import 'package:oobium_server/src/service.dart';
 
 class Host {
 
