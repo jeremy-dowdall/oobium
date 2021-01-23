@@ -72,6 +72,25 @@ Future<void> main() async {
     });
   });
 
+  group('test connection', () {
+    test('closed by client', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      server.done.then(expectAsync1((_) {
+        print('done');
+      }, count: 1));
+      await client.close();
+    });
+    test('closed by server', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      client.done.then(expectAsync1((_) {
+        print('done');
+      }, count: 1));
+      await server.close();
+    });
+  });
+
   group('test gets', () {
     test('single get with url params', () async {
       final server = await WsTestServerClient.start(8001);
@@ -151,11 +170,15 @@ class WsTestServerClient {
   }
 
   final _ready = Completer();
+  final _done = Completer();
   final StreamChannel channel;
   WsTestServerClient(this.channel) {
     channel.stream.listen((msg) {
       if(msg == 'ready') {
         _ready.complete();
+      }
+      else if(msg == 'done') {
+        _done.complete();
       }
       else if(completer != null && !completer.isCompleted) {
         completer.complete(msg);
@@ -165,9 +188,12 @@ class WsTestServerClient {
   }
 
   Future<void> get ready => _ready.future;
+  Future<void> get done => _done.future;
 
   Future<WsResult> get(String path) => _send('get', path).then((json) => WsResult(json['code'], json['data']));
   Future get data => _send('getData');
+
+  Future<void> close() => _send('close');
 
   Completer completer;
   Future _send(String path, [dynamic data]) async {

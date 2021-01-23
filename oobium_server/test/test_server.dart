@@ -22,7 +22,7 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
       AdminService(),
       AuthService(path: path),
       UserService(path: path),
-      DataService(path: path),
+      // DataService(path: path),
     ]);
     await server.start();
   }

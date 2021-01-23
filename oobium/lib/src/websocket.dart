@@ -16,7 +16,7 @@ class WebSocket {
   StreamSubscription _wsSubscription;
 
   Future<WebSocket> upgrade(httpRequest, {String Function(List<String> protocols) protocol, bool autoStart = true}) async {
-    await close();
+    assert(isNotStarted && isNotDone);
     _ws = await WsSocket.upgrade(httpRequest, protocol: protocol);
     if(autoStart == true) {
       start();
@@ -24,7 +24,7 @@ class WebSocket {
     return this;
   }
   Future<WebSocket> connect({String address, int port, String path, List<String> protocols, bool autoStart = true}) async {
-    await close();
+    assert(isNotStarted && isNotDone);
     final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}${path ?? ''}';
     _ws = await WsSocket.connect(url, protocols: protocols);
     if(autoStart == true) {
@@ -47,6 +47,8 @@ class WebSocket {
   WsHandler get on => _on ??= WsHandler(this);
 
   Future<void> get ready => _ready.future;
+  bool get isReady => _ready.isCompleted;
+  bool get isNotReady => !isReady;
 
   Future<void> get done => _done.future;
   bool get isDone => _done.isCompleted;
@@ -74,17 +76,16 @@ class WebSocket {
     _wsSubscription?.resume();
   }
 
-  void stop() {
-    _wsSubscription?.cancel();
+  Future<void> stop() async {
+    await _wsSubscription?.cancel();
     _wsSubscription = null;
   }
 
   Future<void> close([int code, String reason]) async {
-    stop();
+    await stop();
     await _ws?.close(code, reason);
     _ws = null;
-    _ready = Completer();
-    _done = Completer();
+    if(isNotDone) _done.complete();
   }
 
   WsStreamResult _result;
@@ -93,6 +94,9 @@ class WebSocket {
   Future<WsResult> _sendMessageWithRetries(WsMessage message) async {
     for(var i = 0; i < 10; i++) {
       await Future.delayed(Duration(milliseconds: i * 50));
+      if(_ws == null) {
+        return null; // socket has been closed
+      }
       final result = (await _sendMessage(message));
       if(result.isSuccess) {
         return result;
@@ -102,7 +106,7 @@ class WebSocket {
   }
 
   Future<WsResult> _sendMessage(WsMessage message) {
-    assert(_ws != null, 'cannot send message: native socket not attached');
+    assert(_ws != null, 'cannot send message: native socket not attached ($message)');
     if(message.isRequest) {
       // 1. 'client' sends the request
       if(_completer == null) {
@@ -182,9 +186,8 @@ class WebSocket {
     print('error: $error\n$stackTrace');
   }
   void _onDone() {
-    _wsSubscription?.cancel();
-    _wsSubscription = null;
-    if(!_done.isCompleted) _done.complete();
+    print('_onDone');
+    close();
   }
 }
 

@@ -11,6 +11,10 @@ Future<void> main() async {
   setUpAll(() => TestClient.clean(root));
   tearDownAll(() => TestClient.clean(root));
 
+  test('rewrite the AuthClient...', () {
+    fail('not yet implemented');
+  });
+
   group('test with connection', () {
     test('create user and sign in', () async {
       final path = nextPath();
@@ -35,7 +39,7 @@ Future<void> main() async {
       client.dispose();
     });
 
-    test('create user, group, add user to group', () async {
+    test('sign out and back in again', () async {
       final path = nextPath();
       final port = nextPort();
       final server = await TestClient.start(path, port);
@@ -43,8 +47,13 @@ Future<void> main() async {
       await client.init();
       await client.setConnectionStatus(ConnectionStatus.wifi);
       final user = await AdminClient(port: port).createUser('test-1');
-      await client.signIn(user['id'], user['token']);
 
+      await client.signIn(user['id'], user['token']);
+      await client.signOut();
+      await Future.delayed(Duration(milliseconds: 100));
+      print('signIn');
+      await client.signIn(user['id'], user['token']);
+      await client.close();
     });
   });
 }

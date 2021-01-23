@@ -7,6 +7,7 @@ class UserClient {
   final String root;
   UserClient({@required this.root});
 
+  Account get account => _account;
   String get uid => _account.uid;
   User get user => _data.get<User>(uid);
   Iterable<Group> get groups => _data.getAll<Membership>().where((m) => m.user.id == uid).map((m) => m.group);
@@ -30,7 +31,6 @@ class UserClient {
   Account _account;
   UserClientData _data;
   WebSocket _socket;
-  String get _path => '$root/${_account?.uid}';
   
   Future<void> setAccount(Account account) async {
     if(account?.id != _account?.id) {
@@ -42,7 +42,7 @@ class UserClient {
       _account = account;
 
       if(_account != null) {
-        _data = await UserClientData(_path).open();
+        _data = await UserClientData('$root/${_account.uid}').open();
         if(_socket != null) {
           await _data.bind(_socket, name: '__users__');
         }

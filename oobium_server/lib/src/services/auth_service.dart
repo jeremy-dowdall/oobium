@@ -80,12 +80,15 @@ class AuthService extends Service<Host, AuthConnection> {
   @override
   void onAttach(Host host) {
     host.get('/auth', [_auth(host), websocket((socket) async {
+      print('auth service connect $socket');
       final connection = AuthConnection._(_db, _codes, socket);
       _connections.add(connection);
       await services.attach(connection);
       // ignore: unawaited_futures
       socket.done.then((_) {
+        print('auth service done $socket');
         _connections.remove(connection);
+        connection.close();
         services.detach(connection);
       });
     }, protocol: (_) => WsAuthProtocol)]);

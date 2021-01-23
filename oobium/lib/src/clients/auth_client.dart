@@ -127,7 +127,7 @@ class AuthClient {
 
   Future<void> setConnectionStatus(ConnectionStatus status) {
     _connectionStatus = status;
-    return _updateConnection();
+    return _connect();
   }
 
   Future<String> requestInstallCode() async {
@@ -139,9 +139,10 @@ class AuthClient {
 
   Future<void> signIn(String uid, String token) async {
     auth._setState(AuthState.SigningIn);
-    final current = _accounts.getAll<Account>().firstWhere((_) => true, orElse: () => Account());
+    final current = _accounts.getAll<Account>().firstWhere((_) => true, orElse: () => Account(uid: ''));
     final update = _accounts.put(current.copyWith(uid: uid, token: token));
-    await _onAccountChanged(update);
+    await _setAccount(update);
+    await _connect();
   }
 
   Future<void> signUp(String code) async {
@@ -158,58 +159,55 @@ class AuthClient {
     auth._setState(AuthState.SigningOut);
     final account = _accounts.getAll<Account>().firstWhere((_) => true, orElse: () => null);
     _accounts.remove(account?.uid);
-    await _onAccountChanged(null);
-    await _updateConnection();
+    await _setAccount(null);
   }
 
+  Future<void> close() async {
+    print('auth client close');
+    await _socket?.close();
+    _socket = null;
+    await Future.forEach(_accountListeners, (l) => l(null));
+  }
 
   Future<void> _initAccount() async {
     final account = _accounts.getAll<Account>().firstWhere((_) => true, orElse: () => null);
-    _onAccountChanged(account);
+    _setAccount(account);
   }
 
-  Future<void> _onAccountChanged(Account account) async {
-    _account = account;
-    await _updateAccount();
-  }
-
-  Future<void> _updateAccount() async {
-    if(_account != null) {
-      auth._setState(AuthState.SigningIn);
-      await Future.forEach(_accountListeners, (l) => l(_account));
-      auth._setState(AuthState.SignedIn);
-    } else {
-      if(auth.isSignedIn) {
-        auth._setState(AuthState.SigningOut);
-      }
-      await Future.forEach(_accountListeners, (l) => l(null));
-      auth._setState(AuthState.Anonymous);
-    }
-  }
-
-  Future<void> _updateConnection() async {
-    if(isAttached && canConnect && auth.isSignedIn) {
-      if(isConnected) {
-        return;
+  Future<void> _setAccount(Account account) async {
+    if(_account?.id != account?.id) {
+      _account = account;
+      if(_account != null) {
+        auth._setState(AuthState.SigningIn);
+        await Future.forEach(_accountListeners, (l) => l(_account));
+        auth._setState(AuthState.SignedIn);
       } else {
-        try {
-          _socket = await AuthSocket().connect(address: address, port: port, uid: _account.uid, token: _account.token);
-          _socket.done.then(_onSocketDone);
-          await _socket.ready;
-          await Future.forEach(_socketListeners, (l) => l(_socket));
-        } catch(e) {
-          print(e);
+        if(auth.isSignedIn) {
+          auth._setState(AuthState.SigningOut);
         }
+        await close();
+        auth._setState(AuthState.Anonymous);
       }
-    } else {
-      await _socket?.close();
-      _socket = null;
-      await Future.forEach(_socketListeners, (l) => l(null));
     }
   }
 
-  Future<void> _onSocketDone(event) {
-    // print('onSocketDone');
-    return _updateConnection();
+  Future<void> _connect() async {
+    if(canConnect && isNotConnected && auth.isSignedIn) {
+      try {
+        _socket = await AuthSocket().connect(address: address, port: port, uid: _account.uid, token: _account.token);
+        _socket.done.then(_onSocketDone);
+        await _socket.ready;
+        await Future.forEach(_socketListeners, (l) => l(_socket));
+      } catch(e) {
+        print(e);
+      }
+    }
+  }
+
+  Future<void> _onSocketDone(event) async {
+    print('auth client _onSocketDone');
+    // return _updateConnection();
+    _socket = null;
+    await Future.forEach(_socketListeners, (l) => l(null));
   }
 }

@@ -7,14 +7,19 @@ import 'package:stream_channel/stream_channel.dart';
 
 Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
-  final server = WsTestServer();
+  print('server [$message]');
+  
+  final server = WsTestServer(channel);
   await server.start(message);
-  server.listen(channel);
+  server.listen();
   channel.sink.add('ready');
 
 }
 
 class WsTestServer {
+
+  final StreamChannel channel;
+  WsTestServer(this.channel);
 
   WebSocket ws;
   var wsData;
@@ -22,6 +27,9 @@ class WsTestServer {
   Future<void> start(int port) async {
     await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
       ws = socket;
+      ws.done.then((_) {
+        channel.sink.add('done');
+      });
       ws.on.get('/echo/<msg>', (req, res) {
         res.send(data: req.params['msg']);
       });
@@ -49,7 +57,7 @@ class WsTestServer {
     });
   }
 
-  StreamSubscription listen(StreamChannel channel) {
+  StreamSubscription listen() {
     return channel.stream.listen((msg) async {
       final result = await onMessage(msg[0], (msg.length > 1) ? msg[1] : null);
       channel.sink.add(result);
@@ -58,6 +66,7 @@ class WsTestServer {
 
   FutureOr onMessage(String path, [dynamic data]) {
     switch(path) {
+      case 'close': return ws.close();
       case 'getData': return wsData;
       case 'get': return ws.get(data).then((result) => result.asJson());
       default:

@@ -32,16 +32,16 @@ class DataService extends Service<AuthConnection, Null> {
   }
 
   Future<void> _addSocket(ServerWebSocket socket) async {
+    print('dataService._addSocket(${socket.uid})');
     final uid = socket.uid;
     final client = _clients[uid] ??= await _openClient(uid);
     await client.bind(socket, name: SchemaName, wait: false);
 
     _sockets.putIfAbsent(uid, () => <ServerWebSocket>[]).add(socket);
-    // ignore: unawaited_futures
-    socket.done.then((_) => _removeSocket(socket));
   }
 
   Future<void> _removeSocket(ServerWebSocket socket) async {
+    print('dataService._removeSocket(${socket.uid})');
     final uid = socket.uid;
     _clients[uid].unbind(socket, name: SchemaName);
     for(var ds in _datastores.values) {

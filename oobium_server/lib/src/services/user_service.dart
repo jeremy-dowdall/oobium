@@ -30,19 +30,18 @@ class UserService extends Service<AuthConnection, Null> {
   Future<void> onStop() => Future.forEach(_sockets.values.expand((e) => e), (s) => _removeSocket(s));
 
   Future<void> _addSocket(ServerWebSocket socket) async {
+    print('userService._addSocket(${socket.uid})');
     final uid = socket.uid;
     final client = _clients[uid] ??= await _openClient(uid);
     await client.bind(socket, name: '__users__', wait: false);
-    print('server bound');
 
     _sockets.putIfAbsent(uid, () => <ServerWebSocket>[]).add(socket);
-    // ignore: unawaited_futures
-    socket.done.then((_) => _removeSocket(socket));
 
     _authSub ??= services.get<AuthService>().streamAll().listen(_onServiceEvent);
   }
 
   Future<void> _removeSocket(ServerWebSocket socket) async {
+    print('userService._removeSocket(${socket.uid})');
     final uid = socket.uid;
     _clients[uid].unbind(socket, name: '__users__');
     _sockets[uid].remove(socket);
@@ -103,7 +102,7 @@ class UserService extends Service<AuthConnection, Null> {
     final memberships = event.puts.whereType<c.Membership>()
       .where((m) => (m.user.id == uid) || (m.group.owner.id == uid));
 
-    // all groups involving the user (as owner or member)
+    // only groups owned by the user
     final groups = event.puts.whereType<c.Group>()
       .where((g) => (g.owner.id == uid) || service.getMemberships().any((m) => (m.group.id == g.id) && (m.user.id == uid)));
 
