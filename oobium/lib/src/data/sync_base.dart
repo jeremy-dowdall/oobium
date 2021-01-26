@@ -231,7 +231,6 @@ class Binder {
   /// new local records -> send them out via put(dataPath, event)
   Future<bool> sendData(data) async {
     final event = (data is DataEvent) ? data : (data is List<DataRecord>) ? DataEvent(localId, data) : null;
-    print('sendData($_name: ${_sync.id}) $event');
     if(event != null && event.isNotEmpty) {
       return (await _socket.put(dataPath(_name), event)).isSuccess;
     }
@@ -241,11 +240,9 @@ class Binder {
   /// new remote records -> update local db and then notify other binders (with same event)
   Future<void> onData(data) async {
     final event = (data is DataEvent) ? data : (data is WsData) ? DataEvent.fromJson(data.value) : null;
-    // print('onData($_name: ${_sync.id}) $event');
     if(event != null && event.isNotEmpty && event.visit(localId)) {
       _sync.models.loadAll(event.records);
       _sync.repo.putAll(event.records);
-      // print('onDataBinders(${_sync.binders})');
       for(var binder in _sync.binders.values) {
         if(event.notVisitedBy(binder.remoteId)) {
           await binder.sendData(event);

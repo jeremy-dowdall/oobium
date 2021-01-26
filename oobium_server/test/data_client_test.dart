@@ -11,36 +11,6 @@ Future<void> main() async {
   tearDownAll(() => TestClient.clean(root));
 
   group('test with connection', () {
-    test('sign up and connect a data connection', () async {
-      final path = nextPath();
-      final port = nextPort();
-      final server = await TestClient.start(path, port);
-
-      final clientPath = '$path/test_client';
-
-      final authClient = AuthClient(root: clientPath, port: port);
-      await authClient.init();
-      expect(authClient.auth.state, AuthState.Anonymous);
-      expect(await authClient.requestInstallCode(), isNull);
-
-      final user = await AdminClient(port: port).createUser('test-1');
-
-      expect(user['id'], isNotNull);
-      expect(user['token'], isNotNull);
-
-      await authClient.signIn(user['id'], user['token']);
-      expect(authClient.auth.isSignedIn, isTrue);
-      expect(authClient.isConnected, isFalse);
-
-      await authClient.setConnectionStatus(ConnectionStatus.wifi);
-      expect(authClient.isConnected, isTrue);
-
-      final dataClient = DataClient(root: clientPath, create: () => [], builder: (root, def) => null);
-
-      await authClient.bindAccount(dataClient.setAccount);
-      await authClient.bindSocket(dataClient.setSocket);
-    });
-   
     test('create client with initial definitions', () async {
       final client = DataClient(
         root: nextPath(),
@@ -69,7 +39,7 @@ Future<void> main() async {
     test('private database, dynamic create, 1 user, 2 clients', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user = await AdminClient(port: port).createUser('test-1');
       final client1 = await createClient('$path/test_client_1', port, user, []);
       final client2 = await createClient('$path/test_client_2', port, user, []);
@@ -86,7 +56,7 @@ Future<void> main() async {
     test('private database, dynamic create, 1 user, 2 clients, delayed', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user = await AdminClient(port: port).createUser('test-1');
       final client1 = await createClient('$path/test_client_1', port, user, []);
 
@@ -105,7 +75,7 @@ Future<void> main() async {
     test('private database, dynamic create, 1 user, 2 clients, staggered', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user = await AdminClient(port: port).createUser('test-1');
       final client1 = await createClient('$path/test_client_1', port, user, []);
 
@@ -126,7 +96,7 @@ Future<void> main() async {
     test('private database, dynamic create, 2 users', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user1 = await AdminClient(port: port).createUser('test-1');
       final user2 = await AdminClient(port: port).createUser('test-2');
       final client1 = await createClient('$path/test_client_1', port, user1, []);
@@ -143,7 +113,7 @@ Future<void> main() async {
     test('shared database, dynamic create, 2 users', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user1 = await AdminClient(port: port).createUser('test-1');
       final user2 = await AdminClient(port: port).createUser('test-2');
       final group = await AdminClient(port: port).createGroup('test-group-1');
@@ -164,7 +134,7 @@ Future<void> main() async {
     test('shared database, dynamic create, 2 users, 2nd delayed', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user1 = await AdminClient(port: port).createUser('test-1');
       final user2 = await AdminClient(port: port).createUser('test-2');
       final group = await AdminClient(port: port).createGroup('test-group-1');
@@ -187,7 +157,7 @@ Future<void> main() async {
     test('shared database, dynamic create, 2 users, staggered', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user1 = await AdminClient(port: port).createUser('test-1');
       final user2 = await AdminClient(port: port).createUser('test-2');
       final group = await AdminClient(port: port).createGroup('test-group-1');
@@ -214,7 +184,7 @@ Future<void> main() async {
     test('add fails when user is not member of group', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user = await AdminClient(port: port).createUser('test-1');
       final group = await AdminClient(port: port).createGroup('test-1');
       final client = await createClient('$path/test_client_1', port, user, []);
@@ -228,7 +198,7 @@ Future<void> main() async {
     test('shared database, dynamic create, 2 users, add to/remove from group', () async {
       final path = nextPath();
       final port = nextPort();
-      final server = await TestClient.start(path, port);
+      final server = await TestClient.start(path, port, ['auth', 'data']);
       final user1 = await AdminClient(port: port).createUser('test-1');
       final user2 = await AdminClient(port: port).createUser('test-2');
       final group = await AdminClient(port: port).createGroup('test-group-1');
@@ -261,18 +231,18 @@ Future<void> main() async {
 }
 
 Future<DataClient> createClient(String path, int port, Map user, List<Definition> defs) async {
-  final authClient = AuthClient(root: path, port: port);
+  final authClient = await AuthClient(root: path, port: port).open();
+  await authClient.signIn(user['id'], user['token']);
+  await authClient.connect();
+
   final dataClient = DataClient(
     root: path,
     create: () => defs,
     builder: (root, def) => Database('$root/${def.name}', [(data) => TestType1.fromJson(data)])
   );
 
-  await authClient.init();
-  await authClient.signIn(user['id'], user['token']);
-  await authClient.setConnectionStatus(ConnectionStatus.wifi);
-  await authClient.bindAccount(dataClient.setAccount);
-  await authClient.bindSocket(dataClient.setSocket);
+  await dataClient.setAccount(authClient.account);
+  await dataClient.setSocket(authClient.socket);
 
   return dataClient;
 }
@@ -280,7 +250,7 @@ Future<DataClient> createClient(String path, int port, Map user, List<Definition
 String root = 'test-data';
 int dbCount = 0;
 int serverCount = 0;
-String nextPath() => '$root/database-sync-test-${dbCount++}';
+String nextPath() => '$root/data_client_test-${dbCount++}';
 int nextPort() => 8000 + (serverCount++);
 
 class TestType1 extends DataModel {

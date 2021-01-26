@@ -10,7 +10,9 @@ class ServiceRegistry {
     _services.add(service);
   }
 
-  T get<T>() => _services.firstWhere((s) => s.runtimeType == T) as T;
+  T get<T>() => _services.firstWhere((s) => s.runtimeType == T, orElse: () => throw Exception('service not found: $T')) as T;
+ 
+  T find<T>() => _services.firstWhere((s) => s.runtimeType == T, orElse: () => null) as T;
  
   Iterable _consumers(data) => _services.where((s) => s.consumes == data.runtimeType);
   

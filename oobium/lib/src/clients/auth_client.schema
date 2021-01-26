@@ -3,3 +3,5 @@ Account
   token String
   avatar String
   description String
+  lastConnectedAt int
+  lastOpenedAt int

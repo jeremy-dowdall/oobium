@@ -1,8 +1,8 @@
 import 'package:oobium/oobium.dart';
 import 'package:oobium/src/data/data.dart';
 import 'package:oobium/src/data/models.dart';
+import 'package:oobium/src/data/sync.dart';
 import 'package:oobium/src/database.dart';
-import 'package:oobium_test/oobium_test.dart';
 import 'package:test/test.dart';
 
 Future<void> main() async {
@@ -124,6 +124,19 @@ Future<void> main() async {
 
     expect(db.get(model.id), isNotNull);
     expect(db.get(model.id).isSameAs(model), isFalse); // runtimeType is different
+  });
+
+  test('test data event serialization', () {
+    final record = DataRecord.fromModel(TestType1(name: 'test-model-01'));
+    final event = DataEvent('test-id-01', [record]);
+    final json = event.toJson();
+    expect(json['history'], ['test-id-01']);
+    expect(json['records'], [record.toJsonString()]);
+
+    final restored = DataEvent.fromJson(json);
+    expect(restored.history, {'test-id-01'});
+    expect(restored.records, isNotEmpty);
+    expect(restored.records.first.toJsonString(), record.toJsonString());
   });
 
   test('test data stored in memory', () async {

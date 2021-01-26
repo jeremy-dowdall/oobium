@@ -8,6 +8,7 @@ import 'package:oobium/src/data/repo.dart';
 import 'package:oobium/src/database.dart' show DataRecord;
 
 import 'sync_base.dart' as base;
+export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 

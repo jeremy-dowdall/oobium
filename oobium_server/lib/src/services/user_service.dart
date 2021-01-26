@@ -9,11 +9,11 @@ import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart' 
 
 class UserService extends Service<AuthConnection, Null> {
 
-  final String path;
+  final String root;
   final _clients = <String/*uid*/, UserClientData>{};
   final _sockets = <String/*uid*/, List<ServerWebSocket>>{};
   final _subs = <String/*uid*/, StreamSubscription>{};
-  UserService({this.path});
+  UserService({this.root});
 
   StreamSubscription _authSub;
 
@@ -57,14 +57,10 @@ class UserService extends Service<AuthConnection, Null> {
   }
 
   Future<UserClientData> _openClient(String uid) async {
-    final client = await UserClientData(_path(uid)).open();
+    final client = await UserClientData('$root/$uid').open();
     await _onClientInit(uid, client);    
     _subs[uid] = client.streamAll().listen(_onClientEvent(uid));
     return client;
-  }
-
-  String _path(String uid) {
-    return '$path/$uid';
   }
 
   Future<void> _onClientInit(String uid, UserClientData client) {

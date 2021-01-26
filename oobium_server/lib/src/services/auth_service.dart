@@ -14,21 +14,14 @@ class AuthConnection {
   final Database _db;
   final InstallCodes _codes;
   final ServerWebSocket _socket;
-  final _subscriptions = <WsSubscription>[];
   AuthConnection._(this._db, this._codes, this._socket) {
-    _subscriptions.addAll([
-      _socket.on.get('/users/id', (req, res) => res.send(data: uid)),
-      _socket.on.get('/users/token', (req, res) => res.send(data: getUserToken())),
-      _socket.on.get('/users/token/new', (req, res) => res.send(data: getUserToken(forceNew: true))),
-      _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _codes.createInstallCode(uid)))
-    ]);
+    _socket.on.get('/users/id', (req, res) => res.send(data: uid));
+    _socket.on.get('/users/token', (req, res) => res.send(data: getUserToken()));
+    _socket.on.get('/users/token/new', (req, res) => res.send(data: getUserToken(forceNew: true)));
+    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _codes.createInstallCode(uid)));
   }
 
-  void close() {
-    for(var sub in _subscriptions) {
-      sub.cancel();
-    }
-  }
+  Future<void> close() => _socket.close();
 
   ServerWebSocket get socket => _socket;
   String get uid => _socket.uid;
@@ -48,10 +41,10 @@ class AuthConnection {
 
 class AuthService extends Service<Host, AuthConnection> {
   
-  final String path;
+  final String root;
   final AuthServiceData _db;
   final _connections = <AuthConnection>[];
-  AuthService({this.path = 'data/auth'}) : _db = AuthServiceData(path);
+  AuthService({this.root}) : _db = AuthServiceData(root);
 
   bool any(String id) => _db.any(id);
   bool none(String id) => _db.none(id);
@@ -86,9 +79,7 @@ class AuthService extends Service<Host, AuthConnection> {
       await services.attach(connection);
       // ignore: unawaited_futures
       socket.done.then((_) {
-        print('auth service done $socket');
         _connections.remove(connection);
-        connection.close();
         services.detach(connection);
       });
     }, protocol: (_) => WsAuthProtocol)]);
@@ -110,6 +101,9 @@ class AuthService extends Service<Host, AuthConnection> {
 
   @override
   Future<void> onStop() async {
+    for(var connection in _connections) {
+      await connection.close();
+    }
     _connections.clear();
     await _db.close();
     _codes = null;

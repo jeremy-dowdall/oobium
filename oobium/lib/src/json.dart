@@ -77,9 +77,21 @@ abstract class Json implements JsonString {
   }
 
   static Set<String> toSet(data, String field, [bool filter(value)]) {
-    if(!(data is Map) || !(data[field] is Map)) return Set<String>();
-    filter ??= (v) => (v == true);
-    return data[field].keys.where((k) => filter(data[field][k])).map((k) => k.toString()).cast<String>().toSet();
+    if(data is Map && data[field] is Iterable) {
+      if(filter != null) {
+        return data[field].where((e) => filter(e)).map((e) => e.toString()).cast<String>().toSet();
+      } else {
+        return data[field].map((e) => e.toString()).cast<String>().toSet();
+      }
+    }
+    if(data is Map && data[field] is Map) {
+      if(filter != null) {
+        return data[field].keys.where((k) => filter(data[field][k])).map((k) => k.toString()).cast<String>().toSet();
+      } else {
+        return data[field].keys.map((k) => k.toString()).cast<String>().toSet();
+      }
+    }
+    return Set<String>();
   }
 
   static List<String> toStrings(data, String field) => toList(data, field, (e) => e.toString());
@@ -89,7 +101,7 @@ abstract class Json implements JsonString {
     if(field is JsonModel && full != true) return field.id;
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
-    if(field is List) return fromList(field);
+    if(field is Iterable) return fromIterable(field, full: full);
     if(field is Set)  return fromSet(field);
     if(field is String || field is num || field is bool) return field;
     if(field is JsonString) return field.toJsonString();
@@ -100,6 +112,7 @@ abstract class Json implements JsonString {
     throw "don't know how to convert $field to JSON";
   }
 
+  static List<dynamic> fromIterable(Iterable iter, {bool full}) => iter?.map((e) => from(e, full: full))?.toList() ?? [];
   static List<dynamic> fromList(List list) => list?.map((e) => from(e))?.toList() ?? [];
 
   static Map<String, dynamic> fromMap(Map items) {

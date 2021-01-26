@@ -260,7 +260,7 @@ class Server {
     httpsSubscription = null;
   }
 
-  Future<void> close({bool force = false}) async {
+  Future<void> close({bool force = true}) async {
     await stop();
     await http?.close(force: force);
     await https?.close(force: force);

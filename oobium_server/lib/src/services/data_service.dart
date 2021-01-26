@@ -46,8 +46,9 @@ class DataService extends Service<AuthConnection, Null> {
     _clients[uid].unbind(socket, name: SchemaName);
     for(var ds in _datastores.values) {
       ds.database.unbind(socket, name: ds.name);
-    } 
-    if(_sockets[uid].remove(socket) && _sockets[uid].isEmpty) {
+    }
+    _sockets[uid].remove(socket);
+    if(_sockets[uid].isEmpty) {
       _sockets.remove(uid);
       return _clients.remove(uid).close();
     }
