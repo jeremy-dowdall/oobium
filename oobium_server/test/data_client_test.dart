@@ -52,12 +52,15 @@ Future<void> main() async {
       final privateDef = Definition(name: 'private-db');
 
       await client1.add(privateDef);
-      await Future.delayed(Duration(milliseconds: 200));
-
       expect(client1.schema.length, 1);
-      expect(client2.schema.length, 1);
       expect(client1.db(privateDef.id), isNotNull);
-      expect(client2.db(privateDef.id), isNotNull);
+      
+      client2.events.listen(expectAsync1((event) {
+        expect(event.added, isNotNull);
+        expect(event.removed, isNull);
+        expect(client2.schema.length, 1);
+        expect(client2.db(privateDef.id), isNotNull);
+      }, count: 1));
     });
    
     test('private database, dynamic create, 1 user, 2 clients, delayed', () async {
@@ -70,13 +73,11 @@ Future<void> main() async {
       final privateDef = Definition(name: 'private-db');
 
       await client1.add(privateDef);
-      await Future.delayed(Duration(milliseconds: 100));
-
       expect(client1.schema.length, 1);
       expect(client1.db(privateDef.id), isNotNull);
 
       final client2 = await createClient('$path/test_client_2', port, user, []);
-      await Future.delayed(Duration(milliseconds: 100));
+      await client2.events.first;
       expect(client2.schema.length, 1);
       expect(client2.db(privateDef.id), isNotNull);
     });
@@ -99,9 +100,10 @@ Future<void> main() async {
       expect(client1.db(privateDef.id), isNull);
 
       final client2 = await createClient('$path/test_client_2', port, user, []);
-      await Future.delayed(Duration(milliseconds: 100));
-      expect(client2.schema.length, 1);
-      expect(client2.db(privateDef.id), isNotNull);
+      client2.events.listen(expectAsync1((event) {
+        expect(client2.schema.length, 1);
+        expect(client2.db(privateDef.id), isNotNull);
+      }));
     });
    
     test('private database, dynamic create, 2 users', () async {
@@ -116,11 +118,9 @@ Future<void> main() async {
       final privateDef = Definition(name: 'private-db');
 
       await client1.add(privateDef);
-      await Future.delayed(Duration(milliseconds: 100));
-
       expect(client1.schema.length, 1);
-      expect(client2.schema, isEmpty);
       expect(client1.db(privateDef.id), isNotNull);
+      expect(client2.schema, isEmpty);
       expect(client2.db(privateDef.id), isNull);
     });
    
@@ -140,12 +140,13 @@ Future<void> main() async {
       final sharedDef = Definition(name: 'shared-db', access: group['id']);
 
       await client1.add(sharedDef);
-      await Future.delayed(Duration(milliseconds: 100));
-
       expect(client1.schema.length, 1);
-      expect(client2.schema.length, 1);
       expect(client1.db(sharedDef.id), isNotNull);
-      expect(client2.db(sharedDef.id), isNotNull);
+
+      client2.events.listen(expectAsync1((event) {
+        expect(client2.schema.length, 1);
+        expect(client2.db(sharedDef.id), isNotNull);
+      }));
     });
    
     test('shared database, dynamic create, 2 users, 2nd delayed', () async {
@@ -165,10 +166,8 @@ Future<void> main() async {
       expect(client1.schema.length, 1);
       expect(client1.db(sharedDef.id), isNotNull);
 
-      await Future.delayed(Duration(milliseconds: 100));
-
       final client2 = await createClient('$path/test_client_2', port, user2, []);
-      await Future.delayed(Duration(milliseconds: 200));
+      await client2.events.first;
       expect(client2.schema.length, 1);
       expect(client2.db(sharedDef.id), isNotNull);
     });
@@ -187,17 +186,15 @@ Future<void> main() async {
       final sharedDef = Definition(name: 'shared-db', access: group['id']);
 
       await client1.add(sharedDef);
-      await Future.delayed(Duration(milliseconds: 100));
       expect(client1.schema.length, 1);
       expect(client1.db(sharedDef.id), isNotNull);
 
       await client1.setAccount(null);
-      await Future.delayed(Duration(milliseconds: 100));
       expect(client1.schema, isEmpty);
       expect(client1.db(sharedDef.id), isNull);
 
       final client2 = await createClient('$path/test_client_2', port, user2, []);
-      await Future.delayed(Duration(milliseconds: 100));
+      await client2.events.first;
       expect(client2.schema.length, 1);
       expect(client2.db(sharedDef.id), isNotNull);
     });
@@ -216,10 +213,10 @@ Future<void> main() async {
       final sharedDef = Definition(name: 'shared-db', access: group['id']);
 
       await client1.add(sharedDef);
-      await Future.delayed(Duration(milliseconds: 100));
-
       expect(client1.schema.length, 1);
       expect(client1.db(sharedDef.id), isNotNull);
+
+      await client2.events.first;
       expect(client2.schema.length, 1);
       expect(client2.db(sharedDef.id), isNotNull);
     });
@@ -239,12 +236,11 @@ Future<void> main() async {
       final sharedDef = Definition(name: 'shared-db', access: group['id']);
 
       await client1.add(sharedDef);
-      await Future.delayed(Duration(milliseconds: 100));
-
       expect(client1.schema.length, 1);
-      expect(client2.schema, isEmpty);
       expect(client1.db(sharedDef.id), isNotNull);
+      expect(client2.schema, isEmpty);
       expect(client2.db(sharedDef.id), isNull);
+      client2.events.listen(expectAsync1((event) {}, count: 0));
     });
 
     test('shared database, dynamic create, 2 users, add to/remove from group', () async {
@@ -261,28 +257,27 @@ Future<void> main() async {
       final sharedDef = Definition(name: 'shared-db', access: group['id']);
 
       await client1.add(sharedDef);
-      await Future.delayed(Duration(milliseconds: 100));
       expect(client1.schema.length, 1);
       expect(client1.db(sharedDef.id), isNotNull);
       expect(client2.schema, isEmpty);
       expect(client2.db(sharedDef.id), isNull);
 
       final membership2 = await AdminClient(port: port).createMembership(user: user2['id'], group: group['id']);
-      await Future.delayed(Duration(milliseconds: 100));
+      await client2.events.first;
       expect(client1.schema.length, 1);
       expect(client1.db(sharedDef.id), isNotNull);
       expect(client2.schema.length, 1);
       expect(client2.db(sharedDef.id), isNotNull);
 
       await AdminClient(port: port).removeMembership(membership1['id']);
-      await Future.delayed(Duration(milliseconds: 100));
+      await client1.events.first;
       expect(client1.schema, isEmpty);
       expect(client1.db(sharedDef.id), isNull);
       expect(client2.schema.length, 1);
       expect(client2.db(sharedDef.id), isNotNull);
 
       await AdminClient(port: port).removeMembership(membership2['id']);
-      await Future.delayed(Duration(milliseconds: 100));
+      await client2.events.first;
       expect(client1.schema, isEmpty);
       expect(client1.db(sharedDef.id), isNull);
       expect(client2.schema, isEmpty);

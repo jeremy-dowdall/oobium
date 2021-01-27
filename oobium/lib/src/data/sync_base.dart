@@ -172,6 +172,7 @@ class Binder {
   }
 
   Future<void> sendConnect() async {
+    if(isFinished) return;
     sentConnect = true;
     if(!isPeerConnecting && !isPeerConnected) {
       isPeerConnecting = true;
@@ -197,6 +198,7 @@ class Binder {
   }
 
   Future<void> sendSync() async {
+    if(isFinished) return;
     if(isConnected && isPeerConnected && !isPeerSynced && !isPeerSyncing) {
       isPeerSyncing = true;
       final records = await _replicant.getSyncRecords(_sync.models);

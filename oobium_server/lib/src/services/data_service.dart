@@ -142,20 +142,20 @@ class DataService extends Service<AuthConnection, Null> {
   void _onMembershipsEvent(DataModelEvent<Membership> event) {
     if(_verbose) print('dataService._onMembershipsEvent(put: ${event.puts.map((e) => '${e.user.name}:${e.group.name}')}, remove: ${event.removes.map((e) => '${e.user.name}:${e.group.name}')})');
     for(var membership in event.puts) {
-      print('  dataService._onMembershipsEvent-put(${membership.user.name} to ${membership.group.name})');
+      if(_verbose) print('  dataService._onMembershipsEvent-put(${membership.user.name} to ${membership.group.name})');
       final client = _clients[membership.user.id];
       if(client != null) {
         final defs = _shared.getAll<Definition>().where((d) => d.access == membership.group.id);
-        print('  dataService._onMembershipsEvent-put($defs)');
+        if(_verbose) print('  dataService._onMembershipsEvent-put($defs)');
         client.putAll(defs);
       }
     }
     for(var membership in event.removes) {
-      print('  dataService._onMembershipsEvent-remove(${membership.user.name} from ${membership.group.name})');
+      if(_verbose) print('  dataService._onMembershipsEvent-remove(${membership.user.name} from ${membership.group.name})');
       final client = _clients[membership.user.id];
       if(client != null) {
         final defs = _shared.getAll<Definition>().where((d) => d.access == membership.group.id);
-        print('  dataService._onMembershipsEvent-remove($defs)');
+        if(_verbose) print('  dataService._onMembershipsEvent-remove($defs)');
         client.removeAll(defs.map((d) => d.id));
       }
     }
@@ -205,9 +205,9 @@ class DataService extends Service<AuthConnection, Null> {
     }
   }
 
-  Iterable<ServerWebSocket> _dsSockets(String uid, DataStore ds) => (ds.access == null)
-    ? _sockets[uid]
-    : services.get<AuthService>().getMemberships().where((m) => m.group.id == ds.access).expand((m) => _sockets[m.user.id] ?? []);
+  List<ServerWebSocket> _dsSockets(String uid, DataStore ds) => (ds.access == null)
+    ? _sockets[uid].toList()
+    : services.get<AuthService>().getMemberships().where((m) => m.group.id == ds.access).expand((m) => _sockets[m.user.id] ?? <ServerWebSocket>[]).toList();
 
   /// '$path/$id/$name'
   String _path(String uid, {Definition def, String id}) {

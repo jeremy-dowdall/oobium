@@ -46,7 +46,9 @@ class Data extends base.Data {
     await close();
     final dir = Directory(path);
     if(await dir.exists()) {
-      return dir.delete(recursive: true);
+      return dir.delete(recursive: true).catchError((_) {
+        print('destroy failed');
+      });
     }
   }
 }

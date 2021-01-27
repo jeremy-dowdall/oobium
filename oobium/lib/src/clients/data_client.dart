@@ -20,30 +20,41 @@ class DataStore {
   String get access => definition.access;
 }
 
+class SchemaEvent {
+  final Definition added;
+  final Definition removed;
+  SchemaEvent._(this.added, this.removed);
+}
+
 class DataClient {
 
-  final String root;
-  final List<Definition> Function() create;
-  final FutureOr<Database> Function(String root, Definition ds) builder;
-  DataClient({@required this.root, @required this.create, @required this.builder});
+  final String _root;
+  final List<Definition> Function() _create;
+  final FutureOr<Database> Function(String root, Definition ds) _builder;
+  DataClient({
+    @required String root,
+    @required FutureOr<Database> Function(String root, Definition ds) builder,
+    @required List<Definition> Function() create}) : _root = root, _create = create, _builder = builder;
 
-  String get path => '$root/${_account?.uid}';
+  String get _path => '$_root/${_account?.uid}';
 
   Account _account;
   DataClientData _schema;
-  StreamSubscription _schemaSub;
-  final _datastores = <String, DataStore>{};
-  final _updates = <String, Completer>{};
   WebSocket _socket;
   Executor _executor;
+  final _datastores = <String, DataStore>{};
+  final _updates = <String, Completer>{};
+  final _controller = StreamController<SchemaEvent>.broadcast();
 
   T db<T extends Database>(String id) => _datastores[id]?.database;
-
-  List<Definition> get schema => _schema?.getAll<Definition>()?.toList() ?? <Definition>[];
 
   Future<void> add(Definition def) => _update(def.id, () => _schema.put(def));
 
   Future<void> remove(String id) => _datastores.containsKey(id) ? _update(id, () => _schema.remove(id)) : Future.value();
+
+  List<Definition> get schema => _schema?.getAll<Definition>()?.toList() ?? <Definition>[];
+
+  Stream<SchemaEvent> get events => _controller.stream;
 
   Future<void> setAccount(Account account) async {
     if(account?.uid != _account?.uid) {
@@ -51,8 +62,6 @@ class DataClient {
       _executor = null;
 
       if(_account != null) {
-        _schemaSub.cancel();
-        _schemaSub = null;
         await _schema.close();
         _schema = null;
         await Future.forEach<DataStore>(_datastores.values, (ds) => ds.database.close());
@@ -62,13 +71,13 @@ class DataClient {
       _account = account;
 
       if(_account != null) {
-        _schema = await DataClientData(path).open(onUpgrade: (event) async* {
-          for(var def in create()) {
+        _schema = await DataClientData(_path).open(onUpgrade: (event) async* {
+          for(var def in _create()) {
             yield(def.toDataRecord());
           }
         });
         await _addAll(_schema.getAll<Definition>());
-        _schemaSub = _schema.streamAll<Definition>().listen((event) => _onDataModelEvent(event));
+        _schema.streamAll<Definition>().listen((event) => _onDataModelEvent(event));
         await _bind(_schema, SchemaName);
       }
     }
@@ -106,22 +115,25 @@ class DataClient {
 
   Future<void> _add(Definition def) async {
     if(!_datastores.containsKey(def.id)) {
-      final db = await builder(path, def);
+      final db = await _builder(_path, def);
       if(db != null) {
         _datastores[def.id] = DataStore(def, await db.open());
         _bind(db, def.id);
       }
     }
     _complete(def.id);
+    _controller.add(SchemaEvent._(def, null));
   }
 
   Future<void> _addAll(Iterable<Definition> defs) => Future.forEach<Definition>(defs, (def) => _add(def));
 
-  DataStore _remove(String id) {
+  void _remove(String id) {
     final ds = _datastores.remove(id);
     ds?.database?.unbind(_socket, name: id);
     _complete(id);
-    return ds;
+    if(ds != null) {
+      _controller.add(SchemaEvent._(null, ds.definition));
+    }
   }
 
   void _removeAll(Iterable<Definition> defs) {
