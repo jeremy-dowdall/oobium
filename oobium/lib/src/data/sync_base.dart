@@ -72,10 +72,8 @@ class Sync implements Connection {
         id = ObjectId().hexString;
         await save();
       }
-      // print('localId: $id');
       final binder = Binder(this, socket, name);
       binders[key] = binder;
-      print('binders: $binders');
       binder.finished.then((_) => binders.remove(key));
       return wait ? binder.ready : Future.value();
     }
@@ -229,12 +227,11 @@ class Binder {
   }
 
   /// new local records -> send them out via put(dataPath, event)
-  Future<bool> sendData(data) async {
+  Future<void> sendData(data) async {
     final event = (data is DataEvent) ? data : (data is List<DataRecord>) ? DataEvent(localId, data) : null;
     if(event != null && event.isNotEmpty) {
       return (await _socket.put(dataPath(_name), event)).isSuccess;
     }
-    return true; // nothing to do
   }
 
   /// new remote records -> update local db and then notify other binders (with same event)
@@ -252,7 +249,12 @@ class Binder {
   }
 
   Future<void> get ready => _ready.future;
+  bool get isReady => _ready.isCompleted;
+  bool get isNotReady => !isReady;
+
   Future<void> get finished => _finished.future;
+  bool get isFinished => _finished.isCompleted;
+  bool get isNotFinished => !isFinished;
 
   void attach(platform.Replicant replicant) {
     _replicant = replicant;
@@ -268,7 +270,7 @@ class Binder {
       s.cancel();
     }
     _subscriptions.clear();
-    if(!_finished.isCompleted) _finished.complete();
+    if(isNotFinished) _finished.complete();
   }
 
   @override

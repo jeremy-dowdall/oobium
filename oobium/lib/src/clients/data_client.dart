@@ -15,6 +15,7 @@ class DataStore {
   final Database database;
   DataStore(this.definition, this.database);
 
+  String get id => definition.id;
   String get name => definition.name;
   String get access => definition.access;
 }
@@ -32,16 +33,17 @@ class DataClient {
   DataClientData _schema;
   StreamSubscription _schemaSub;
   final _datastores = <String, DataStore>{};
+  final _updates = <String, Completer>{};
   WebSocket _socket;
   Executor _executor;
 
-  T db<T extends Database>(String name) => _datastores[name]?.database;
+  T db<T extends Database>(String id) => _datastores[id]?.database;
 
   List<Definition> get schema => _schema?.getAll<Definition>()?.toList() ?? <Definition>[];
 
-  Future<void> add(Definition def) => (_schema..put(def)).flush();
+  Future<void> add(Definition def) => _update(def.id, () => _schema.put(def));
 
-  void remove(String name) => _schema.remove(_datastores[name]?.definition?.id);
+  Future<void> remove(String id) => _datastores.containsKey(id) ? _update(id, () => _schema.remove(id)) : Future.value();
 
   Future<void> setAccount(Account account) async {
     if(account?.uid != _account?.uid) {
@@ -80,7 +82,7 @@ class DataClient {
       if(_socket != null) {
         _schema?.unbind(_socket, name: SchemaName);
         for(var ds in _datastores.values) {
-          ds.database.unbind(_socket, name: ds.name);
+          ds.database.unbind(_socket, name: ds.id);
         }
       }
 
@@ -89,45 +91,59 @@ class DataClient {
       if(_socket != null) {
         _bind(_schema, SchemaName);
         for(var ds in _datastores.values) {
-          _bind(ds.database, ds.name);
+          _bind(ds.database, ds.id);
         }
       }
     }
   }
 
-  void _bind(Database db, String name) {
+  void _bind(Database db, String id) {
     if(_socket != null && db != null) {
       _executor ??= Executor();
-      _executor.add(() => db.bind(_socket, name: name));
+      _executor.add(() => db.bind(_socket, name: id));
     }
   }
 
   Future<void> _add(Definition def) async {
-    if(!_datastores.containsKey(def.name)) {
+    if(!_datastores.containsKey(def.id)) {
       final db = await builder(path, def);
       if(db != null) {
-        _datastores[def.name] = DataStore(def, await db.open());
-        _bind(db, def.name);
+        _datastores[def.id] = DataStore(def, await db.open());
+        _bind(db, def.id);
       }
     }
+    _complete(def.id);
   }
 
   Future<void> _addAll(Iterable<Definition> defs) => Future.forEach<Definition>(defs, (def) => _add(def));
 
-  DataStore _remove(String name) {
-    final ds = _datastores.remove(name);
-    ds?.database?.unbind(_socket, name: name);
+  DataStore _remove(String id) {
+    final ds = _datastores.remove(id);
+    ds?.database?.unbind(_socket, name: id);
+    _complete(id);
     return ds;
   }
 
   void _removeAll(Iterable<Definition> defs) {
     for(var def in defs) {
-      _remove(def.name);
+      _remove(def.id);
     }
   }
 
+  void _complete(String id) {
+    _updates[id]?.complete();
+    _updates[id] = null;
+  }
+
+  Future<void> _update(String id, Function() op) async {
+    await _updates[id]?.future;
+    _updates[id] = Completer();
+    op();
+    return _updates[id].future;
+  }
+
   Future<void> _onDataModelEvent(DataModelEvent<Definition> event) async {
-    print('client(${root.split('/').last}) onDataModelEvent($event)');
+    // print('dataClient(${root.split('/').last})._onDataModelEvent($event)');
     await _addAll(event.puts);
     _removeAll(event.removes);
   }

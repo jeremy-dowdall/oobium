@@ -67,13 +67,15 @@ class AuthService extends Service<Host, AuthConnection> {
   User removeUser(String id) => _db.remove(_db.get<User>(id)?.id);
 
   Stream<DataModelEvent> streamAll() => _db.streamAll();
+  Stream<DataModelEvent<Group>> streamGroups({bool Function(Group model) where}) => _db.streamAll<Group>(where: where);
+  Stream<DataModelEvent<Membership>> streamMemberships({bool Function(Membership model) where}) => _db.streamAll<Membership>(where: where);
+  Stream<DataModelEvent<User>> streamUsers({bool Function(User model) where}) => _db.streamAll<User>(where: where);
 
   InstallCodes _codes;
 
   @override
   void onAttach(Host host) {
     host.get('/auth', [_auth(host), websocket((socket) async {
-      print('auth service connect $socket');
       final connection = AuthConnection._(_db, _codes, socket);
       _connections.add(connection);
       await services.attach(connection);

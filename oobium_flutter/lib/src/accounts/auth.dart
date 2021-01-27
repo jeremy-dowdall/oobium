@@ -119,7 +119,7 @@ class _AuthenticatedAppState extends State<AuthenticatedApp> {
 
   Future<void> signIn(String uid, String token) async {
     widget.auth._setState(AuthState.SigningIn);
-    final account = _accounts.getAll<Account>().firstWhere((_) => true, orElse: () => Account());
+    final account = _accounts.getAll<Account>().firstWhere((_) => true, orElse: () => Account(uid: ''));
     _accounts.put(account.copyWith(uid: uid, token: token));
     await _onAccountChanged(uid, token);
     await _updateConnection();
@@ -158,7 +158,7 @@ class _AuthenticatedAppState extends State<AuthenticatedApp> {
     Future.value(widget.root()).then((root) async {
       if(mounted) {
         _root = root;
-        _accounts = AccountData('$_root/accounts');
+        _accounts = AuthClientData('$_root/accounts');
         await _accounts.open();
         widget.auth._attach(this);
         await _initAccount();

@@ -5,7 +5,7 @@ class AdminClient {
   final int port;
   AdminClient({this.port = 8001});
 
-  Future<Map> createGroup(String name) => _put('/groups/new', {'name': name});
+  Future<Map> createGroup(String name, String ownerId) => _put('/groups/new', {'name': name, 'owner': ownerId});
   Future<Map> getGroup(String id) => _get('/groups/$id');
 
   Future<Map> createMembership({@required String user, @required String group}) => _put('/memberships/new', {'user': user, 'group': group});

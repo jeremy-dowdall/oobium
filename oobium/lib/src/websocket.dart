@@ -60,6 +60,9 @@ class WebSocket {
   bool get isConnected => isStarted && isNotDone;
   bool get isNotConnected => !isConnected;
 
+  bool get isClosed => _closedResult != null;
+  bool get isNotClosed => !isClosed;
+
   void start() {
     assert(_ws != null, 'attempted to start before native socket was attached');
     if(isNotStarted) {
@@ -81,21 +84,23 @@ class WebSocket {
     _wsSubscription = null;
   }
 
-  Future<void> close([int code, String reason]) async {
+  Future<void> close([int code=499, String reason='Client Closed Request']) async {
     await stop();
-    await _ws?.close(code, reason);
+    await _ws?.close();
     _ws = null;
+    _completeClosed(code, reason);
     if(isNotDone) _done.complete();
   }
 
-  WsStreamResult _result;
   Completer<WsResult> _completer;
+  WsResult _closedResult;
+  WsStreamResult _streamResult;
 
   Future<WsResult> _sendMessageWithRetries(WsMessage message) async {
     for(var i = 0; i < 10; i++) {
       await Future.delayed(Duration(milliseconds: i * 50));
-      if(_ws == null) {
-        return null; // socket has been closed
+      if(isClosed) {
+        return _closedResult;
       }
       final result = (await _sendMessage(message));
       if(result.isSuccess) {
@@ -106,10 +111,12 @@ class WebSocket {
   }
 
   Future<WsResult> _sendMessage(WsMessage message) {
-    assert(_ws != null, 'cannot send message: native socket not attached ($message)');
     if(message.isRequest) {
       // 1. 'client' sends the request
-      if(_completer == null) {
+      if(isClosed) {
+        return Future.value(_closedResult);
+      }
+      else if(_completer == null) {
         _completer = Completer<WsResult>();
         if(message.method == 'PUT' && message.data is Stream<List<int>>) {
           on.get(_GET_PUT_PATH, (req, res) {
@@ -121,12 +128,15 @@ class WebSocket {
           _ws.add(message);
         }
         return _completer.future;
-      } else {
+      }
+      else {
         return _completer.future.then((_) => _sendMessage(message));
       }
     } else {
       // 3. 'server' send the response
-      _ws.add(message);
+      if(isNotClosed) {
+        _ws.add(message);
+      }
       return Future.value(null);
     }
   }
@@ -138,14 +148,14 @@ class WebSocket {
     } else {
       // 4. 'client' receives the response (and completes #1 with a result)
       if(message.type == '100') {
-        _result = WsStreamResult();
-        _completer.complete(_result);
+        _streamResult = WsStreamResult();
+        _completer.complete(_streamResult);
         _completer = Completer<WsResult>();
       } else {
         final success = _complete(int.parse(message.type), message.data);
-        if(success) _result?._controller?.close();
-        else _result?._controller?.addError(message.data);
-        _result = null;
+        if(success) _streamResult?._controller?.close();
+        else _streamResult?._controller?.addError(message.data);
+        _streamResult = null;
       }
     }
   }
@@ -156,8 +166,8 @@ class WebSocket {
   }
 
   void _receiveData(List<int> data) {
-    if(_result != null) {
-      _result._controller.add(data);
+    if(_streamResult != null) {
+      _streamResult._controller.add(data);
     }
     else if(_completer != null) {
       _complete(200, data);
@@ -173,6 +183,12 @@ class WebSocket {
     _completer = null;
     return result.isSuccess;
   }
+  
+  void _completeClosed(int code, String reason) {
+    _closedResult = WsResult(code, reason);
+    _completer?.complete(_closedResult);
+    _completer = null;
+  }  
 
   void _onData(dynamic data) {
     if(data is String) {
@@ -186,8 +202,7 @@ class WebSocket {
     print('error: $error\n$stackTrace');
   }
   void _onDone() {
-    print('_onDone');
-    close();
+    close(444, 'Connection Closed Without Response');
   }
 }
 

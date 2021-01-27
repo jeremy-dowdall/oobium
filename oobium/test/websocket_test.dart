@@ -89,6 +89,39 @@ Future<void> main() async {
       }, count: 1));
       await server.close();
     });
+    test('closed by client with active requests', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      client.get('/delay/10').then(expectAsync1((result) {
+        expect(result.isSuccess, isFalse);
+        expect(result.code, 499);
+      }, count: 1));
+      client.get('/echo/hi').then(expectAsync1((result) {
+        expect(result.isSuccess, isFalse);
+        expect(result.code, 499);
+      }, count: 1));
+      client.get('/echo/bye').then(expectAsync1((result) {
+        expect(result.isSuccess, isFalse);
+        expect(result.code, 499);
+      }, count: 1));
+      await client.close();
+    });
+    test('request after socket is closed by client', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      await client.close();
+      final result = await client.get('/echo/hi');
+      expect(result.isSuccess, isFalse);
+      expect(result.code, 499);
+    });
+    test('request after socket is closed by server', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      await server.close();
+      final result = await client.get('/echo/hi');
+      expect(result.isSuccess, isFalse);
+      expect(result.code, 444);
+    });
   });
 
   group('test gets', () {

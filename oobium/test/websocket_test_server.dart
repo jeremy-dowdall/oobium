@@ -30,6 +30,10 @@ class WsTestServer {
       ws.done.then((_) {
         channel.sink.add('done');
       });
+      ws.on.get('/delay/<millis>', (req, res) async {
+        await Future.delayed(Duration(milliseconds: int.parse(req['millis'])));
+        res.send(code: 200);
+      });
       ws.on.get('/echo/<msg>', (req, res) {
         res.send(data: req.params['msg']);
       });

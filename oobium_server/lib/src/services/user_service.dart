@@ -12,7 +12,6 @@ class UserService extends Service<AuthConnection, Null> {
   final String root;
   final _clients = <String/*uid*/, UserClientData>{};
   final _sockets = <String/*uid*/, List<ServerWebSocket>>{};
-  final _subs = <String/*uid*/, StreamSubscription>{};
   UserService({this.root});
 
   StreamSubscription _authSub;
@@ -48,7 +47,6 @@ class UserService extends Service<AuthConnection, Null> {
     if(_sockets[uid].isEmpty) {
       _sockets.remove(uid);
       await _clients.remove(uid).close();
-      await _subs.remove(uid).cancel();
       if(_clients.isEmpty) {
         await _authSub?.cancel();
         _authSub = null;
@@ -59,7 +57,7 @@ class UserService extends Service<AuthConnection, Null> {
   Future<UserClientData> _openClient(String uid) async {
     final client = await UserClientData('$root/$uid').open();
     await _onClientInit(uid, client);    
-    _subs[uid] = client.streamAll().listen(_onClientEvent(uid));
+    client.streamAll().listen(_onClientEvent(uid));
     return client;
   }
 
