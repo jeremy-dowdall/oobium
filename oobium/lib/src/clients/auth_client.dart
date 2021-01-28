@@ -34,7 +34,7 @@ class AuthClient {
       _db = await AuthClientData('$root/auth').open();
       if(_db.isNotEmpty) {
         _account = (accounts.toList()..sort((a,b) => a.lastOpenedAt - b.lastOpenedAt)).first;
-        _setAccount(account);
+        await _setAccount(account);
       }
     }
     return this;
@@ -42,15 +42,24 @@ class AuthClient {
 
   Future<void> close() async {
     if(isOpen) {
-      _setAccount(null);
-      _setSocket(null);
+      await _setAccount(null);
       await _db.close();
       _db = null;
     }
   }
 
-  Future<String> requestInstallCode() async {
-    throw Exception('not yet implemented');
+  Future<String> requestInstallCode(FutureOr<bool> Function() onApprove) async {
+    if(isSignedIn && isConnected) {
+      _socket.onApprove = onApprove;
+      return _socket.newInstallToken();
+    }
+    return null;
+  }
+
+  Future<void> signUp(String code) async {
+    final socket = await AuthSocket().connect(address: address, port: port, token: code);
+    await signIn(socket.uid, socket.token);
+    await _setSocket(socket);
   }
 
   Future<void> signIn(String uid, String token) async {
@@ -58,52 +67,59 @@ class AuthClient {
       .firstWhere((a) => a.uid == uid,
         orElse: () => Account(uid: uid)
       ).copyWith(token: token);
-    _setAccount(account);
-  }
-
-  Future<void> signUp(String code) async {
-    throw Exception('not yet implemented');
+    await _setAccount(account);
   }
 
   Future<void> signOut() async {
     if(isSignedIn) {
       _db?.remove(_account.id);
-      _setAccount(null);
-    }
-    if(isConnected) {
-      final socket = _socket;
-      _setSocket(null);
-      await socket.close();
+      await _db?.flush();
+      await _setAccount(null);
     }
   }
 
   Future<void> connect() async {
     if(isNotConnected && isSignedIn) {
       final socket = await AuthSocket().connect(address: address, port: port, uid: _account.uid, token: _account.token);
-      socket.done.then((_) => _onSocketDone(socket));
-      await socket.ready;
-      _setSocket(socket);
+      await _setSocket(socket);
     }
+  }
+
+  Future<void> disconnect() {
+    return _setSocket(null);
   }
 
   void _onSocketDone(AuthSocket socket) {
     print('_onSocketDone($socket)');
   }
 
-  void _setAccount(Account account) {
+  Future<void> _setAccount(Account account) async {
     if(_account?.id != account?.id) {
       if(account != null) {
-        account = _db.put(account.copyWith(lastOpenedAt: DateTime.now().millisecondsSinceEpoch));
+        _account = _db.put(account.copyWith(lastOpenedAt: DateTime.now().millisecondsSinceEpoch));
+      } else {
+        _account = null;
       }
-      _account = account;
+      if(_socket?.uid != _account?.uid) {
+        await disconnect();
+      }
     }
   }
 
-  void _setSocket(AuthSocket socket) {
+  Future<void> _setSocket(AuthSocket socket) async {
     if(_socket != socket) {
+      if(_socket != null) {
+        await _socket.close();
+      }
+
       _socket = socket;
-      if(account != null) {
-        _account = _db.put(account.copyWith(lastConnectedAt: DateTime.now().millisecondsSinceEpoch));
+
+      if(_socket != null) {
+        if(_account != null) {
+          _account = _db.put(account.copyWith(lastConnectedAt: DateTime.now().millisecondsSinceEpoch));
+        }
+        _socket.done.then((_) => _onSocketDone(socket));
+        await _socket.ready;
       }
     }
   }

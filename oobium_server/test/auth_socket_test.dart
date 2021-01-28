@@ -10,7 +10,7 @@ Future<void> main() async {
   setUpAll(() => TestClient.clean('test-data'));
   tearDownAll(() => TestClient.clean('test-data'));
 
-  test('test invitation process', () async {
+  test('invitation process', () async {
     final server = await TestClient.start('test-data/test-01', 8001, ['auth']);
 
     final user = await AdminClient(port: 8001).createUser('test-1');

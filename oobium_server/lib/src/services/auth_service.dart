@@ -132,9 +132,12 @@ class AuthService extends Service<Host, AuthConnection> {
             final user = _db.put(User(token: token.copyNew(), referredBy: token.user));
             req['uid'] = user.id;
             return;
+          } else {
+            print('auth failed on approval of code: $authToken');
           }
+        } else {
+          print('auth failed with code: $authToken');
         }
-        print('auth failed with code: $authToken');
       }
     }
     return res.send(code: HttpStatus.forbidden);

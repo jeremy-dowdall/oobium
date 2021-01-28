@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:oobium/src/websocket.dart';
 
 class AuthSocket extends WebSocket {
@@ -37,9 +39,9 @@ class AuthSocket extends WebSocket {
     }
   }
 
-  Future<bool> Function() _onApprove;
+  FutureOr<bool> Function() _onApprove;
   WsSubscription _onApproveSub;
-  set onApprove(Future<bool> Function() value) {
+  set onApprove(FutureOr<bool> Function() value) {
     _onApprove = value;
     _onApproveSub?.cancel();
     if(_onApprove != null) {
