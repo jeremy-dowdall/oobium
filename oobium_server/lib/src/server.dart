@@ -64,9 +64,9 @@ class Host {
     } else {
       for(var file in _getFiles(directoryPath, optional: optional)) {
         final filePath = file.path;
-        final basePath = filePath.substring(directoryPath.length);
+        final basePath = filePath.substring(directoryPath.length + 1);
         final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
-        final routePath = builtPath.replaceAll(RegExp(r'/+'), '/');
+        final routePath = builtPath.replaceAll(RegExp(r'/+|\\'), '/');
         get(routePath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
         if(routePath.endsWith('index.html')) {
           final impliedPath = routePath.substring(0, routePath.length - 10);

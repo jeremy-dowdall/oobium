@@ -81,8 +81,8 @@ class AppRoutes<E extends AppRouterState> {
     if(_currentConfiguration == value) {
       return;
     }
-    final oldList = List<AppRoute>();
-    final newList = List<AppRoute>();
+    final oldList = <AppRoute>[];
+    final newList = <AppRoute>[];
     if(reset && _currentConfiguration != null) {
       for(var r = _currentConfiguration; r != null; r = r.parent) oldList.add(r);
     }
@@ -180,7 +180,7 @@ class AppRoutes<E extends AppRouterState> {
     final uri = Uri.parse(routeInformation.location);
     final paths = _getPaths(uri.path, home: _homePath);
     if(paths.isEmpty) {
-      // TODO route not found handler
+      print('route not found: $uri');
       return null;
     }
     final data = _getData(paths.join(), uri.path);
@@ -196,7 +196,7 @@ class AppRoutes<E extends AppRouterState> {
   }
 
   RouteInformation restoreRouteInformation(AppRoute route) {
-    final locations = List<String>();
+    final locations = <String>[];
     do {
       locations.add(getLocation(route));
       route = route.parent;
@@ -205,7 +205,7 @@ class AppRoutes<E extends AppRouterState> {
   }
 
   AppRoutes getAppRoutes(AppRoute route) {
-    final routeList = List<AppRoute>();
+    final routeList = <AppRoute>[];
     for(var r = route.parent; r != null; r = r.parent) routeList.insert(0, r);
     return routeList.fold<AppRoutes>(this, (routes, route) => routes.definitions[route.runtimeType].children);
   }
