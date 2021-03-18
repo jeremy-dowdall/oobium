@@ -1,4 +1,4 @@
-import 'package:oobium_gen/src2/model.dart';
+import 'package:oobium_gen/src/model.dart';
 
 class ModelBuilder {
 
