@@ -1,21 +1,20 @@
-A library for Server Side Dart development.
+# oobium server
+Server Side Dart development.
 
 ## Usage
 
 A simple usage example:
 
 ```dart
-import 'package:oobium_server/server.dart';
+import 'package:oobium_server/src/server.dart';
 
-main() {
-  final router = Router();
-  router.addGet('/', ???);
-  router.serve();
+void main() {
+  final server = Server();
+
+  server.get('/', [(req, res) {
+    return res.send(data: 'hello world!');
+  }]);
+
+  server.start();
 }
 ```
-
-## Features and bugs
-
-Please file feature requests and bugs at the [issue tracker][tracker].
-
-[tracker]: http://example.com/issues/replaceme
