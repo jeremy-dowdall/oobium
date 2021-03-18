@@ -1,0 +1,17 @@
+[user]
+	name = Jeremy Dowdall
+	email = jeremyd@aspencloud.com
+[alias]
+	st = status -s
+	br = branch
+	co = checkout
+	lg = log --graph --oneline --decorate -20
+	lga = log --all --graph --oneline --decorate
+        lol = log --pretty=oneline --abbrev-commit --graph --decorate
+	lo = log --oneline --decorate
+	pop = stash pop
+[color]
+	ui = auto
+[core]
+	editor = nano
+	excludesfile = /Users/jeremydowdall/.gitignore_global

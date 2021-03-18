@@ -1,0 +1,12 @@
+{
+    "files.exclude": {
+        "**/.dart_tool/": true,
+        "**/.idea/": true,
+        "**/.vscode/": true
+    },
+    "files.eol": "\n",
+    "editor.tabSize": 2,
+    "diffEditor.wordWrap": "off",
+    "editor.wordWrapColumn": 120,
+    "debug.console.wordWrap": false
+}

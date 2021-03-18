@@ -1,0 +1,4 @@
+*.db
+*.db.*
+test-cache/
+test-data/
