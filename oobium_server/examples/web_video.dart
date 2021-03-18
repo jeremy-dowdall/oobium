@@ -10,7 +10,7 @@ void main() {
   ]);
 
   server.get('/video/src', [(req, res) => res.sendFile(
-      File('/Users/jeremydowdall/Downloads/MVI_0096.MP4')
+      File('examples/assets/video.mp4')
   )]);
 
   server.start();
