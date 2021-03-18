@@ -173,7 +173,7 @@ class WebSocket {
       _complete(200, data);
     }
     else {
-      throw Exception('received unexpected data');
+      throw 'received unexpected data';
     }
   }
 
@@ -355,7 +355,7 @@ class WsHandler {
     final sa = route.verifiedSegments;
     for(var handlerRoute in _handlers.keys) {
       if(sa.matches(handlerRoute.segments)) {
-        throw Exception('duplicate route: $route');
+        throw 'duplicate route: $route';
       }
     }
     return route;

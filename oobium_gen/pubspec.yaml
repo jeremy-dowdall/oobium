@@ -14,7 +14,5 @@ dependencies:
     path: ../oobium
 
 dev_dependencies:
-  oobium_test:
-    path: ../oobium_test
   test: ^1.15.3
   mockito: ^4.1.2

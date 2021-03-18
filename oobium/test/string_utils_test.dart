@@ -1,4 +1,3 @@
-import 'package:oobium_test/oobium_test.dart';
 import 'package:test/test.dart';
 import 'package:oobium/src/router.extensions.dart';
 
@@ -12,11 +11,11 @@ void main() {
     });
     test('<test1><test2>', () {
       final s = '<test1><test2>';
-      expectError(() => s.verifiedSegments, 'contiguous variables are not permitted: \'$s\'');
+      expect(() => s.verifiedSegments, throwsA(equals('contiguous variables are not permitted: \'$s\'')));
     });
     test('/path/<>', () {
       final s = '/path/<>';
-      expectError(() => s.verifiedSegments, 'empty variable segments are not permitted: \'$s\'');
+      expect(() => s.verifiedSegments, throwsA(equals('empty variable segments are not permitted: \'$s\'')));
     });
     test('/path/<test>', () {
       final s = '/path/<test>';

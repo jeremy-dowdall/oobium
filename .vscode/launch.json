@@ -12,46 +12,16 @@
       "type": "dart"
     },
     {
-      "name": "test - oobium server",
-      "cwd": "oobium_server",
-      "program": "./test/",
-      "request": "launch",
-      "type": "dart"
-    },
-    {
-      "name": "oobium",
-      "cwd": "oobium",
-      "request": "launch",
-      "type": "dart"
-    },
-    {
-      "name": "oobium_flutter",
-      "cwd": "oobium_flutter",
-      "request": "launch",
-      "type": "dart"
-    },
-    {
-      "name": "oobium_gen",
-      "cwd": "oobium_gen",
-      "request": "launch",
-      "type": "dart"
-    },
-    {
-      "name": "oobium_routing",
+      "name": "test - oobium_routing",
       "cwd": "oobium_routing",
       "program": "./test/",
       "request": "launch",
       "type": "dart"
     },
     {
-      "name": "oobium_server",
+      "name": "test - oobium server",
       "cwd": "oobium_server",
-      "request": "launch",
-      "type": "dart"
-    },
-    {
-      "name": "oobium_test",
-      "cwd": "oobium_test",
+      "program": "./test/",
       "request": "launch",
       "type": "dart"
     }

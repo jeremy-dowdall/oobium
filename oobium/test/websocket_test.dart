@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:oobium/src/websocket.dart';
-import 'package:oobium_test/oobium_test.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
@@ -63,12 +62,12 @@ Future<void> main() async {
     test('error on duplicate path', () {
       final ws = WebSocket();
       ws.on.get('/dup', (req, res) => print('hi'));
-      expectError(() => ws.on.get('/dup', (req, res) => print('hi')), 'duplicate route: GET/dup');
+      expect(() => ws.on.get('/dup', (req, res) => print('hi')), throwsA(equals('duplicate route: GET/dup')));
     });
     test('error on duplicate path with variables', () {
       final ws = WebSocket();
       ws.on.get('/dup/<id>', (req, res) => print('hi'));
-      expectError(() => ws.on.get('/dup/<name>', (req, res) => print('hi')), 'duplicate route: GET/dup/<name>');
+      expect(() => ws.on.get('/dup/<name>', (req, res) => print('hi')), throwsA('duplicate route: GET/dup/<name>'));
     });
   });
 

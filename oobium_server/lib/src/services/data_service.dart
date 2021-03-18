@@ -92,12 +92,13 @@ class DataService extends Service<AuthConnection, Null> {
     client.batch(
       // all service definitions involving user (through a group)
       put: _shared.getAll<Definition>()
-        .where((d) => groups.contains(d.access)), // put checks if they already exist or need updating
+        .where((d) => groups.contains(d.access)).toList(), // put checks if they already exist or need updating
 
       // all client definitions involving user, not on service
       remove: client.getAll<Definition>()
         .where((d) => groups.contains(d.access) && _shared.none(d.access))
         .map((d) => d.id)
+        .toList()
     );
 
     await client.flush();
@@ -111,10 +112,10 @@ class DataService extends Service<AuthConnection, Null> {
       .map((m) => m.group.id).toSet();
 
     await _addDefinitions(uid, event.puts);
-    await _removeDefinitions(uid, event.removes);
+    _removeDefinitions(uid, event.removes);
 
     _shared.batch(
-      put: event.puts.where((d) => groups.contains(d.access))
+      put: event.puts.where((d) => groups.contains(d.access)).toList()
     );
   }
 
@@ -126,8 +127,8 @@ class DataService extends Service<AuthConnection, Null> {
         .where((m) => ((m.user.id == uid) || (m.group.owner.id == uid)))
         .map((m) => m.group.id).toSet();
       _clients[uid]?.batch(
-        put: event.puts.where((d) => groups.contains(d.access)),
-        remove: event.removes.where((d) => groups.contains(d.access)).map((d) => d.id)
+        put: event.puts.where((d) => groups.contains(d.access)).toList(),
+        remove: event.removes.where((d) => groups.contains(d.access)).map((d) => d.id).toList()
       );
     }
   }
@@ -135,7 +136,7 @@ class DataService extends Service<AuthConnection, Null> {
   void _onGroupsEvent(DataModelEvent<Group> event) {
     if(_verbose) print('dataService._onGroupsEvent(put: ${event.puts.map((e) => e.name)}, remove: ${event.removes.map((e) => e.name)})');
     _shared.batch(
-      remove: event.removes.where((g) => _shared.any(g.id)).map((g) => g.id)
+      remove: event.removes.where((g) => _shared.any(g.id)).map((g) => g.id).toList()
     );
   }
 

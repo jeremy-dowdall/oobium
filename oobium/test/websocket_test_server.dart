@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:oobium/src/websocket.dart';
-import 'package:oobium_test/oobium_test.dart';
 import 'package:stream_channel/stream_channel.dart';
+
+import 'utils/test_websocket_server.dart';
 
 Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 

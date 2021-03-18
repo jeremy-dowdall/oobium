@@ -81,7 +81,7 @@ class UserService extends Service<AuthConnection, Null> {
         ...groups.map((g) => c.Group.fromJson(g.toJson())),
         ...memberships.map((m) => c.Membership.fromJson(m.toJson())),
       ],
-      remove: client.getAll().where((e) => service.none(e.id)).map((e) => e.id),
+      remove: client.getAll().where((e) => service.none(e.id)).map((e) => e.id).toList(),
     );
 
     return client.flush();
@@ -136,7 +136,7 @@ class UserService extends Service<AuthConnection, Null> {
           ...groups.map((g) => c.Group.fromJson(g.toJson())),
           ...memberships.map((m) => c.Membership.fromJson(m.toJson())),
         ],
-        remove: event.removes.map((m) => m.id)
+        remove: event.removes.map((m) => m.id).toList()
       );
     }
   }

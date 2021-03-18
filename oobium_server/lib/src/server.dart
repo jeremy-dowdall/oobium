@@ -104,7 +104,7 @@ class Host {
     final sa = route.verifiedSegments;
     for(var handlerRoute in _handlers.keys) {
       if(sa.matches(handlerRoute.segments)) {
-        throw Exception('duplicate route: $route');
+        throw 'duplicate route: $route';
       }
     }
     _handlers[route] = handlers;

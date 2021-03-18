@@ -56,9 +56,9 @@ extension RouterStringExtensions on String {
   List<String> get verifiedSegments {
     final sa = segments;
     for(var s in sa) {
-      if(s.contains('><')) throw Exception('contiguous variables are not permitted: \'$this\'');
-      if(s == '<>') throw Exception('empty variable segments are not permitted: \'$this\'');
-      if(s.contains('<') && !s.contains('>')) throw Exception('variable segments cannot contain a separator [/]: \'$this\'');
+      if(s.contains('><')) throw 'contiguous variables are not permitted: \'$this\'';
+      if(s == '<>') throw 'empty variable segments are not permitted: \'$this\'';
+      if(s.contains('<') && !s.contains('>')) throw 'variable segments cannot contain a separator [/]: \'$this\'';
     }
     return sa;
   }
