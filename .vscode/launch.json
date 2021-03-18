@@ -39,6 +39,7 @@
     {
       "name": "oobium_routing",
       "cwd": "oobium_routing",
+      "program": "./test/",
       "request": "launch",
       "type": "dart"
     },
