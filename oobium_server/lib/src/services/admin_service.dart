@@ -65,7 +65,7 @@ class AdminService extends Service<Host, Object> {
   }
 
   Future<void> _auth(Request req, Response res) async {
-    if(req.settings.address != '127.0.0.1') {
+    if(req.host.settings.address != '127.0.0.1') {
       return res.send(code: HttpStatus.forbidden);
     }
   }

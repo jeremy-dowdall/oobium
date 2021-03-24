@@ -453,10 +453,10 @@ class Logger {
 typedef RequestHandler = Future<void> Function(Request request, Response response);
 
 class Request {
-  final Host _host;
+  final Host host;
   final HttpRequest _httpRequest;
   final String routePath;
-  Request(this._host, this._httpRequest, this.routePath);
+  Request(this.host, this._httpRequest, this.routePath);
   Response _response;
 
   String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]]);
@@ -480,13 +480,11 @@ class Request {
   List<List<int>> get ranges => header[HttpHeaders.rangeHeader].substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 
-  ServerSettings get settings => _host.settings;
-
   ServerWebSocket _websocket() {
-    final socket = ServerWebSocket._(params['uid'], _host);
-    _host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
+    final socket = ServerWebSocket._(params['uid'], host);
+    host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
     socket.done.then((_) {
-      _host._sockets.remove(socket.uid);
+      host._sockets.remove(socket.uid);
     });
     _response._closed = true; // don't _actually_ close this response, the websocket will handle it
     return socket;
@@ -520,7 +518,7 @@ class Response {
   int get statusCode => _httpResponse.statusCode;
   set statusCode(int value) => _httpResponse.statusCode = value;
 
-  bool get _livePages => _request._host.livePages && _request._host.settings.isDebug;
+  bool get _livePages => _request.host.livePages && _request.host.settings.isDebug;
 
   Future<void> render<T extends Json>(PageBuilder<T> builder, T data) async {
     if(_livePages) {
@@ -688,21 +686,6 @@ class StringContent implements Content {
   @override int get length => _data.length;
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
-
-// TODO RequestHandler fireAuth = (req, res) async {
-//   final authHeader = req.header[HttpHeaders.authorizationHeader];
-//   if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
-//     req.params['uid'] = authHeader.split(' ')[1];
-//   } else {
-//     final validator = Validator(req._host.settings.projectId);
-//     final uid = await validator.validate(authHeader);
-//     if(uid != null) {
-//       req.params['uid'] = uid;
-//     } else {
-//       return res.send(code: HttpStatus.forbidden);
-//     }
-//   }
-// };
 
 RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols) protocol, bool autoStart = true}) => (req, res) async {
   final socket = req._websocket();

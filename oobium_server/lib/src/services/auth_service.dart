@@ -75,7 +75,7 @@ class AuthService extends Service<Host, AuthConnection> {
 
   @override
   void onAttach(Host host) {
-    host.get('/auth', [_auth(host), websocket((socket) async {
+    host.get('/auth', [auth, websocket((socket) async {
       final connection = AuthConnection._(_db, _codes, socket);
       _connections.add(connection);
       await services.attach(connection);
@@ -111,7 +111,7 @@ class AuthService extends Service<Host, AuthConnection> {
     _codes = null;
   }
 
-  RequestHandler _auth(Host host) => (Request req, Response res) async {
+  Future<void> auth(Request req, Response res) async {
     final authToken = _parseAuthToken(req);
     if(authToken is String) {
       if(authToken.contains('-')) {
@@ -127,7 +127,7 @@ class AuthService extends Service<Host, AuthConnection> {
         final tokenId = _codes.consume(authToken);
         if(tokenId != null) {
           final token = _db.remove<Token>(tokenId);
-          final approval = await host.socket(token?.user?.id)?.getAny('/installs/approval');
+          final approval = await req.host.socket(token?.user?.id)?.getAny('/installs/approval');
           if(approval?.isSuccess == true && approval.data == true) {
             final user = _db.put(User(token: token.copyNew(), referredBy: token.user));
             req['uid'] = user.id;
@@ -141,15 +141,32 @@ class AuthService extends Service<Host, AuthConnection> {
       }
     }
     return res.send(code: HttpStatus.forbidden);
-  };
+  }
 
   String _parseAuthToken(Request req) {
+    // TODO testing on localhost / 127.0.0.1
+    // TODO plugins, such as firebase
     final protocols = req.header[WsProtocolHeader]?.split(', ') ?? <String>[];
     if(protocols.length == 2 && protocols[0] == WsAuthProtocol) {
       return protocols[1];
     }
     return null;
   }
+
+// TODO RequestHandler fireAuth = (req, res) async {
+//   final authHeader = req.header[HttpHeaders.authorizationHeader];
+//   if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
+//     req.params['uid'] = authHeader.split(' ')[1];
+//   } else {
+//     final validator = Validator(req._host.settings.projectId);
+//     final uid = await validator.validate(authHeader);
+//     if(uid != null) {
+//       req.params['uid'] = uid;
+//     } else {
+//       return res.send(code: HttpStatus.forbidden);
+//     }
+//   }
+// };
 }
 
 class InstallCode {
