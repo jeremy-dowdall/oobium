@@ -22,7 +22,7 @@ class SchemaLibrary {
         continue;
       }
       if(line.startsWith(' ')) {
-        final matches = RegExp(r'\s+(\w+)\s+([<\w>]+)(\(([^\)]+)\))?').firstMatch(line);
+        final matches = RegExp(r'\s+(\w+)\s+([<\w, >]+)(\(([^\)]+)\))?').firstMatch(line);
         final name = matches.group(1);
         final type = matches.group(2);
         final options = (matches.group(4) ?? '').split(RegExp(r',\s*'));
