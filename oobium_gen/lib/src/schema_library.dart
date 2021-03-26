@@ -12,17 +12,17 @@ class SchemaLibrary {
   static Future<SchemaLibrary> load(File file) async {
     final name = file.path.substring(file.parent.path.length + 1).split('.')[0];
     print('schema: $name');
-    final lines = await file.readAsLines();
+    final lines = (await file.readAsLines()).map((s) => s.split('//')[0]);
 
     final library = SchemaLibrary(name);
 
     SchemaElement element;
     for(var line in lines) {
-      if(line.trim().isEmpty || line.startsWith('//')) {
+      if(line.trim().isEmpty) {
         continue;
       }
       if(line.startsWith(' ')) {
-        final matches = RegExp(r'\s+(\w+)\s+([<\w>]+)(\(([^\)]+)\))?').firstMatch(line);
+        final matches = RegExp(r'\s+(\w+)\s+([<\w, >]+)(\(([^\)]+)\))?').firstMatch(line);
         final name = matches.group(1);
         final type = matches.group(2);
         final options = (matches.group(4) ?? '').split(RegExp(r',\s*'));

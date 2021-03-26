@@ -12,12 +12,12 @@ import 'package:oobium_server/src/service.dart';
 
 class Host {
 
+  final String name;
   final Server _server;
-  final String _name;
   final _handlers = <String, List<RequestHandler>>{};
   final _loggers = <String, Logger>{};
   ServiceRegistry _registry;
-  Host._(this._server, this._name);
+  Host._(this.name, this._server);
 
   ServerSettings get settings => _server.settings;
 
@@ -42,6 +42,7 @@ class Host {
       addService(service);
     }
   }
+  T getService<T extends Service>() => _registry.get<T>();
   
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => _add('GET', path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => _add('HEAD', path, handlers, logger: logger);
@@ -76,9 +77,9 @@ class Host {
     }
   }
 
-  void redirect(String from) => _server.hostRedirect(from: from, to: _name);
-  void subdomain(String name) => _server.hostSubdomain(host: _name, sub: name);
-  void subdomains(List<String> names) => _server.hostSubdomains(host: _name, subs: names);
+  void redirect(String from) => _server.hostRedirect(from: from, to: name);
+  void subdomain(String name) => _server.hostSubdomain(host: this.name, sub: name);
+  void subdomains(List<String> names) => _server.hostSubdomains(host: name, subs: names);
 
   Iterable<File> _getFiles(String directoryPath, {optional = false}) {
     assert(directoryPath != null || optional, 'directoryPath cannot be null, unless optional is true');
@@ -116,7 +117,7 @@ class Host {
     final lookupMethod = (httpRequest.method == 'HEAD') ? 'GET' : httpRequest.method;
     final requestPath = '$lookupMethod${httpRequest.requestedUri.path}';
     final routePath = _handlers.containsKey(requestPath) ? requestPath : requestPath.findRouterPath(_handlers.keys);
-    final request = Request(this, httpRequest, routePath);
+    final request = Request(this, routePath, httpRequest);
     final response = Response(request);
     final handlers = _handlers[routePath] ?? _notFoundHandlers ?? [];
     print(requestPath);
@@ -208,7 +209,7 @@ class Server {
   StreamSubscription httpsSubscription;
 
   Host host([String name]) {
-    return _hosts.putIfAbsent(name, () => Host._(this, name));
+    return _hosts.putIfAbsent(name, () => Host._(name, this));
   }
 
   void hostRedirect({String from, String to, bool temporary = false}) {
@@ -347,6 +348,7 @@ class Server {
 
   void addService(Service service) => host().addService(service);
   void addServices(List<Service> services) => host().addServices(services);
+  T getService<T extends Service>() => host().getService<T>();
   void delete(String path, List<RequestHandler> handlers, {Logger logger}) => host().delete(path, handlers, logger: logger);
   void get(String path, List<RequestHandler> handlers, {Logger logger}) => host().get(path, handlers, logger: logger);
   void head(String path, List<RequestHandler> handlers, {Logger logger}) => host().head(path, handlers, logger: logger);
@@ -453,10 +455,36 @@ class Logger {
 typedef RequestHandler = Future<void> Function(Request request, Response response);
 
 class Request {
-  final Host _host;
-  final HttpRequest _httpRequest;
+  final Host host;
   final String routePath;
-  Request(this._host, this._httpRequest, this.routePath);
+  final String method;
+  final String path;
+  final RequestHeaders headers;
+  final query = <String, String>{};
+  final HttpRequest/*?*/ _httpRequest;
+  Request(this.host, this.routePath, HttpRequest httpRequest) :
+    method = httpRequest.method,
+    path = httpRequest.requestedUri.path,
+    headers = RequestHeaders(httpRequest),
+    _httpRequest = httpRequest
+  {
+    query.addAll(httpRequest.uri.queryParameters);
+  }
+  Request.values({
+    this.host,
+    this.routePath='/',
+    this.method='GET',
+    this.path='/',
+    this.headers=const RequestHeaders.empty(),
+    Map<String, String> query
+  }) :
+    _httpRequest = null
+  {
+    if(query != null) {
+      this.query.addAll(query);
+    }
+  }
+
   Response _response;
 
   String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]]);
@@ -465,37 +493,36 @@ class Request {
   String operator [](String name) => params[name] ?? query[name];
   operator []=(String name, String value) => params[name] = value;
 
-  HeaderValues get header => HeaderValues(headers);
-  HttpHeaders get headers => _httpRequest.headers;
   Map<String, String> get params => _params ??= '$method$path'.parseParams(routePath);
-  Map<String, String> get query => _httpRequest.uri.queryParameters;
-  String get path => _httpRequest.requestedUri.path;
 
   bool get isHead => method == 'HEAD';
   bool get isNotHead => !isHead;
-  bool get isPartial => header[HttpHeaders.rangeHeader]?.startsWith('bytes=') == true;
+  bool get isPartial => headers[HttpHeaders.rangeHeader]?.startsWith('bytes=') == true;
   bool get isNotPartial => !isPartial;
 
-  String get method => _httpRequest.method;
-  List<List<int>> get ranges => header[HttpHeaders.rangeHeader].substring(6).split(',')
+  List<List<int>> get ranges => headers[HttpHeaders.rangeHeader].substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 
-  ServerSettings get settings => _host.settings;
-
   ServerWebSocket _websocket() {
-    final socket = ServerWebSocket._(params['uid'], _host);
-    _host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
+    final socket = ServerWebSocket._(params['uid'], host);
+    host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
     socket.done.then((_) {
-      _host._sockets.remove(socket.uid);
+      host._sockets.remove(socket.uid);
     });
     _response._closed = true; // don't _actually_ close this response, the websocket will handle it
     return socket;
   }
 }
-class HeaderValues {
-  final HttpHeaders _headers;
-  HeaderValues(this._headers);
-  String operator [](String name) => _headers.value(name);
+class RequestHeaders {
+  final Map<String, String> _headers;
+  const RequestHeaders.empty() : _headers = null;
+  RequestHeaders.values(this._headers);
+  RequestHeaders(HttpRequest request) : _headers = {} {
+    request.headers.forEach((name, values) {
+      _headers[name] = values.join(', ');
+    });
+  }
+  String/*?*/ operator [](String name) => (_headers != null) ? _headers[name] : null;
 }
 
 class Response {
@@ -520,7 +547,7 @@ class Response {
   int get statusCode => _httpResponse.statusCode;
   set statusCode(int value) => _httpResponse.statusCode = value;
 
-  bool get _livePages => _request._host.livePages && _request._host.settings.isDebug;
+  bool get _livePages => _request.host.livePages && _request.host.settings.isDebug;
 
   Future<void> render<T extends Json>(PageBuilder<T> builder, T data) async {
     if(_livePages) {
@@ -565,7 +592,7 @@ class Response {
         if(start > end) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
-        final condition = _request.header[HttpHeaders.ifRangeHeader];
+        final condition = _request.headers[HttpHeaders.ifRangeHeader];
         if(condition == null || condition == etag) {
           headers[HttpHeaders.contentRangeHeader] =  'bytes $start-$end/${stat.size}';
           headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();
@@ -688,21 +715,6 @@ class StringContent implements Content {
   @override int get length => _data.length;
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
-
-// TODO RequestHandler fireAuth = (req, res) async {
-//   final authHeader = req.header[HttpHeaders.authorizationHeader];
-//   if(authHeader.startsWith('Test ') && req._host.settings.address == '127.0.0.1') {
-//     req.params['uid'] = authHeader.split(' ')[1];
-//   } else {
-//     final validator = Validator(req._host.settings.projectId);
-//     final uid = await validator.validate(authHeader);
-//     if(uid != null) {
-//       req.params['uid'] = uid;
-//     } else {
-//       return res.send(code: HttpStatus.forbidden);
-//     }
-//   }
-// };
 
 RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols) protocol, bool autoStart = true}) => (req, res) async {
   final socket = req._websocket();

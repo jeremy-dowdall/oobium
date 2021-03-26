@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:oobium_server/oobium_server.dart';
+import 'package:oobium_server/oobium_server_html.dart';
 
 void main() {
   final server = Server();

@@ -6,7 +6,7 @@ class ServiceRegistry {
   
   void add(Service service) {
     assert(_services.any((s) => s.runtimeType == service.runtimeType) == false);
-    service.services.._registry = this;
+    service.services._registry = this;
     _services.add(service);
   }
 

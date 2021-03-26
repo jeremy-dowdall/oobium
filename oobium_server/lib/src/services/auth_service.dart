@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:oobium/oobium.dart' hide User, Group, Membership;
+import 'package:oobium_server/src/services/auth/validators.dart';
 import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/service.dart';
@@ -9,42 +10,17 @@ import 'package:oobium_server/src/service.dart';
 const WsProtocolHeader = 'sec-websocket-protocol';
 const WsAuthProtocol = 'authorized';
 
-class AuthConnection {
-
-  final Database _db;
-  final InstallCodes _codes;
-  final ServerWebSocket _socket;
-  AuthConnection._(this._db, this._codes, this._socket) {
-    _socket.on.get('/users/id', (req, res) => res.send(data: uid));
-    _socket.on.get('/users/token', (req, res) => res.send(data: getUserToken()));
-    _socket.on.get('/users/token/new', (req, res) => res.send(data: getUserToken(forceNew: true)));
-    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _codes.createInstallCode(uid)));
-  }
-
-  Future<void> close() => _socket.close();
-
-  ServerWebSocket get socket => _socket;
-  String get uid => _socket.uid;
-
-  String getUserToken({bool forceNew = false}) {
-    final user = _db.get<User>(uid);
-    final token = user.token;
-    if(forceNew || token.createdAt.isBefore(DateTime.now().subtract(Duration(days: 2)))) {
-      final newToken = token.copyNew();
-      _db.put(user.copyWith(token: newToken));
-      return newToken.id;
-    } else {
-      return token.id;
-    }
-  }
-}
+Future<void> auth(Request req, Response res) => req.host.getService<AuthService>()._auth(req, res);
 
 class AuthService extends Service<Host, AuthConnection> {
-  
+
   final String root;
   final AuthServiceData _db;
   final _connections = <AuthConnection>[];
-  AuthService({this.root}) : _db = AuthServiceData(root);
+  final _validators = <AuthValidator>[];
+  AuthService({this.root='test-data', Iterable<AuthValidator> validators}) : _db = AuthServiceData(root) {
+    setValidators(validators ?? [AuthSocketValidator()]);
+  }
 
   bool any(String id) => _db.any(id);
   bool none(String id) => _db.none(id);
@@ -66,17 +42,52 @@ class AuthService extends Service<Host, AuthConnection> {
   User putUser(User user) => any(user.id) ? _db.put(user) : _db.put(user.copyWith(token: Token()));
   User removeUser(String id) => _db.remove(_db.get<User>(id)?.id);
 
+  Link getLink(String id) => _db.get<Link>(id);
+  Iterable<Link> getLinks() => _db.getAll<Link>();
+  Link putLink(Link link) => any(link.id) ? _db.put(link) : _db.put(link);
+  Link removeLink(String id) => _db.remove(_db.get<Link>(id)?.id);
+
+  Token getToken(String id) => _db.get<Token>(id);
+  Iterable<Token> getTokens() => _db.getAll<Token>();
+  Token putToken(Token token) => any(token.id) ? _db.put(token) : _db.put(token);
+  Token removeToken(String id) => _db.remove(_db.get<Token>(id)?.id);
+
   Stream<DataModelEvent> streamAll() => _db.streamAll();
   Stream<DataModelEvent<Group>> streamGroups({bool Function(Group model) where}) => _db.streamAll<Group>(where: where);
   Stream<DataModelEvent<Membership>> streamMemberships({bool Function(Membership model) where}) => _db.streamAll<Membership>(where: where);
   Stream<DataModelEvent<User>> streamUsers({bool Function(User model) where}) => _db.streamAll<User>(where: where);
 
   InstallCodes _codes;
+  Token consume(String code) => removeToken(_codes.consume(code));
+
+  String/*?*/ getUserToken(String uid, {bool forceNew = false}) {
+    final user = _db.get<User>(uid);
+    if(user != null) {
+      final token = user.token;
+      if(token == null) {
+        final newToken = Token(user: user);
+        _db.put(user.copyWith(token: newToken));
+        return newToken.id;
+      }
+      if(forceNew || token.createdAt.isBefore(DateTime.now().subtract(Duration(days: 2)))) {
+        final newToken = token.copyNew();
+        _db.put(user.copyWith(token: newToken));
+        return newToken.id;
+      }
+      return token.id;
+    }
+    return null;
+  }
+
+  User/*?*/ updateUserToken(String uid) {
+    getUserToken(uid, forceNew: true);
+    return _db.get<User>(uid);
+  }
 
   @override
   void onAttach(Host host) {
-    host.get('/auth', [_auth(host), websocket((socket) async {
-      final connection = AuthConnection._(_db, _codes, socket);
+    host.get('/auth', [_auth, websocket((socket) async {
+      final connection = AuthConnection._(this, socket);
       _connections.add(connection);
       await services.attach(connection);
       // ignore: unawaited_futures
@@ -85,6 +96,9 @@ class AuthService extends Service<Host, AuthConnection> {
         services.detach(connection);
       });
     }, protocol: (_) => WsAuthProtocol)]);
+    for(var validator in _validators) {
+      validator.onAttach(host);
+    }
   }
 
   @override
@@ -93,12 +107,16 @@ class AuthService extends Service<Host, AuthConnection> {
       connection.close();
     }
     _connections.clear();
+    for(var validator in _validators) {
+      validator.onDetach(host);
+    }
   }
 
   @override
   Future<void> onStart() async {
     await _db.open();
     _codes = InstallCodes(_db);
+    _startValidators();
   }
 
   @override
@@ -109,46 +127,90 @@ class AuthService extends Service<Host, AuthConnection> {
     _connections.clear();
     await _db.close();
     _codes = null;
+    _stopValidators();
   }
 
-  RequestHandler _auth(Host host) => (Request req, Response res) async {
-    final authToken = _parseAuthToken(req);
-    if(authToken is String) {
-      if(authToken.contains('-')) {
-        final sa = authToken.split('-');
-        final uid = sa[0];
-        final token = sa[1];
-        if(_db.get<User>(uid)?.token?.id == token) {
-          req['uid'] = uid;
-          return;
-        }
-        print('auth failed with token: $authToken');
-      } else {
-        final tokenId = _codes.consume(authToken);
-        if(tokenId != null) {
-          final token = _db.remove<Token>(tokenId);
-          final approval = await host.socket(token?.user?.id)?.getAny('/installs/approval');
-          if(approval?.isSuccess == true && approval.data == true) {
-            final user = _db.put(User(token: token.copyNew(), referredBy: token.user));
-            req['uid'] = user.id;
-            return;
-          } else {
-            print('auth failed on approval of code: $authToken');
-          }
-        } else {
-          print('auth failed with code: $authToken');
-        }
+  void addValidator(AuthValidator validator) {
+    if(!_validators.contains(validator)) {
+      validator._service = this;
+      _validators.add(validator);
+    }
+  }
+
+  void setValidators(Iterable<AuthValidator> validators) {
+    _validators.clear();
+    for(var validator in validators) {
+      addValidator(validator);
+    }
+  }
+
+  void _startValidators() {
+    for(var validator in _validators) {
+      validator.onStart();
+    }
+  }
+
+  void _stopValidators() {
+    for(var validator in _validators) {
+      validator.onStop();
+    }
+  }
+
+  Future<void> _auth(Request req, Response res) async {
+    if(_validators.isEmpty) {
+      return;
+    }
+    for(var validator in _validators) {
+      if(await validator.validate(req)) {
+        return;
       }
     }
     return res.send(code: HttpStatus.forbidden);
-  };
+  }
+}
 
-  String _parseAuthToken(Request req) {
-    final protocols = req.header[WsProtocolHeader]?.split(', ') ?? <String>[];
-    if(protocols.length == 2 && protocols[0] == WsAuthProtocol) {
-      return protocols[1];
-    }
-    return null;
+class AuthConnection {
+
+  final AuthService _service;
+  final ServerWebSocket _socket;
+  AuthConnection._(this._service, this._socket) {
+    _socket.on.get('/users/id', (req, res) => res.send(data: uid));
+    _socket.on.get('/users/token', (req, res) => res.send(data: _service.getUserToken(uid)));
+    _socket.on.get('/users/token/new', (req, res) => res.send(data: _service.getUserToken(uid, forceNew: true)));
+    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _service._codes.createInstallCode(uid)));
+  }
+
+  Future<void> close() => _socket.close();
+
+  ServerWebSocket get socket => _socket;
+  String get uid => _socket.uid;
+}
+
+abstract class AuthValidator {
+
+  /*late*/ AuthService _service;
+  AuthValidator();
+  AuthValidator.values({AuthService service}) {
+    _service = service;
+  }
+
+  Future<bool> validate(Request req);
+
+  void onAttach(Host host) {}
+  void onDetach(Host host) {}
+  void onStart() {}
+  void onStop() {}
+
+  Token consume(String code) => _service.consume(code);
+
+  Link getLink(bool Function(Link link) where) => _service.getLinks().firstWhere(where, orElse: () => null);
+  Link putLink({String type, String code, Map<String, String> data}) =>  _service.putLink(Link(user: User(token: Token()), type: type, code: code, data: data));
+
+  bool hasUser(String userId, String tokenId) => _service.getUserToken(userId) == tokenId;
+  User putUser(Token token) => _service.putUser(User(token: token.copyNew(), referredBy: token.user));
+
+  void updateUserToken(String userId) {
+    _service.updateUserToken(userId);
   }
 }
 

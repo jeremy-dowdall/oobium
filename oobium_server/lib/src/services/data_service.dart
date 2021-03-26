@@ -14,7 +14,7 @@ class DataService extends Service<AuthConnection, Null> {
   final _clients = <String/*uid*/, DataClientData>{};
   final _sockets = <String/*uid*/, List<ServerWebSocket>>{};
   final _datastores = <String/*path*/, DataStore>{};
-  DataService({this.path = 'data'});
+  DataService({this.path = 'test-data'});
 
   DataClientData _shared;
   StreamSubscription _groupsSub;

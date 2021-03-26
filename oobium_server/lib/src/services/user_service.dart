@@ -12,7 +12,7 @@ class UserService extends Service<AuthConnection, Null> {
   final String root;
   final _clients = <String/*uid*/, UserClientData>{};
   final _sockets = <String/*uid*/, List<ServerWebSocket>>{};
-  UserService({this.root});
+  UserService({this.root='test-data'});
 
   StreamSubscription _authSub;
 
