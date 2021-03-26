@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 
 import 'test_client.dart';
 
-Future<void> main() async {
+void main() {
 
   setUpAll(() => TestClient.clean(root));
   tearDownAll(() => TestClient.clean(root));

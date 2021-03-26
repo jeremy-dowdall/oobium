@@ -5,6 +5,7 @@ class AuthServiceData extends Database {
       : super('$path/auth_service', [
           (data) => User.fromJson(data),
           (data) => Token.fromJson(data),
+          (data) => Link.fromJson(data),
           (data) => Group.fromJson(data),
           (data) => Membership.fromJson(data)
         ]);
@@ -72,6 +73,41 @@ class Token extends DataModel {
   Token copyNew({User user}) => Token.copyNew(this, user: user);
 
   Token copyWith({User user}) => Token.copyWith(this, user: user);
+}
+
+class Link extends DataModel {
+  User get user => this['user'];
+  String get type => this['type'];
+  String get code => this['code'];
+  Map<String, String> get data => this['data'];
+
+  Link(
+      {@required User user,
+      @required String type,
+      @required String code,
+      Map<String, String> data})
+      : super({'user': user, 'type': type, 'code': code, 'data': data});
+
+  Link.copyNew(Link original,
+      {User user, String type, String code, Map<String, String> data})
+      : super.copyNew(
+            original, {'user': user, 'type': type, 'code': code, 'data': data});
+
+  Link.copyWith(Link original,
+      {User user, String type, String code, Map<String, String> data})
+      : super.copyWith(
+            original, {'user': user, 'type': type, 'code': code, 'data': data});
+
+  Link.fromJson(data, {bool newId = false})
+      : super.fromJson(data, {'type', 'code', 'data'}, {'user'}, newId);
+
+  Link copyNew(
+          {User user, String type, String code, Map<String, String> data}) =>
+      Link.copyNew(this, user: user, type: type, code: code, data: data);
+
+  Link copyWith(
+          {User user, String type, String code, Map<String, String> data}) =>
+      Link.copyWith(this, user: user, type: type, code: code, data: data);
 }
 
 class Group extends DataModel {

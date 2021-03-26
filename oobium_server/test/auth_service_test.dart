@@ -1,0 +1,116 @@
+import 'dart:io';
+
+import 'package:mockito/mockito.dart';
+import 'package:oobium/src/websocket.dart';
+import 'package:oobium_server/src/server.dart';
+import 'package:oobium_server/src/services/auth/validators.dart';
+import 'package:oobium_server/src/services/auth_service.dart';
+import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
+import 'package:test/test.dart';
+
+void main() {
+
+  group('test validator', () {
+    test('valid', () async {
+      final req = Request.values(
+        host: Server(address: '127.0.0.1').host(),
+        headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'Test SOME_TOKEN'})
+      );
+
+      final valid = await TestValidator().validate(req);
+
+      expect(valid, isTrue);
+      expect(req.params['uid'], 'SOME_TOKEN');
+    });
+
+    test('invalid: missing authorizationHeader', () async {
+      final req = Request.values(
+        host: Server(address: '127.0.0.1').host(),
+        headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'todo'})
+      );
+
+      final valid = await TestValidator().validate(req);
+
+      expect(valid, isFalse);
+    });
+    test('invalid: null authorizationHeader', () async {
+      final req = Request.values(
+        host: Server(address: '127.0.0.1').host(),
+        headers: RequestHeaders.values({HttpHeaders.authorizationHeader: null})
+      );
+
+      final valid = await TestValidator().validate(req);
+
+      expect(valid, isFalse);
+    });
+    test('invalid: empty authorizationHeader', () async {
+      final req = Request.values(
+        host: Server(address: '127.0.0.1').host(),
+        headers: RequestHeaders.values({HttpHeaders.authorizationHeader: ''})
+      );
+
+      final valid = await TestValidator().validate(req);
+
+      expect(valid, isFalse);
+    });
+    test('invalid: bad authorizationHeader format', () async {
+      final req = Request.values(
+        host: Server(address: '127.0.0.1').host(),
+        headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'invalid'})
+      );
+
+      final valid = await TestValidator().validate(req);
+
+      expect(valid, isFalse);
+    });
+  });
+
+  group('auth socket validator', () {
+    group('new user', () {
+      test('valid', () async {
+        final code = 'single_use_code';
+
+        final existingUser = User();
+        final service = MockService();
+        when(service.consume(code)).thenReturn(Token(user: existingUser));
+
+        User newUser;
+        when(service.putUser(any)).thenAnswer((inv) => newUser = inv.positionalArguments[0] as User);
+
+        final host = MockHost();
+        final proxy = MockProxy();
+        when(host.socket(existingUser.id)).thenReturn(proxy);
+        when(proxy.getAny('/installs/approval')).thenAnswer((_) => Future.value(WsResult(200, true)));
+
+        final req = Request.values(
+          host: host,
+          headers: RequestHeaders.values({WsProtocolHeader: '$WsAuthProtocol, $code'})
+        );
+
+        final valid = await AuthSocketValidator.values(service: service).validate(req);
+
+        expect(valid, isTrue);
+        expect(req.params['uid'], newUser.id);
+      });
+    });
+    group('existing user', () {
+      test('valid', () async {
+        final service = MockService();
+        when(service.getUserToken('user_id')).thenReturn('token_id');
+
+        final req = Request.values(
+            headers: RequestHeaders.values({WsProtocolHeader: '$WsAuthProtocol, user_id-token_id'})
+        );
+
+        final valid = await AuthSocketValidator.values(service: service).validate(req);
+
+        expect(valid, isTrue);
+        expect(req.params['uid'], 'user_id');
+      });
+    });
+  });
+}
+
+class MockService extends Mock implements AuthService { }
+class MockHost extends Mock implements Host { }
+class MockProxy extends Mock implements WsProxy { }

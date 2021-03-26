@@ -20,7 +20,8 @@ class ServerSettings {
     String certPath,
     String keyPath,
     String cachePath,
-    String webroot
+    String webroot,
+    Map<String, dynamic> custom
   }) {
     _settings['server'] ??= {};
     if(address != null) _settings['server']['address'] = address;
@@ -29,6 +30,9 @@ class ServerSettings {
     if(keyPath != null) _settings['server']['keyPath'] = keyPath;
     if(cachePath != null) _settings['server']['cachePath'] = cachePath;
     if(webroot != null) _settings['server']['webroot'] = webroot;
+    if(custom != null) {
+      _settings.addAll(custom);
+    }
   }
 
   dynamic operator [](String key) => _settings[key];
@@ -51,9 +55,6 @@ class ServerSettings {
   SecurityContext get securityContext => isSecure ? (SecurityContext()..useCertificateChain(certPath)..usePrivateKey(keyPath)) : null;
   String get cachePath => _settings['server']['cachePath'] ?? 'cache';
   String get webroot => _settings['web']['path'] ?? 'www';
-
-  String get projectId => (_settings['firebase'] ?? {})['projectId']; // TODO special case: firebase
-  String get bibleApiKey => (_settings['bibleApi'] ?? {})['apiKey']; // TODO special case: bible api
 }
 
 class HostSettings {
