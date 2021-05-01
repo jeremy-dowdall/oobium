@@ -1,9 +1,7 @@
 name: oobium_routing
 description: Simplified routing for Navigator 2.0
-version: 0.0.1
-author:
-homepage: ''
-publish_to: 'none'
+version: 0.1.0
+repository: https://github.com/jeremy-dowdall/oobium
 
 environment:
   sdk: '>=2.12.0 <3.0.0'
@@ -11,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  collection: ^1.15.0
 
 dev_dependencies:
   flutter_test:

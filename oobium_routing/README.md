@@ -1,9 +1,17 @@
 # oobium_routing
+[![pub package](https://img.shields.io/pub/v/oobium_routing.svg)](https://pub.dev/packages/oobium_routing)
+
 Simplified routing for Flutter's Navigator 2.0.
 
-Type-safe and semi-declarative. Handles the browser address bar for web clients.
+- type-safe
+- semi-declarative
+- browser address bar (bidi)
+- nested routers
 
-## Example
+# Usage
+To use this plugin, add `oobium_routing` as a [dependency in your pubspec.yaml file](https://flutter.dev/platform-plugins/).
+
+# Example
 ```dart
 final routes = AppRoutes()
 	..add<AuthorsRoute>(
@@ -15,7 +23,7 @@ final routes = AppRoutes()
 		path: '/books',
 		onParse: (data) => BooksRoute(),
 		onBuild: (route) => [BooksPage()]
-	)
+	);
 
 runApp(MaterialApp.router(
 	title: 'NavDemo',
@@ -25,21 +33,24 @@ runApp(MaterialApp.router(
 
 ...
 
-Widget build(BuildContext context) {
-	return Center(child: Row(children: [
-		ElevatedButton(
-			child: Text('Authors'),
-			onPressed: () => context.route = AuthorsRoute(),
-		),
-		ElevatedButton(
-			child: Text('Books'),
-			onPressed: () => context.route = BooksRoute(),
-		),
-		ElevatedButton.icon(
-			icon: Icon(Icons.arrow_back),
-			label: Text('Back'),
-			onPressed: () => Navigator.pop(context),
-		),
-	],),);
+class ExampleView extends StatelessWidget {
+
+	Widget build(BuildContext context) {
+		return Center(child: Row(children: [
+			ElevatedButton(
+				child: Text('Authors'),
+				onPressed: () => context.route = AuthorsRoute(),
+			),
+			ElevatedButton(
+				child: Text('Books'),
+				onPressed: () => context.route = BooksRoute(),
+			),
+			ElevatedButton.icon(
+				icon: Icon(Icons.arrow_back),
+				label: Text('Back'),
+				onPressed: () => Navigator.pop(context),
+			),
+		],),);
+	}
 }
 ```

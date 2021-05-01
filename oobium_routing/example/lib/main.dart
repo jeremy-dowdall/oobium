@@ -31,7 +31,7 @@ final routes = AppRoutes()
         )
         ..add<AuthorsDetailRoute>(
             path: '/<id>',
-            onParse: (data) => AuthorsDetailRoute(data['id']),
+            onParse: (data) => AuthorsDetailRoute(data['id']!),
             onBuild: (route) => [AuthorsListPage(), AuthorsDetailPage(route['id'])]
         )
   )
@@ -47,7 +47,7 @@ final routes = AppRoutes()
         )
         ..add<BooksDetailRoute>(
             path: '/<id>',
-            onParse: (data) => BooksDetailRoute(data['id']),
+            onParse: (data) => BooksDetailRoute(data['id']!),
             onBuild: (route) => [BooksListPage(), BooksDetailPage(route['id'])]
         )
   )
@@ -79,7 +79,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final index = getIndex(context.route);
+    final index = getIndex(context.route!);
     return Scaffold(
       appBar: AppBar(title: Text('Home'),),
       body: IndexedStack(
@@ -140,7 +140,7 @@ class AuthorsListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
         children: authors.keys.map((id) {
-          final author = authors[id];
+          final author = authors[id]!;
           return ListTile(
             title: Text(author.name),
             onTap: () => context.route = AuthorsDetailRoute(id),
@@ -171,7 +171,7 @@ class AuthorsDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final author = authors[id];
+    final author = authors[id]!;
     return Center(child: Column(children: [
       Text('Name: ${author.name}'),
       ElevatedButton.icon(
@@ -202,7 +202,7 @@ class BooksListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
         children: books.keys.map((id) {
-          final book = books[id];
+          final book = books[id]!;
           return ListTile(
             title: Text(book.title),
             subtitle: Text(book.author),
@@ -234,7 +234,7 @@ class BooksDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final book = books[id];
+    final book = books[id]!;
     return Center(child: Column(children: [
       Text('Title: ${book.title}'),
       Text('Author: ${book.author}'),
