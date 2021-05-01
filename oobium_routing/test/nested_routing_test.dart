@@ -17,7 +17,7 @@ void main() {
       expect(route1['parentId'], '0');
       final route2 = await routes.parseRouteInformation(RouteInformation(location: '/parent/1/child/2'));
       expect(route2.parent?.runtimeType, TestRoute1);
-      expect(route2.parent['parentId'], '1');
+      expect(route2.parent?['parentId'], '1');
       expect(route2.runtimeType, TestRoute2);
       expect(route2['childId'], '2');
     });
@@ -37,14 +37,14 @@ void main() {
       expect(route1['parentId'], '0');
       final route2 = await routes.parseRouteInformation(RouteInformation(location: '/parent/1/child/2'));
       expect(route2.parent?.runtimeType, TestRoute1);
-      expect(route2.parent['parentId'], '1');
+      expect(route2.parent?['parentId'], '1');
       expect(route2.runtimeType, TestRoute2);
       expect(route2['childId'], '2');
       final route3 = await routes.parseRouteInformation(RouteInformation(location: '/parent/1/child/2/grand/3'));
       expect(route3.parent?.parent?.runtimeType, TestRoute1);
-      expect(route3.parent.parent['parentId'], '1');
+      expect(route3.parent?.parent?['parentId'], '1');
       expect(route3.parent?.runtimeType, TestRoute2);
-      expect(route3.parent['childId'], '2');
+      expect(route3.parent?['childId'], '2');
       expect(route3.runtimeType, TestRoute3);
       expect(route3['grandId'], '3');
     });
@@ -113,6 +113,6 @@ void main() {
   });
 }
 
-class TestRoute1 extends AppRoute { TestRoute1([Map<String, String> data]) : super(data); }
-class TestRoute2 extends AppRoute { TestRoute2([Map<String, String> data]) : super(data); }
-class TestRoute3 extends AppRoute { TestRoute3([Map<String, String> data]) : super(data); }
+class TestRoute1 extends AppRoute { TestRoute1([Map<String, String>? data]) : super(data); }
+class TestRoute2 extends AppRoute { TestRoute2([Map<String, String>? data]) : super(data); }
+class TestRoute3 extends AppRoute { TestRoute3([Map<String, String>? data]) : super(data); }

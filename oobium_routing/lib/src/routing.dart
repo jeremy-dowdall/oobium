@@ -1,11 +1,12 @@
 import 'package:flutter/widgets.dart';
+import 'package:collection/collection.dart';
 
 extension BuildContextOobiumRoutingExtentions on BuildContext {
 
   Router get router => Router.of(this);
   AppRoutes get routes => (router.routerDelegate as AppRouterDelegate).routes;
-  AppRoute get route => routes.state.route;
-  set route(AppRoute value) => routes.state.route = value;
+  AppRoute? get route => routes.state.route;
+  set route(AppRoute? value) => routes.state.route = value;
   set newRoutePath(AppRoute value) => router.routerDelegate.setNewRoutePath(value);
 
 }
@@ -15,23 +16,23 @@ abstract class AppRoute {
   bool _isHome = false;
   bool get _isNotHome => !_isHome;
 
-  AppRoute _parent;
-  AppRoute get parent => _parent;
-  set parent(AppRoute value) {
+  AppRoute? _parent;
+  AppRoute? get parent => _parent;
+  set parent(AppRoute? value) {
     assert(value != this);
     _parent = value;
   }
 
   final Map<String, String> _data;
-  AppRoute([Map<String, String> data]) : _data = data ?? {};
+  AppRoute([Map<String, String>? data]) : _data = data ?? {};
 
-  String operator [](String key) => _data[key];
+  String operator [](String key) => _data[key] ?? '';
 
   @override
   String toString() => '$runtimeType($_data)';
 
   @override
-  bool operator ==(Object other) {
+  bool operator ==(Object? other) {
     if(identical(this, other)) return true;
     return other?.runtimeType == runtimeType && (other is AppRoute)
         && other._data.length == _data.length
@@ -46,25 +47,25 @@ abstract class AppRoute {
 class AppRoutes<E extends AppRouterState> {
 
   final E state;
-  String _homePath;
-  AppRoutes({E state, String home}) :
-      state = state ?? ((E == AppRouterState) ? AppRouterState() : throw Exception('custom state type, $E, must be passed in to AppRoutes')),
-      _homePath = home
+  String? _homePath;
+  AppRoutes({E? state, String? home}) :
+    state = state ?? ((E == AppRouterState) ? (AppRouterState() as E) : throw Exception('custom state type, $E, must be passed in to AppRoutes'))
   {
     this._root = this;
     this.state._routes = this;
+    if(home != null) _homePath = home;
   }
 
   final Map<Type, _RouteDef> definitions = {};
 
-  AppRoute _currentConfiguration;
-  AppRoute get currentConfiguration => _currentConfiguration;
-  set currentConfiguration(AppRoute value) => _setCurrentConfiguration(value, true);
+  AppRoute? _currentConfiguration;
+  AppRoute? get currentConfiguration => _currentConfiguration;
+  set currentConfiguration(AppRoute? value) => _setCurrentConfiguration(value, true);
 
-  AppRoutes _parent;
-  AppRoutes _root;
+  late AppRoutes _root;
+  AppRoutes? _parent;
   bool _updatingConfig = false;
-  void _setCurrentConfiguration(AppRoute value, bool reset) {
+  void _setCurrentConfiguration(AppRoute? value, bool reset) {
     if(!_updatingConfig) {
       _updatingConfig = true;
       try {
@@ -74,9 +75,9 @@ class AppRoutes<E extends AppRouterState> {
       }
     }
   }
-  void _doSetCurrentConfiguration(AppRoute value, bool reset) {
+  void _doSetCurrentConfiguration(AppRoute? value, bool reset) {
     if(!reset && value != null) {
-      for(var r = value; r != null && r._isNotHome; r = getAppRoutes(r).definitions[r.runtimeType].children?.state?.route) value = r;
+      for(AppRoute? r = value; r != null && r._isNotHome; r = getAppRoutes(r).definitions[r.runtimeType]?.children?.state.route) value = r;
     }
     if(_currentConfiguration == value) {
       return;
@@ -94,29 +95,25 @@ class AppRoutes<E extends AppRouterState> {
     }
     for(var r in oldList.where((r) => !newList.contains(r))) getAppRoutes(r).state.reset();
     for(var r in newList.reversed) getAppRoutes(r).state.route = r;
-    if(value.parent != null) {
+    if(value?.parent != null) {
       state._notifyListeners();
     }
   }
 
   add<T extends AppRoute>({
-    @required String path,
-    @required T onParse(Map<String, String> data),
-    @required List<Page> onBuild(T route),
-    AppRoute onGuard(E state),
-    void onPop(E state),
-    AppRoutes children
+    required String path,
+    required T onParse(Map<String, String> data),
+    required List<Page> onBuild(T route),
+    AppRoute Function(E state)? onGuard,
+    void Function(E state)? onPop,
+    AppRoutes? children
   }) {
-    assert(T != AppRoute, 'missing type (add<T> where T is a type extending AppRoute)');
-    assert(path != null && path.isNotEmpty, 'missing path (cannot be null or empty)');
-    assert(onParse != null, 'missing onParse');
-    assert(onBuild != null, 'missing onBuild');
     assert(!definitions.containsKey(T), 'duplicate route: $T');
 
     _homePath ??= path;
 
-    final shadowPath = _getPaths(path)?.join();
-    assert(shadowPath == null, 'duplicate path: $path${(path != shadowPath) ? ' shadows $shadowPath' : ''}');
+    final shadowPath = _getPaths(path).join();
+    assert(shadowPath.isEmpty, 'duplicate path: $path${(path != shadowPath) ? ' shadows $shadowPath' : ''}');
 
     definitions[T] = _RouteDef<E, T>(path: path, onParse: onParse, onBuild: onBuild, onGuard: onGuard, onPop: onPop, children: children);
 
@@ -130,7 +127,7 @@ class AppRoutes<E extends AppRouterState> {
     }
   }
 
-  AppRoutes get<T extends AppRoute>() => definitions[T]?.children;
+  AppRoutes? of<T extends AppRoute>() => definitions[T]?.children;
 
   AppRouteParser createRouteParser() => AppRouteParser(this);
   AppRouterDelegate createRouterDelegate() => AppRouterDelegate(this);
@@ -138,15 +135,19 @@ class AppRoutes<E extends AppRouterState> {
   AppRoute get homeRoute {
     final route = _getDefinition(_homePath)?.parse({});
     assert(route != null, 'home is not set correctly (home == \'$_homePath\', but no route is defined at that location)');
-    route._parent = _parent?.state?.route;
+    route!._parent = _parent?.state.route;
     route._isHome = true;
     return route;
   }
+  
+  AppRoute get notFoundRoute {
+    throw 'not yet implemented';
+  }
 
-  AppRoute getParentRoute(AppRoute route) {
-    final path = definitions[route.runtimeType].path;
-    final sa = path.split('/');
-    if(sa.length > 1) {
+  AppRoute? getParentRoute(AppRoute route) {
+    final path = definitions[route.runtimeType]?.path;
+    final sa = path?.split('/');
+    if(sa != null && sa.length > 1) {
       final newPath = sa.sublist(0, sa.length - 1).join('/');
       return _getDefinition(newPath)?.parse(route._data);
     }
@@ -157,35 +158,38 @@ class AppRoutes<E extends AppRouterState> {
     assert(state.route != null, 'tried to build pages before setting a route');
     return getPagesFor(state.route);
   }
-  List<Page> getPagesFor(AppRoute route) {
+  List<Page> getPagesFor(AppRoute? route) {
     if(route == null) {
       return [];
     } else {
-      final routeDef = definitions[route.runtimeType];
+      final routeDef = definitions[route.runtimeType]!;
       return [...routeDef.build(route), ...getPagesFor(routeDef.guard(state))];
     }
   }
 
   bool popPage() {
-    final routeDef = definitions[state.route.runtimeType];
-    if(routeDef.canPop) {
-      routeDef.pop(state);
-    } else {
-      state.route = getParentRoute(state.route) ?? homeRoute;
+    final route = state.route;
+    if(route != null) {
+      final routeDef = definitions[route.runtimeType]!;
+      if(routeDef.canPop) {
+        routeDef.pop(state);
+      } else {
+        state.route = getParentRoute(route) ?? homeRoute;
+      }
     }
     return true;
   }
 
   Future<AppRoute> parseRouteInformation(RouteInformation routeInformation) async {
-    final uri = Uri.parse(routeInformation.location);
-    final paths = _getPaths(uri.path, home: _homePath);
+    final uri = Uri.tryParse(routeInformation.location ?? '')?.path ?? '';
+    final paths = _getPaths(uri, home: _homePath);
     if(paths.isEmpty) {
       print('route not found: $uri');
-      return null;
+      return notFoundRoute;
     }
-    final data = _getData(paths.join(), uri.path);
+    final data = _getData(paths.join(), uri);
     if(paths.length == 1) {
-      return _getDefinition(paths[0]).parse(data);
+      return _getDefinition(paths[0])!.parse(data);
     } else {
       var route;
       for(var i = 0; i < paths.length; i++) {
@@ -196,53 +200,56 @@ class AppRoutes<E extends AppRouterState> {
   }
 
   RouteInformation restoreRouteInformation(AppRoute route) {
+    AppRoute? r = route;
     final locations = <String>[];
-    do {
-      locations.add(getLocation(route));
-      route = route.parent;
-    } while(route != null);
+    while(r != null) {
+      locations.add(getLocation(r));
+      r = r.parent;
+    }
     return RouteInformation(location: locations.reversed.join());
   }
 
   AppRoutes getAppRoutes(AppRoute route) {
     final routeList = <AppRoute>[];
     for(var r = route.parent; r != null; r = r.parent) routeList.insert(0, r);
-    return routeList.fold<AppRoutes>(this, (routes, route) => routes.definitions[route.runtimeType].children);
+    return routeList.fold<AppRoutes>(this, (routes, route) => routes.definitions[route.runtimeType]!.children!);
   }
 
   String getLocation(AppRoute route) {
     final routes = getAppRoutes(route);
-    return routes.definitions[route.runtimeType].path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => route[m[1]]);
+    return routes.definitions[route.runtimeType]!.path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => route[m[1]!]);
   }
 
-  _RouteDef _getDefinition(String path) => definitions.values.firstWhere((d) => d.path == path, orElse: () => null);
+  _RouteDef? _getDefinition(String? path) => definitions.values.firstWhereOrNull((d) => d.path == path);
 
   _RouteDef _findDefinition(AppRoutes routes, List<String> paths, [index = 0]) {
-    final def = routes._getDefinition(paths[index]);
-    return (index == paths.length - 1) ? def : _findDefinition(def.children, paths, index + 1);
+    final def = routes._getDefinition(paths[index])!;
+    return (index == paths.length - 1) ? def : _findDefinition(def.children!, paths, index + 1);
   }
 
-  List<String> _getPaths(String path, {String home}) {
-    final s = ((path != '/') ? path : home) ?? path;
-    final sa = _segments(s);
-    for(var t in definitions.keys) {
-      final k = definitions[t].path;
-      final ka = _segments(k);
-      if(_matches(sa, ka)) {
-        if(ka.length == sa.length) { // full match
-          return [k];
-        } else { // partial match (check children for completions)
-          final c = definitions[t].children;
-          if(c != null) {
-            final p = c._getPaths(sa.sublist(ka.length).join('/'));
-            if(p != null) {
-              return [k, ...p];
+  List<String> _getPaths(String path, {String? home}) {
+    if(path.isNotEmpty) {
+      final s = ((path != '/') ? path : home) ?? path;
+      final sa = _segments(s);
+      for(var def in definitions.values) {
+        final k = def.path;
+        final ka = _segments(k);
+        if(_matches(sa, ka)) {
+          if(ka.length == sa.length) { // full match
+            return [k];
+          } else { // partial match (check children for completions)
+            final c = def.children;
+            if(c != null) {
+              final p = c._getPaths(sa.sublist(ka.length).join('/'));
+              if(p.isNotEmpty) {
+                return [k, ...p];
+              }
             }
           }
         }
       }
     }
-    return null;
+    return [];
   }
 
   Map<String, String> _getData(String path, String location) {
@@ -268,21 +275,21 @@ class AppRoutes<E extends AppRouterState> {
     return true;
   }
 
-  bool _isVariable(String s) => s != null && s.isNotEmpty && s[0] == '<';
-  bool _isNotVariable(String s) => !_isVariable(s);
+  bool _isVariable(String? s) => s != null && s.isNotEmpty && s[0] == '<';
+  bool _isNotVariable(String? s) => !_isVariable(s);
 }
 
 class AppRouterState extends ChangeNotifier {
 
-  AppRoutes _routes;
+  late AppRoutes _routes;
 
   void reset() {
     route = _routes.homeRoute;
   }
 
-  AppRoute _route;
-  AppRoute get route => _route;
-  set route(AppRoute value) {
+  AppRoute? _route;
+  AppRoute? get route => _route;
+  set route(AppRoute? value) {
     assert(
       value == null || _routes.definitions[value.runtimeType] != null,
       'unsupported route: $value (this is probably not the delegate you were looking for)'
@@ -291,7 +298,7 @@ class AppRouterState extends ChangeNotifier {
       if(value == null) {
         _route = null;
       } else {
-        _route = value..parent = _routes._parent?.state?.route;
+        _route = value..parent = _routes._parent?.state.route;
         _routes._root._setCurrentConfiguration(_route, false);
       }
       notifyListeners();
@@ -331,7 +338,7 @@ class AppRouterDelegate extends RouterDelegate<AppRoute> with ChangeNotifier, Po
   }
 
   @override
-  AppRoute get currentConfiguration => routes.currentConfiguration;
+  AppRoute? get currentConfiguration => routes.currentConfiguration;
 
   @override
   Future<void> setNewRoutePath(AppRoute route) async => routes.currentConfiguration = route;
@@ -363,17 +370,19 @@ class ChildRouter<T extends AppRoute> extends StatefulWidget {
 }
 class _ChildRouterState<T extends AppRoute> extends State<ChildRouter> {
 
-  AppRouterDelegate delegate;
-  BackButtonDispatcher dispatcher;
+  late AppRouterDelegate delegate;
+  BackButtonDispatcher? dispatcher;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    delegate = context.routes.get<T>().createRouterDelegate();
+    final routes = context.routes.of<T>();
+    assert(routes != null, 'could not get child routes for $T');
+    delegate = routes!.createRouterDelegate();
     if(dispatcher != null) {
       _givePriority(context, dispatcher);
     }
-    dispatcher = Router.of(context).backButtonDispatcher.createChildBackButtonDispatcher();
+    dispatcher = Router.of(context).backButtonDispatcher?.createChildBackButtonDispatcher();
   }
 
   @override
@@ -395,39 +404,38 @@ class _ChildRouterState<T extends AppRoute> extends State<ChildRouter> {
     );
   }
 
-  static BackButtonDispatcher _priorityDispatcher;
+  static BackButtonDispatcher? _priorityDispatcher;
 
-  static void _takePriority(BackButtonDispatcher dispatcher) {
-    _priorityDispatcher = dispatcher;
-    _priorityDispatcher.takePriority();
+  static void _takePriority(BackButtonDispatcher? dispatcher) {
+    _priorityDispatcher = dispatcher?..takePriority();
   }
 
-  static void _givePriority(BuildContext context, BackButtonDispatcher dispatcher) {
-    if(_priorityDispatcher == dispatcher) {
+  static void _givePriority(BuildContext context, BackButtonDispatcher? dispatcher) {
+    if(_priorityDispatcher == dispatcher && dispatcher != null) {
       _priorityDispatcher = null;
-      Router.of(context).backButtonDispatcher.takePriority();
+      Router.of(context).backButtonDispatcher?.takePriority();
     }
   }
 }
 
 class _RouteDef<E extends AppRouterState, T extends AppRoute> {
   final String path;
-  final AppRoute Function(Map<String, String> data) onParse;
+  final T Function(Map<String, String> data) onParse;
   final List<Page> Function(T route) onBuild;
-  final AppRoute Function(E state) onGuard;
-  final void Function(E state) onPop;
-  final AppRoutes children;
+  final AppRoute Function(E state)? onGuard;
+  final void Function(E state)? onPop;
+  final AppRoutes? children;
   _RouteDef({
-    @required this.path,
-    @required this.onParse,
-    @required this.onBuild,
+    required this.path,
+    required this.onParse,
+    required this.onBuild,
     this.onGuard,
     this.onPop,
     this.children
   });
   bool get canPop => onPop != null;
   List<Page> build(AppRoute route) => onBuild(route as T);
-  AppRoute guard(AppRouterState state) => onGuard?.call(state as E);
+  AppRoute? guard(AppRouterState state) => onGuard?.call(state as E);
   AppRoute parse(Map<String, String> data) => onParse(data);
   void pop(AppRouterState state) => onPop?.call(state as E);
 }

@@ -19,4 +19,4 @@ void main() {
   });
 }
 
-class TestRoute extends AppRoute { TestRoute([Map<String, String> data]) : super(data); }
+class TestRoute extends AppRoute { TestRoute([Map<String, String>? data]) : super(data); }

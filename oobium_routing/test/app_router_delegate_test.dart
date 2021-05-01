@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oobium_routing/src/routing.dart';
 
-import 'utils.dart';
-
 void main() {
   group('nested setNewRoutePath', () {
     test('masked parent and child', () {
@@ -17,7 +15,7 @@ void main() {
             )
       );
       final delegate1 = routes.createRouterDelegate();
-      final delegate2 = routes.get<TestRoute1>().createRouterDelegate();
+      final delegate2 = routes.of<TestRoute1>()!.createRouterDelegate();
       final route1 = TestRoute1({'parentId': '1'});
       final route2 = TestRoute2()..parent = route1;
       final route3 = TestRoute3({'childId': '2'})..parent = route1;
@@ -51,7 +49,7 @@ void main() {
           )
       );
       final delegate1 = routes.createRouterDelegate();
-      final delegate2 = routes.get<TestRoute1>().createRouterDelegate();
+      final delegate2 = routes.of<TestRoute1>()!.createRouterDelegate();
       final route1 = TestRoute1({'parentId': '1'});
       final route2 = TestRoute2()..parent = route1;
       final route3 = TestRoute3({'childId': '2'})..parent = route1;
@@ -60,7 +58,7 @@ void main() {
       expect(delegate2.currentConfiguration, null);
       expect(delegate1.routes.state.route, route1);
       expect(delegate2.routes.state.route, route2);
-      expectError(() => delegate1.routes.state.route = route3, 'unsupported route: $route3 (this is probably not the delegate you were looking for)');
+      expect(() => delegate1.routes.state.route = route3, throwsA(predicate<AssertionError>((e) => e.message == 'unsupported route: $route3 (this is probably not the delegate you were looking for)')));
       delegate2.routes.state.route = route3;
       expect(delegate1.currentConfiguration, route3);
       expect(delegate2.currentConfiguration, null);
@@ -75,6 +73,6 @@ void main() {
   });
 }
 
-class TestRoute1 extends AppRoute { TestRoute1([Map<String, String> data]) : super(data); }
-class TestRoute2 extends AppRoute { TestRoute2([Map<String, String> data]) : super(data); }
-class TestRoute3 extends AppRoute { TestRoute3([Map<String, String> data]) : super(data); }
+class TestRoute1 extends AppRoute { TestRoute1([Map<String, String>? data]) : super(data); }
+class TestRoute2 extends AppRoute { TestRoute2([Map<String, String>? data]) : super(data); }
+class TestRoute3 extends AppRoute { TestRoute3([Map<String, String>? data]) : super(data); }
