@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:collection/collection.dart';
 
 extension BuildContextOobiumRoutingExtentions on BuildContext {
 
@@ -220,7 +219,15 @@ class AppRoutes<E extends AppRouterState> {
     return routes.definitions[route.runtimeType]!.path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => route[m[1]!]);
   }
 
-  _RouteDef? _getDefinition(String? path) => definitions.values.firstWhereOrNull((d) => d.path == path);
+  _RouteDef? _getDefinition(String? path) {
+    if(path == null) return null;
+    for(var def in definitions.values) {
+      if(def.path == path) {
+        return def;
+      }
+    }
+    return null;
+  }
 
   _RouteDef _findDefinition(AppRoutes routes, List<String> paths, [index = 0]) {
     final def = routes._getDefinition(paths[index])!;
