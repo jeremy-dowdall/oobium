@@ -8,7 +8,66 @@ extension BuildContextOobiumRoutingExtentions on BuildContext {
   set route(AppRoute? value) => routes.state.route = value;
   set newRoutePath(AppRoute value) => router.routerDelegate.setNewRoutePath(value);
 
+  bool isRoute<T extends AppRoute>() => route is T;
+
+  T? getRoute<T extends AppRoute>() {
+    final route = this.route;
+    return (route is T) ? route : null;
+  }
 }
+
+
+
+typedef RouteController = List<Page> Function(RouteData state);
+
+class RouteData {
+  final _map = <String, String>{};
+  RouteData([Map<String, String?>? state]) {
+    if(state != null) {
+      for(var e in state.entries) {
+        if(e.value != null) {
+          _map[e.key] = e.value!;
+        }
+      }
+    }
+  }
+
+  String operator [](String key) => _map[key]!;
+  bool has(String key) => _map.containsKey(key);
+
+  @override
+  String toString() => '$runtimeType($_map)';
+
+  @override
+  bool operator ==(Object? other) {
+    if(identical(this, other)) return true;
+    return other?.runtimeType == runtimeType && other is RouteData
+        && other._map.length == _map.length
+        && other._map.keys.every((k) => other._map[k] == _map[k]);
+  }
+
+  @override
+  int get hashCode => hashValues(runtimeType, _map);
+}
+
+class Routing {
+  final String _homePath;
+  final _routes = <String, List<RouteController>>{};
+  Routing({String home = '/'}) : _homePath = home;
+
+  void put(Symbol name, String path, List<RouteController> controllers) {
+    _routes[path] = controllers;
+  }
+
+  T add<T>(T builder, String path, List<RouteController> controllers) {
+    return builder;
+  }
+
+  AppRouteParser createRouteParser() => AppRouteParser(AppRoutes());
+  AppRouterDelegate createRouterDelegate() => AppRouterDelegate(AppRoutes());
+}
+
+
 
 abstract class AppRoute {
 
@@ -22,10 +81,14 @@ abstract class AppRoute {
     _parent = value;
   }
 
-  final Map<String, String> _data;
-  AppRoute([Map<String, String>? data]) : _data = data ?? {};
+  AppRouteGuard? _guard;
+  AppRouteGuard? get guard => _guard;
 
-  String operator [](String key) => _data[key] ?? '';
+  final RouteData _data;
+  AppRoute([RouteData? data]) : _data = data ?? RouteData();
+
+  String operator [](String key) => _data[key];
+  bool has(String key) => _data.has(key);
 
   @override
   String toString() => '$runtimeType($_data)';
@@ -33,14 +96,23 @@ abstract class AppRoute {
   @override
   bool operator ==(Object? other) {
     if(identical(this, other)) return true;
-    return other?.runtimeType == runtimeType && (other is AppRoute)
-        && other._data.length == _data.length
-        && other._data.keys.every((k) => other._data[k] == _data[k]);
+    return other?.runtimeType == runtimeType && (other is AppRoute) && other._data == _data;
   }
 
   @override
   int get hashCode => hashValues(runtimeType, _data);
+}
 
+class AppRouteGuard {
+  final AppRouterState _state;
+  final AppRoute _route;
+  AppRouteGuard(this._state, this._route);
+
+  void finish() {
+    if(_state.route == _route) {
+      _state._notifyListeners();
+    }
+  }
 }
 
 class AppRoutes<E extends AppRouterState> {
@@ -99,12 +171,23 @@ class AppRoutes<E extends AppRouterState> {
     }
   }
 
-  add<T extends AppRoute>({
+  void put<T extends AppRoute>(
+    String path,
+    {
+      required List<Page> Function(RouteReference<E, T> ref) onBuild,
+      AppRoute? Function(RouteReference<E, T> ref)? onGuard,
+      void Function(RouteReference<E, T> ref)? onPop,
+      T Function(RouteData data)? onParse,
+    }) {
+    // TODO
+  }
+
+  void add<T extends AppRoute>({
     required String path,
-    required T onParse(Map<String, String> data),
-    required List<Page> onBuild(T route),
-    AppRoute Function(E state)? onGuard,
-    void Function(E state)? onPop,
+    required T Function(RouteData data) onParse,
+    required List<Page> Function(RouteReference<E, T> ref) onBuild,
+    AppRoute? Function(RouteReference<E, T> ref)? onGuard,
+    void Function(RouteReference<E, T> ref)? onPop,
     AppRoutes? children
   }) {
     assert(!definitions.containsKey(T), 'duplicate route: $T');
@@ -132,7 +215,7 @@ class AppRoutes<E extends AppRouterState> {
   AppRouterDelegate createRouterDelegate() => AppRouterDelegate(this);
 
   AppRoute get homeRoute {
-    final route = _getDefinition(_homePath)?.parse({});
+    final route = _getDefinition(_homePath)?.parse(RouteData());
     assert(route != null, 'home is not set correctly (home == \'$_homePath\', but no route is defined at that location)');
     route!._parent = _parent?.state.route;
     route._isHome = true;
@@ -153,25 +236,30 @@ class AppRoutes<E extends AppRouterState> {
     return null;
   }
 
-  List<Page> getPages() {
+  AppRoute checkRoute(BuildContext context) {
     assert(state.route != null, 'tried to build pages before setting a route');
-    return getPagesFor(state.route);
-  }
-  List<Page> getPagesFor(AppRoute? route) {
-    if(route == null) {
-      return [];
-    } else {
-      final routeDef = definitions[route.runtimeType]!;
-      return [...routeDef.build(route), ...getPagesFor(routeDef.guard(state))];
+    final route = state.route!;
+    final routeDef = definitions[route.runtimeType]!;
+    final guardRoute = routeDef.guard(state, context, route);
+    if(guardRoute != null) {
+      route._guard = AppRouteGuard(state, route);
     }
+    return guardRoute ?? route;
   }
 
-  bool popPage() {
+  List<Page> getPages(BuildContext context) {
+    final route = checkRoute(context);
+    final routeDef = definitions[route.runtimeType]!;
+    state._pages = routeDef.build(state, context, route);
+    return state.pages;
+  }
+
+  bool popPage(BuildContext context) {
     final route = state.route;
     if(route != null) {
       final routeDef = definitions[route.runtimeType]!;
       if(routeDef.canPop) {
-        routeDef.pop(state);
+        routeDef.pop(state, context, route);
       } else {
         state.route = getParentRoute(route) ?? homeRoute;
       }
@@ -259,8 +347,8 @@ class AppRoutes<E extends AppRouterState> {
     return [];
   }
 
-  Map<String, String> _getData(String path, String location) {
-    final data = Map<String, String>();
+  RouteData _getData(String path, String location) {
+    final data = <String, String>{};
     final s1 = _segments(path);
     final s2 = _segments(location);
     for(var i = 0; i < s1.length; i++) {
@@ -268,7 +356,7 @@ class AppRoutes<E extends AppRouterState> {
         data[s1[i].substring(1, s1[i].length-1)] = s2[i];
       }
     }
-    return data;
+    return RouteData(data);
   }
 
   List<String> _segments(String s) => s.split('/').where((e) => e.isNotEmpty).toList();
@@ -290,10 +378,6 @@ class AppRouterState extends ChangeNotifier {
 
   late AppRoutes _routes;
 
-  void reset() {
-    route = _routes.homeRoute;
-  }
-
   AppRoute? _route;
   AppRoute? get route => _route;
   set route(AppRoute? value) {
@@ -314,7 +398,14 @@ class AppRouterState extends ChangeNotifier {
     }
   }
 
-  _notifyListeners() => notifyListeners();
+  late List<Page> _pages;
+  List<Page> get pages => _pages;
+
+  void reset() {
+    route = _routes.homeRoute;
+  }
+
+  void _notifyListeners() => notifyListeners();
 }
 
 class AppRouteParser extends RouteInformationParser<AppRoute> {
@@ -354,12 +445,12 @@ class AppRouterDelegate extends RouterDelegate<AppRoute> with ChangeNotifier, Po
   Widget build(BuildContext context) {
     return Navigator(
       key: navigatorKey,
-      pages: routes.getPages(),
+      pages: routes.getPages(context),
       onPopPage: (route, result) {
         if(!route.didPop(result)) {
           return false;
         }
-        return routes.popPage();
+        return routes.popPage(context);
       },
       reportsRouteUpdateToEngine: true,
     );
@@ -425,12 +516,19 @@ class _ChildRouterState<T extends AppRoute> extends State<ChildRouter> {
   }
 }
 
+class RouteReference<E extends AppRouterState, T extends AppRoute> {
+  final E state;
+  final BuildContext context;
+  final T route;
+  RouteReference(this.state, this.context, this.route);
+}
+
 class _RouteDef<E extends AppRouterState, T extends AppRoute> {
   final String path;
-  final T Function(Map<String, String> data) onParse;
-  final List<Page> Function(T route) onBuild;
-  final AppRoute Function(E state)? onGuard;
-  final void Function(E state)? onPop;
+  final T Function(RouteData data) onParse;
+  final List<Page> Function(RouteReference<E, T> ref) onBuild;
+  final AppRoute? Function(RouteReference<E, T> ref)? onGuard;
+  final void Function(RouteReference<E, T> ref)? onPop;
   final AppRoutes? children;
   _RouteDef({
     required this.path,
@@ -441,9 +539,9 @@ class _RouteDef<E extends AppRouterState, T extends AppRoute> {
     this.children
   });
   bool get canPop => onPop != null;
-  List<Page> build(AppRoute route) => onBuild(route as T);
-  AppRoute? guard(AppRouterState state) => onGuard?.call(state as E);
-  AppRoute parse(Map<String, String> data) => onParse(data);
-  void pop(AppRouterState state) => onPop?.call(state as E);
+  List<Page> build(AppRouterState state, BuildContext context, AppRoute route) => onBuild(RouteReference(state as E, context, route as T));
+  AppRoute? guard(AppRouterState state, BuildContext context, AppRoute route) => onGuard?.call(RouteReference(state as E, context, route as T));
+  AppRoute parse(RouteData data) => onParse(data);
+  void pop(AppRouterState state, BuildContext context, AppRoute route) => onPop?.call(RouteReference(state as E, context, route as T));
 }
 

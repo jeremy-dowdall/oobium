@@ -12,43 +12,43 @@ void main() => runApp(MaterialApp.router(
 ///
 class AuthorsRoute extends AppRoute { }
 class AuthorsListRoute extends AppRoute { }
-class AuthorsDetailRoute extends AppRoute { AuthorsDetailRoute(String id) : super({'id': id}); }
+class AuthorsDetailRoute extends AppRoute { AuthorsDetailRoute(String id) : super(RouteData({'id': id})); }
 class BooksRoute extends AppRoute { }
 class BooksListRoute extends AppRoute { }
-class BooksDetailRoute extends AppRoute { BooksDetailRoute(String id) : super({'id': id}); }
+class BooksDetailRoute extends AppRoute { BooksDetailRoute(String id) : super(RouteData({'id': id})); }
 class SettingsRoute extends AppRoute { }
 
 final routes = AppRoutes()
   ..add<AuthorsRoute>(
       path: '/authors',
       onParse: (data) => AuthorsRoute(),
-      onBuild: (route) => [HomePage()],
+      onBuild: (ref) => [HomePage()],
       children: AppRoutes()
         ..add<AuthorsListRoute>(
             path: '/',
             onParse: (data) => AuthorsListRoute(),
-            onBuild: (route) => [AuthorsListPage()]
+            onBuild: (ref) => [AuthorsListPage()]
         )
         ..add<AuthorsDetailRoute>(
             path: '/<id>',
-            onParse: (data) => AuthorsDetailRoute(data['id']!),
-            onBuild: (route) => [AuthorsListPage(), AuthorsDetailPage(route['id'])]
+            onParse: (data) => AuthorsDetailRoute(data['id']),
+            onBuild: (ref) => [AuthorsListPage(), AuthorsDetailPage(ref.route['id'])]
         )
   )
   ..add<BooksRoute>(
       path: '/books',
       onParse: (data) => BooksRoute(),
-      onBuild: (route) => [HomePage()],
+      onBuild: (ref) => [HomePage()],
       children: AppRoutes()
         ..add<BooksListRoute>(
             path: '/',
             onParse: (data) => BooksListRoute(),
-            onBuild: (route) => [BooksListPage()]
+            onBuild: (ref) => [BooksListPage()]
         )
         ..add<BooksDetailRoute>(
             path: '/<id>',
-            onParse: (data) => BooksDetailRoute(data['id']!),
-            onBuild: (route) => [BooksListPage(), BooksDetailPage(route['id'])]
+            onParse: (data) => BooksDetailRoute(data['id']),
+            onBuild: (ref) => [BooksListPage(), BooksDetailPage(ref.route['id'])]
         )
   )
   ..add<SettingsRoute>(

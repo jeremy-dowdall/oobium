@@ -16,9 +16,9 @@ void main() {
       );
       final delegate1 = routes.createRouterDelegate();
       final delegate2 = routes.of<TestRoute1>()!.createRouterDelegate();
-      final route1 = TestRoute1({'parentId': '1'});
+      final route1 = TestRoute1(RouteData({'parentId': '1'}));
       final route2 = TestRoute2()..parent = route1;
-      final route3 = TestRoute3({'childId': '2'})..parent = route1;
+      final route3 = TestRoute3(RouteData({'childId': '2'}))..parent = route1;
       delegate1.setNewRoutePath(route1);
       expect(delegate1.currentConfiguration, route1);
       expect(delegate2.currentConfiguration, null);
@@ -50,9 +50,9 @@ void main() {
       );
       final delegate1 = routes.createRouterDelegate();
       final delegate2 = routes.of<TestRoute1>()!.createRouterDelegate();
-      final route1 = TestRoute1({'parentId': '1'});
+      final route1 = TestRoute1(RouteData({'parentId': '1'}));
       final route2 = TestRoute2()..parent = route1;
-      final route3 = TestRoute3({'childId': '2'})..parent = route1;
+      final route3 = TestRoute3(RouteData({'childId': '2'}))..parent = route1;
       delegate1.routes.state.route = route1;
       expect(delegate1.currentConfiguration, route1);
       expect(delegate2.currentConfiguration, null);
@@ -73,6 +73,6 @@ void main() {
   });
 }
 
-class TestRoute1 extends AppRoute { TestRoute1([Map<String, String>? data]) : super(data); }
-class TestRoute2 extends AppRoute { TestRoute2([Map<String, String>? data]) : super(data); }
-class TestRoute3 extends AppRoute { TestRoute3([Map<String, String>? data]) : super(data); }
+class TestRoute1 extends AppRoute { TestRoute1([RouteData? data]) : super(data); }
+class TestRoute2 extends AppRoute { TestRoute2([RouteData? data]) : super(data); }
+class TestRoute3 extends AppRoute { TestRoute3([RouteData? data]) : super(data); }

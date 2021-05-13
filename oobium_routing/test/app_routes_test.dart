@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/mockito.dart';
 import 'package:oobium_routing/src/routing.dart';
 
 void main() {
@@ -7,8 +8,8 @@ void main() {
     test('equals', () {
       expect(TestRoute1() == TestRoute1(), isTrue);
       expect(TestRoute1() == TestRoute2(), isFalse);
-      expect(TestRoute1({'id': '1'}) == TestRoute1({'id': '1'}), isTrue);
-      expect(TestRoute1({'id': '1'}) == TestRoute1({'id': '2'}), isFalse);
+      expect(TestRoute1(RouteData({'id': '1'})) == TestRoute1(RouteData({'id': '1'})), isTrue);
+      expect(TestRoute1(RouteData({'id': '1'})) == TestRoute1(RouteData({'id': '2'})), isFalse);
     });
   });
   group('errors during add', () {
@@ -104,7 +105,7 @@ void main() {
         ..add<TestRoute2>(path: '/second', onParse: (_) => TestRoute2(), onBuild: (_) => [page('second')])
       ;
       routes.state.route = TestRoute1();
-      final pages = routes.getPages();
+      final pages = routes.getPages(MockContext());
       expect(pages.length, 2);
       expect(pages[0].name, 'first');
       expect(pages[1].name, 'second');
@@ -120,7 +121,7 @@ void main() {
         ..add<TestRoute3>(path: '/third', onParse: (_) => TestRoute3(), onBuild: (_) => [page('third')])
       ;
       routes.state.route = TestRoute1();
-      final pages = routes.getPages();
+      final pages = routes.getPages(MockContext());
       expect(pages.length, 3);
       expect(pages[0].name, 'first');
       expect(pages[1].name, 'second');
@@ -129,8 +130,10 @@ void main() {
   });
 }
 
-class TestRoute1 extends AppRoute { TestRoute1([Map<String, String>? data]) : super(data); }
-class TestRoute2 extends AppRoute { TestRoute2([Map<String, String>? data]) : super(data); }
+class MockContext extends Mock implements BuildContext {}
+
+class TestRoute1 extends AppRoute { TestRoute1([RouteData? data]) : super(data); }
+class TestRoute2 extends AppRoute { TestRoute2([RouteData? data]) : super(data); }
 class TestRoute3 extends AppRoute { }
 class TestRoute4 extends AppRoute { }
 

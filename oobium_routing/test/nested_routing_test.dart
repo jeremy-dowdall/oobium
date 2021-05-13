@@ -57,8 +57,8 @@ void main() {
           path: '/child/<childId>', onParse: (data) => TestRoute2(data), onBuild: (_) => [],
         )
       );
-      final route1 = TestRoute1({'parentId': '1'});
-      final route2 = TestRoute2({'childId': '2'})..parent = route1;
+      final route1 = TestRoute1(RouteData({'parentId': '1'}));
+      final route2 = TestRoute2(RouteData({'childId': '2'}))..parent = route1;
       expect(routes.restoreRouteInformation(route1).location, '/parent/1');
       expect(routes.restoreRouteInformation(route2).location, '/parent/1/child/2');
     });
@@ -72,9 +72,9 @@ void main() {
             )
         )
       );
-      final route1 = TestRoute1({'parentId': '1'});
-      final route2 = TestRoute2({'childId': '2'})..parent = route1;
-      final route3 = TestRoute3({'grandId': '3'})..parent = route2;
+      final route1 = TestRoute1(RouteData({'parentId': '1'}));
+      final route2 = TestRoute2(RouteData({'childId': '2'}))..parent = route1;
+      final route3 = TestRoute3(RouteData({'grandId': '3'}))..parent = route2;
       expect(routes.restoreRouteInformation(route1).location, '/parent/1');
       expect(routes.restoreRouteInformation(route2).location, '/parent/1/child/2');
       expect(routes.restoreRouteInformation(route3).location, '/parent/1/child/2/grand/3');
@@ -88,8 +88,8 @@ void main() {
           path: '/child/<childId>', onParse: (data) => TestRoute2(data), onBuild: (_) => [],
         )
       );
-      final route1 = TestRoute1({'parentId': '1'});
-      final route2 = TestRoute2({'childId': '2'})..parent = route1;
+      final route1 = TestRoute1(RouteData({'parentId': '1'}));
+      final route2 = TestRoute2(RouteData({'childId': '2'}))..parent = route1;
       expect(routes.restoreRouteInformation(route1).location, '/parent/1');
       expect(routes.restoreRouteInformation(route2).location, '/parent/1/child/2');
     });
@@ -103,9 +103,9 @@ void main() {
             )
         )
       );
-      final route1 = TestRoute1({'parentId': '1'});
-      final route2 = TestRoute2({'childId': '2'})..parent = route1;
-      final route3 = TestRoute3({'grandId': '3'})..parent = route2;
+      final route1 = TestRoute1(RouteData({'parentId': '1'}));
+      final route2 = TestRoute2(RouteData({'childId': '2'}))..parent = route1;
+      final route3 = TestRoute3(RouteData({'grandId': '3'}))..parent = route2;
       expect(routes.restoreRouteInformation(route1).location, '/parent/1');
       expect(routes.restoreRouteInformation(route2).location, '/parent/1/child/2');
       expect(routes.restoreRouteInformation(route3).location, '/parent/1/child/2/grand/3');
@@ -113,6 +113,6 @@ void main() {
   });
 }
 
-class TestRoute1 extends AppRoute { TestRoute1([Map<String, String>? data]) : super(data); }
-class TestRoute2 extends AppRoute { TestRoute2([Map<String, String>? data]) : super(data); }
-class TestRoute3 extends AppRoute { TestRoute3([Map<String, String>? data]) : super(data); }
+class TestRoute1 extends AppRoute { TestRoute1([RouteData? data]) : super(data); }
+class TestRoute2 extends AppRoute { TestRoute2([RouteData? data]) : super(data); }
+class TestRoute3 extends AppRoute { TestRoute3([RouteData? data]) : super(data); }
