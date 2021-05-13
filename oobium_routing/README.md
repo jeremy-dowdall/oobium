@@ -17,21 +17,19 @@ final routes = AppRoutes()
 	..add<AuthorsRoute>(
 		path: '/authors',
 		onParse: (data) => AuthorsRoute(),
-		onBuild: (route) => [AuthorsPage()]
+		onBuild: (ref) => [AuthorsPage()]
 	)
 	..add<BooksRoute>(
 		path: '/books',
 		onParse: (data) => BooksRoute(),
-		onBuild: (route) => [BooksPage()]
+		onBuild: (ref) => [BooksPage()]
 	);
 
-runApp(MaterialApp.router(
-	title: 'NavDemo',
-	routeInformationParser: routes.createRouteParser(),
-	routerDelegate: routes.createRouterDelegate()
+void main() => runApp(MaterialApp.router(
+    title: 'NavDemo',
+    routeInformationParser: routes.createRouteParser(),
+    routerDelegate: routes.createRouterDelegate()
 ));
-
-...
 
 class ExampleView extends StatelessWidget {
 

@@ -1,7 +1,7 @@
 name: oobium_routing
 description: Simplified routing for Navigator 2.0.
   Type-safe, semi-declarative, supporting bidirectional browser address bar and nested routers.
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/jeremy-dowdall/oobium
 
 environment:
