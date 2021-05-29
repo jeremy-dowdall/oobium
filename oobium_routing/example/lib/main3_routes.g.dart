@@ -1,11 +1,13 @@
 part of 'main3_routes.dart';
 
 typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);
+typedef Watch = List<Listenable> Function();
 
 class _Routes {
   final Build<HomeRoute> _build;
-  _Routes(this._build);
-  _Routes$ call() => _Routes$(_build);
+  final Watch? _watch;
+  _Routes(this._build, {Watch? watch}) : _watch = watch;
+  Routes call() => Routes(_build, _watch);
   Object atAuthRoute(Build build) => Object();
   _RoutesAtAuthorsRoute atAuthorsRoute(Build<AuthorsRoute> build) =>
       _RoutesAtAuthorsRoute(build);
@@ -16,10 +18,10 @@ class _Routes {
   Object atSettingsRoute(Build build) => Object();
 }
 
-class _Routes$ {
+class Routes {
   final AppRoutes<HomeRoute> _routes;
   late final AppRouterState _state;
-  _Routes$(Build<HomeRoute> build)
+  Routes(Build<HomeRoute> build, Watch? watch)
       : _routes = AppRoutes<HomeRoute>({
           '/old_path/<>/first/<>': (data) =>
               '/new_path/${data[1]}/second/${data[0]}/<var3>',
@@ -57,13 +59,13 @@ class _Routes$ {
                   )))
         }) {
     build(_routes);
-    _state = AppRouterState('_Routes', _routes);
+    _state = AppRouterState('Routes', _routes, watch?.call() ?? []);
   }
   AppRouteParser createRouteParser() => AppRouteParser(_routes);
   AppRouterDelegate createRouterDelegate() =>
       AppRouterDelegate(_routes, _state, primary: true);
   void setNewRoutePath(AppRoute route) => _state.setNewRoutePath(route);
-  AppRoute get current => _state.last;
+  AppRoute get current => _state.currentLocal;
   void pop() => _state.pop();
   void addAuth() => _state.add(AuthRoute());
   void putAuth() => _state.put(AuthRoute());
@@ -179,24 +181,28 @@ class SettingsRoute extends AppRoute {
 
 class _RoutesAtAuthorsRoute {
   final Build<AuthorsRoute> _build;
-  _RoutesAtAuthorsRoute(this._build);
-  _RoutesAtAuthorsRoute$ call(_Routes$ parent) =>
-      _RoutesAtAuthorsRoute$(parent._state, _build);
+  final List<Listenable> _watch;
+  _RoutesAtAuthorsRoute(this._build, {List<Listenable>? watch})
+      : _watch = watch ?? [];
+  RoutesAtAuthorsRoute call(Routes parent) =>
+      RoutesAtAuthorsRoute(parent._state, _build, _watch);
   Object atAuthorDetailsRoute(Build build) => Object();
   Object atAuthorsBookDetailsRoute(Build build) => Object();
 }
 
-class _RoutesAtAuthorsRoute$ {
+class RoutesAtAuthorsRoute {
   final AppRoutes<AuthorsRoute> _routes;
   late final AppRouterState _state;
-  _RoutesAtAuthorsRoute$(AppRouterState parent, Build<AuthorsRoute> build)
+  RoutesAtAuthorsRoute(
+      AppRouterState parent, Build<AuthorsRoute> build, List<Listenable> watch)
       : _routes = AppRoutes<AuthorsRoute>() {
     build(_routes);
-    _state = AppRouterState('_RoutesAtAuthorsRoute', _routes, parent: parent);
+    _state =
+        AppRouterState('RoutesAtAuthorsRoute', _routes, watch, parent: parent);
   }
-  ChildRouter router() => ChildRouter(
-      '_RoutesAtAuthorsRoute', () => AppRouterDelegate(_routes, _state));
-  AppRoute get current => _state.last;
+  ChildRouter call() => ChildRouter(
+      'RoutesAtAuthorsRoute', () => AppRouterDelegate(_routes, _state));
+  AppRoute get current => _state.currentLocal;
   void pop() => _state.pop();
   void addAuthorDetails({required String id}) =>
       _state.add(AuthorDetailsRoute(id: id));
@@ -259,24 +265,28 @@ class AuthorsBookDetailsRoute extends AppRoute {
 
 class _RoutesAtBooksRoute {
   final Build<BooksRoute> _build;
-  _RoutesAtBooksRoute(this._build);
-  _RoutesAtBooksRoute$ call(_Routes$ parent) =>
-      _RoutesAtBooksRoute$(parent._state, _build);
+  final List<Listenable> _watch;
+  _RoutesAtBooksRoute(this._build, {List<Listenable>? watch})
+      : _watch = watch ?? [];
+  RoutesAtBooksRoute call(Routes parent) =>
+      RoutesAtBooksRoute(parent._state, _build, _watch);
   _RoutesAtBookRoute atBookRoute(Build<BookRoute> build) =>
       _RoutesAtBookRoute(build);
 }
 
-class _RoutesAtBooksRoute$ {
+class RoutesAtBooksRoute {
   final AppRoutes<BooksRoute> _routes;
   late final AppRouterState _state;
-  _RoutesAtBooksRoute$(AppRouterState parent, Build<BooksRoute> build)
+  RoutesAtBooksRoute(
+      AppRouterState parent, Build<BooksRoute> build, List<Listenable> watch)
       : _routes = AppRoutes<BooksRoute>() {
     build(_routes);
-    _state = AppRouterState('_RoutesAtBooksRoute', _routes, parent: parent);
+    _state =
+        AppRouterState('RoutesAtBooksRoute', _routes, watch, parent: parent);
   }
-  ChildRouter router() => ChildRouter(
-      '_RoutesAtBooksRoute', () => AppRouterDelegate(_routes, _state));
-  AppRoute get current => _state.last;
+  ChildRouter call() => ChildRouter(
+      'RoutesAtBooksRoute', () => AppRouterDelegate(_routes, _state));
+  AppRoute get current => _state.currentLocal;
   void pop() => _state.pop();
   void addBook({required String id}) => _state.add(BookRoute(id: id));
   void putBook({required String id}) => _state.put(BookRoute(id: id));
@@ -305,24 +315,28 @@ class BookRoute extends AppRoute {
 
 class _RoutesAtBookRoute {
   final Build<BookRoute> _build;
-  _RoutesAtBookRoute(this._build);
-  _RoutesAtBookRoute$ call(_RoutesAtBooksRoute$ parent) =>
-      _RoutesAtBookRoute$(parent._state, _build);
+  final List<Listenable> _watch;
+  _RoutesAtBookRoute(this._build, {List<Listenable>? watch})
+      : _watch = watch ?? [];
+  RoutesAtBookRoute call(RoutesAtBooksRoute parent) =>
+      RoutesAtBookRoute(parent._state, _build, _watch);
   _RoutesAtChapterRoute atChapterRoute(Build<ChapterRoute> build) =>
       _RoutesAtChapterRoute(build);
 }
 
-class _RoutesAtBookRoute$ {
+class RoutesAtBookRoute {
   final AppRoutes<BookRoute> _routes;
   late final AppRouterState _state;
-  _RoutesAtBookRoute$(AppRouterState parent, Build<BookRoute> build)
+  RoutesAtBookRoute(
+      AppRouterState parent, Build<BookRoute> build, List<Listenable> watch)
       : _routes = AppRoutes<BookRoute>() {
     build(_routes);
-    _state = AppRouterState('_RoutesAtBookRoute', _routes, parent: parent);
+    _state =
+        AppRouterState('RoutesAtBookRoute', _routes, watch, parent: parent);
   }
-  ChildRouter router() => ChildRouter(
-      '_RoutesAtBookRoute', () => AppRouterDelegate(_routes, _state));
-  AppRoute get current => _state.last;
+  ChildRouter call() => ChildRouter(
+      'RoutesAtBookRoute', () => AppRouterDelegate(_routes, _state));
+  AppRoute get current => _state.currentLocal;
   void pop() => _state.pop();
   void addChapter({required String id, required BookRoute book}) =>
       _state.add(ChapterRoute(id: id, book: book));
@@ -355,23 +369,27 @@ class ChapterRoute extends AppRoute {
 
 class _RoutesAtChapterRoute {
   final Build<ChapterRoute> _build;
-  _RoutesAtChapterRoute(this._build);
-  _RoutesAtChapterRoute$ call(_RoutesAtBookRoute$ parent) =>
-      _RoutesAtChapterRoute$(parent._state, _build);
+  final List<Listenable> _watch;
+  _RoutesAtChapterRoute(this._build, {List<Listenable>? watch})
+      : _watch = watch ?? [];
+  RoutesAtChapterRoute call(RoutesAtBookRoute parent) =>
+      RoutesAtChapterRoute(parent._state, _build, _watch);
   Object atVerseRoute(Build build) => Object();
 }
 
-class _RoutesAtChapterRoute$ {
+class RoutesAtChapterRoute {
   final AppRoutes<ChapterRoute> _routes;
   late final AppRouterState _state;
-  _RoutesAtChapterRoute$(AppRouterState parent, Build<ChapterRoute> build)
+  RoutesAtChapterRoute(
+      AppRouterState parent, Build<ChapterRoute> build, List<Listenable> watch)
       : _routes = AppRoutes<ChapterRoute>() {
     build(_routes);
-    _state = AppRouterState('_RoutesAtChapterRoute', _routes, parent: parent);
+    _state =
+        AppRouterState('RoutesAtChapterRoute', _routes, watch, parent: parent);
   }
-  ChildRouter router() => ChildRouter(
-      '_RoutesAtChapterRoute', () => AppRouterDelegate(_routes, _state));
-  AppRoute get current => _state.last;
+  ChildRouter call() => ChildRouter(
+      'RoutesAtChapterRoute', () => AppRouterDelegate(_routes, _state));
+  AppRoute get current => _state.currentLocal;
   void pop() => _state.pop();
   void addVerse({required String id, required ChapterRoute chapter}) =>
       _state.add(VerseRoute(id: id, chapter: chapter));

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:oobium_routing_example/main2_routes.g.provider.dart';
 
-import 'main2_routes.dart';
+import 'routes.dart';
+import 'routes.g.provider.dart';
 
-void main() => runApp(
-  RoutesProvider(
+void main() => runApp(createMaterialApp());
+
+RoutesProvider createMaterialApp() {
+  return RoutesProvider(
     builder: (_, mainRoutes) => MaterialApp.router(
-      title: 'NavDemo',
       routeInformationParser: mainRoutes.createRouteParser(),
       routerDelegate: mainRoutes.createRouterDelegate()
     ),
-  )
-);
+  );
+}
 
 ///
 /// UI
@@ -69,7 +70,7 @@ class AuthorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final author = authors[id]!;
     return Center(child: Column(children: [
-      Text('Name: ${author.name}'),
+      Text(author.name),
       ElevatedButton.icon(
         icon: Icon(Icons.arrow_back),
         label: Text('Back'),
@@ -90,7 +91,6 @@ class BooksView extends StatelessWidget {
           final book = books[id]!;
           return ListTile(
             title: Text(book.title),
-            subtitle: Text(book.author),
             onTap: () => context.bookRoutes.addBook(id: id),
           );
         }).toList()
@@ -107,8 +107,7 @@ class BookView extends StatelessWidget {
   Widget build(BuildContext context) {
     final book = books[id]!;
     return Center(child: Column(children: [
-      Text('Title: ${book.title}'),
-      Text('Author: ${book.author}'),
+      Text(book.title),
       ElevatedButton.icon(
         icon: Icon(Icons.arrow_back),
         label: Text('Back'),
@@ -156,9 +155,9 @@ final Map<String, Author> authors = {
 };
 
 final Map<String, Book> books = {
-  '0': Book('Stranger in a Strange Land', 'Robert A. Heinlein'),
-  '1': Book('Foundation', 'Isaac Asimov'),
-  '2': Book('Fahrenheit 451', 'Ray Bradbury'),
+  '0': Book('Stranger in a Strange Land', authors['0']!.name),
+  '1': Book('Foundation', authors['1']!.name),
+  '2': Book('Fahrenheit 451', authors['2']!.name),
 };
 
 class Author {

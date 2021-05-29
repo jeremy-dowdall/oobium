@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -12,11 +13,12 @@ extension BuildContextX on BuildContext {
 }
 
 typedef HomeRedirect = AppRoute Function(AppRouterState state);
-typedef GuardFunction<T extends AppRoute> = AppRoute? Function(AppRouterState state, T route);
-typedef PopFunction<T extends AppRoute> = void Function(AppRouterState state, T route);
-typedef PageBuilder<T extends AppRoute> = Page Function(AppRouterState state, T route);
-typedef ViewBuilder<T extends AppRoute> = Widget Function(AppRouterState state, T route);
+typedef GuardFunction<T extends AppRoute> = AppRoute? Function(RouteState<T> state);
+typedef PopFunction<T extends AppRoute> = void Function(RouteState<T> state);
+typedef PageBuilder<T extends AppRoute> = Page Function(RouteState<T> state);
+typedef ViewBuilder<T extends AppRoute> = Widget Function(RouteState<T> state);
 
+// TODO this is mostly a builder... need to separate logical components
 class AppRoutes<H extends AppRoute> {
 
   final RouteDefinitions definitions;
@@ -84,7 +86,7 @@ class AppRoutes<H extends AppRoute> {
   }
 
   GuardedRoutes guard({
-    required AppRoute? Function(AppRouterState state) onGuard,
+    required GuardFunction onGuard,
     Function(GuardedRoutes routes)? guarded
   }) {
     final guardedRoutes = GuardedRoutes(this, onGuard);
@@ -109,22 +111,22 @@ class AppRoutes<H extends AppRoute> {
 
 class GuardedRoutes {
   final AppRoutes routes;
-  final AppRoute? Function(AppRouterState state) onGuard;
+  final AppRoute? Function(RouteState state) onGuard;
   GuardedRoutes(this.routes, this.onGuard);
 
   void page<T extends AppRoute>(String path, PageBuilder<T> onBuild, {
     GuardFunction<T>? onGuard
   }) {
-    routes.page<T>(path, onBuild, onGuard: (state, route) {
-      return this.onGuard(state) ?? onGuard?.call(state, route);
+    routes.page<T>(path, onBuild, onGuard: (state) {
+      return this.onGuard(state) ?? onGuard?.call(state);
     });
   }
 
   void view<T extends AppRoute>(String path, ViewBuilder<T> onBuild, {
     GuardFunction<T>? onGuard,
   }) {
-    routes.view<T>(path, onBuild, onGuard: (state, route) {
-      return this.onGuard(state) ?? onGuard?.call(state, route);
+    routes.view<T>(path, onBuild, onGuard: (state) {
+      return this.onGuard(state) ?? onGuard?.call(state);
     });
   }
 }
@@ -169,6 +171,7 @@ typedef RedirectParser = String Function(List<String> data);
 typedef RouteParser = AppRoute Function(List<String> data);
 
 class RouteDefinition<T extends AppRoute> {
+
   final PageBuilder<T>? onPage;
   final ViewBuilder<T>? onView;
   final GuardFunction<T>? onGuard;
@@ -179,22 +182,31 @@ class RouteDefinition<T extends AppRoute> {
     this.onGuard,
     this.onPop
   });
-  Page build(AppRouterState state, T route, {bool cupertino = false}) {
-    if(onPage != null) {
-      final page = onPage!(state, route);
+
+  Page build(AppRouterState state, AppRoute route, {bool cupertino = false}) {
+    final page = onPage?.call(RouteState(state, route as T));
+    if(page != null) {
       if(page is AppPage) {
         return _createPage('$route', page._key, page._child);
       } else {
         return page;
       }
     }
-    if(onView != null) {
-      return _createPage('$route', '$route', onView!(state, route));
+    final view = onView?.call(RouteState(state, route as T));
+    if(view != null) {
+      return _createPage('$route', '$route', view);
     }
     throw 'tried to build page when neither onPage nor onView were set for route: $route';
   }
-  AppRoute? guard(AppRouterState state, AppRoute route) => onGuard?.call(state, route as T);
-  void pop(AppRouterState state, AppRoute route) => onPop?.call(state, route as T);
+
+  AppRoute? guard(AppRouterState state, AppRoute route) {
+    return onGuard?.call(RouteState(state, route as T));
+  }
+
+  void pop(AppRouterState state, AppRoute route) {
+    return onPop?.call(RouteState(state, route as T));
+  }
+
   Page _createPage(String name, String key, Widget child, {bool cupertino=false}) {
     if(cupertino) {
       return CupertinoPage(name: name, key: ValueKey(key), child: child);
@@ -218,9 +230,8 @@ abstract class AppRoute {
 }
 
 class HomeRoute extends AppRoute {
-  const HomeRoute();
-  @override bool operator ==(Object? other) => identical(this, other) || (runtimeType == other?.runtimeType);
-  @override int get hashCode => runtimeType.hashCode;
+  factory HomeRoute() => const HomeRoute._();
+  const HomeRoute._();
   @override int toOrdinal() => throw 'ordinal not implemented on system routes';
   @override String toString() => '/';
 }
@@ -231,42 +242,58 @@ class NotFoundRoute extends AppRoute {
   @override String toString() => '?$_location';
 }
 class ErrorRoute extends AppRoute {
-  final String _location;
-  final String message;
-  const ErrorRoute(this._location, this.message);
+  final String? location;
+  final String? message;
+  const ErrorRoute({this.location, this.message});
   @override int toOrdinal() => throw 'ordinal not implemented on system routes';
-  @override String toString() => _location;
+  @override String toString() => '${(location!=null)?'error @ $location\n':''}${message??''}';
 }
 class UninitializedRoute extends ErrorRoute {
-  const UninitializedRoute() : super ('!', 'router state not yet initialized');
-  @override bool operator ==(Object? other) => identical(this, other) || (runtimeType == other?.runtimeType);
-  @override int get hashCode => runtimeType.hashCode;
+  factory UninitializedRoute() => const UninitializedRoute._();
+  const UninitializedRoute._() : super (message: 'router state not yet initialized');
 }
 
+class RouteState<T extends AppRoute> {
+  final AppRouterState _state;
+  final T _route;
+  RouteState(this._state, this._route);
+  E get<E>() => _state._watch.firstWhere((w) => w is E) as E;
+  T get route => _route;
+}
 
+/// TODO this is the router engine... don't want push/pop/etc exposed to onPage/onView...
+///      state passed to route handlers should be an immutable data class
+///      extendable? composable?
+///      AppRouterState combines the state, the engine and the notifier
 class AppRouterState extends ChangeNotifier {
 
   final String name;
   final AppRoutes _routes;
+  final List<Listenable> _watch;
   final AppRouterState? parent;
-  final children = <AppRouterState>[];
-  AppRouterState(this.name, this._routes, {this.parent}) {
+  final _children = <AppRouterState>[];
+  AppRouterState(this.name, this._routes, this._watch, {this.parent}) {
     if(parent != null) {
-      parent!.children.add(this);
-      if(root._current != null) {
-        _setNewRoutePath(root._current!);
-      }
+      parent!._children.add(this);
+      _setNewRoutePath(_root._current);
     }
+    _watch.forEach((w) => w.addListener(notifyListeners));
   }
 
-  int get depth => (parent?.depth ?? -1) + 1;
-  AppRouterState get root => parent?.root ?? this;
+  @override
+  void dispose() {
+    _watch.forEach((w) => w.removeListener(notifyListeners));
+    super.dispose();
+  }
 
-  AppRoute? _current;
-  AppRoute get current => root._current ?? const UninitializedRoute();
+  int get _depth => (parent?._depth ?? -1) + 1;
+  AppRouterState get _root => parent?._root ?? this;
+
+  AppRoute _current = UninitializedRoute();
+  AppRoute get currentGlobal => _root._current;
 
   void setNewRoutePath(AppRoute value) {
-    if(this == root) {
+    if(this == _root) {
       if(value is HomeRoute) {
         value = _routes._homeRedirect?.call(this) ?? value;
       }
@@ -275,27 +302,42 @@ class AppRouterState extends ChangeNotifier {
         _setNewRoutePath(value);
       }
     } else {
-      root.setNewRoutePath(value);
+      _root.setNewRoutePath(value);
     }
   }
 
-  void _notify() {
-    // final value = findCurrent();
-    // if(root._current != value) {
-    //   root._current = value;
-      if(this != root) {
-        root.notifyListeners();
-      }
-    // }
+  AppRouterState? _activeChild;
+  bool get isActive => parent == null || parent?._activeChild == this;
+  void activate() {
+    if(currentLocal is UninitializedRoute) {
+      _setNewRoutePath(_root._current);
+    }
+    // TODO listeners?
+  }
+  void deactivate() {
+    // TODO listeners?
+  }
+  void _changed() {
+    _activeChild?.deactivate();
+    _activeChild = _children.firstWhereOrNull((c) => c._routes._homeType == currentLocal.runtimeType);
+    _root._current = _root._findCurrent();
+    _activeChild?.activate();
+    if(this != _root) {
+      _root.notifyListeners();
+    }
     notifyListeners();
+  }
+  AppRoute _findCurrent() {
+    return _activeChild?._findCurrent() ?? (_last ?? parent?._last ?? UninitializedRoute());
   }
 
   List<AppRoute> _stack = [];
 
-  AppRoute get last => _stack.isNotEmpty ? _stack.last : (const UninitializedRoute());
+  AppRoute? get _last => _stack.isNotEmpty ? _stack.last : null;
+  AppRoute get currentLocal => _last ?? UninitializedRoute();
 
   List<AppRoute> get stack {
-    return _stack.map((r) => (r.runtimeType == _routes._homeType) ? r : r.toStack()[depth]).toList();
+    return _stack.map((r) => (r.runtimeType == _routes._homeType) ? r : r.toStack()[_depth]).toList();
   }
 
   int get length => _stack.length;
@@ -303,57 +345,83 @@ class AppRouterState extends ChangeNotifier {
   void pop() {
     if(_stack.isNotEmpty) {
       _stack.removeLast();
-      _notify();
+      _activeChild?._clear();
+      _changed();
+    }
+  }
+  void _clear() {
+    _stack = [];
+    for(final child in _children) {
+      if(child == _activeChild) {
+        _activeChild?.deactivate();
+        _activeChild = null;
+      }
+      child._clear();
     }
   }
 
   void add(AppRoute value) {
-    final checked = _resolved(value);
-    if(checked != null) {
+    final resolved = _resolved(value);
+    if(resolved != null && resolved != currentLocal) {
+      int i = _stack.indexOf(resolved);
+      if(i != -1) {
+        _stack.removeRange(i, _stack.length);
+      }
       _stack.add(value);
-      _notify();
+      _changed();
     }
   }
 
   void put(AppRoute value) {
-    final checked = _resolved(value);
-    if(checked != null) {
+    final resolved = _resolved(value);
+    if(resolved != null) {
       if(_stack.isEmpty) {
         _stack = [value];
-        _notify();
+        _changed();
       }
-      else if(_stack.last != checked) {
-        _stack.last = value;
-        _notify();
+      else if(_stack.last != resolved) {
+        int i = _stack.indexOf(resolved);
+        if(i != -1) {
+          _stack.removeRange(i, _stack.length);
+          _stack.add(value);
+        } else {
+          _stack.last = value;
+        }
+        _changed();
       }
     }
   }
 
   void set(AppRoute value) {
-    final checked = _resolved(value);
-    if(checked != null && (_stack.length != 1 || _stack[0] != checked)) {
-      _stack = [checked];
-      _notify();
+    final resolved = _resolved(value);
+    if(resolved != null && (_stack.length != 1 || _stack[0] != resolved)) {
+      _stack = [resolved];
+      _changed();
     }
   }
 
   AppRoute? _resolved(AppRoute value) {
+    if(value is UninitializedRoute) return null;
     if(value.runtimeType == _routes._homeType) return value;
     final stack = value.toStack();
-    if(depth < stack.length) {
-      final route = stack[depth];
+    if(_depth < stack.length) {
+      final route = stack[_depth];
       if(_routes.definitions.isSet(route.runtimeType)) return route;
     }
     return null;
   }
 
   void _setNewRoutePath(AppRoute value) {
-    final checked = _resolved(value);
-    if(checked != null && (_stack.length != 1 || _stack[0] != checked)) {
-      _stack = [checked];
+    final resolved = _resolved(value);
+    if(resolved != _last) {
+      if(resolved == null) {
+        _stack = [];
+      } else {
+        _stack = [resolved];
+      }
+      notifyListeners();
     }
-    notifyListeners();
-    for(final child in children) {
+    for(final child in _children) {
       child._setNewRoutePath(value);
     }
   }
@@ -369,18 +437,42 @@ class PagesBuilder {
   PagesBuilder(this.routes, this.state);
 
   List<Page> getPages({bool cupertino=false}) {
+    final keys = <LocalKey?, AppRoute>{};
     final pages = <Page>[];
+    final stack = state.stack;
     try {
-      print('${state.name}: stack${state._stack} -> pages${state.stack}');
+      print('${state.name}: stack${state._stack} -> pages$stack');
       for(final route in state.stack) {
-        pages.add(getPage(route, guard: true, cupertino: cupertino));
+        final page = getPage(route, guard: true, cupertino: cupertino);
+        if(keys.containsKey(page.key)) {
+          throw DuplicateKeyException(
+            'duplicate page.key, ${page.key}, found in stack ${state.stack}\n'
+            '  router: ${state.name}\n'
+            '  1st occurance: ${keys[page.key]}\n'
+            '  2nd occurance: $route'
+          );
+        }
+        keys[page.key] = route;
+        pages.add(page);
       }
     } on GuardException catch(e) {
       pages.add(getPage(e.guardRoute, cupertino: cupertino));
-    } catch(e, st) {
-      print('error: $e\n$st');
-      pages.add(getPage(ErrorRoute('${state.last}', '$e')));
+
+    //  TODO get rid of ErrorRoute... ?
+    // } catch(e, st) {
+    //   print('error: $e\n$st');
+    //   pages.add(getPage(ErrorRoute(location: '${state.currentLocal}', message: '$e')));
+
     }
+
+    /// TODO: how to handle duplicate keys? (will crash the navigator)
+    ///   1. let it crash, cause we shouldn't be adding routes in a way that causes this
+    ///   2. let it crash, but print a decent message so the developer knows what went wrong
+    ///   3. crash here, with a better message so the developer knows what went wrong
+    ///   4. only show the latest page, so it doesn't crash but the routes remain in the back-stack
+    ///       was this is the intent?
+    ///       or did the developer just forget to use 'set' instead of 'add'? in which case, crashing would be better
+
     return pages;
   }
 
@@ -394,6 +486,12 @@ class PagesBuilder {
     }
     return routeDef.build(state, route, cupertino: cupertino);
   }
+}
+
+class DuplicateKeyException implements Exception {
+  final String message;
+  DuplicateKeyException(this.message);
+  @override String toString() => '$runtimeType: $message';
 }
 
 class AppRouteParser extends RouteInformationParser<AppRoute> {
@@ -410,7 +508,7 @@ class AppRouteParser extends RouteInformationParser<AppRoute> {
 
   AppRoute? parseLocation(String location) {
     if(location == '/') {
-      return const HomeRoute();
+      return HomeRoute();
     }
     final segments = location.split('/');
     for(final e in routes.parsers.entries) {
@@ -480,7 +578,7 @@ class AppRouterDelegate extends RouterDelegate<AppRoute> with ChangeNotifier, Po
   }
 
   @override
-  AppRoute? get currentConfiguration => primary ? state.current : null;
+  AppRoute? get currentConfiguration => primary ? state.currentGlobal : null;
 
   @override
   Future<void> setNewRoutePath(AppRoute route) {
@@ -493,17 +591,20 @@ class AppRouterDelegate extends RouterDelegate<AppRoute> with ChangeNotifier, Po
   @override
   Widget build(BuildContext context) {
     _cupertino ??= context.findAncestorWidgetOfExactType<CupertinoApp>() != null;
-    return Navigator(
-      key: navigatorKey,
-      pages: builder.getPages(cupertino: _cupertino!),
-      onPopPage: (route, result) {
-        if(!route.didPop(result)) {
-          return false;
-        }
-        return popPage(context);
-      },
-      reportsRouteUpdateToEngine: primary,
-    );
+    final pages = builder.getPages(cupertino: _cupertino!);
+    return pages.isNotEmpty
+      ? Navigator(
+          key: navigatorKey,
+          pages: pages,
+          onPopPage: (route, result) {
+            if(!route.didPop(result)) {
+              return false;
+            }
+            return popPage(context);
+          },
+          reportsRouteUpdateToEngine: primary,
+        )
+      : Container();
   }
 
   bool popPage(BuildContext context) {
@@ -515,7 +616,7 @@ class AppRouterDelegate extends RouterDelegate<AppRoute> with ChangeNotifier, Po
   }
 
   @override
-  String toString() => '$runtimeType(name: ${state.name}, route: ${state.last})';
+  String toString() => '$runtimeType(name: ${state.name}, route: ${state.currentLocal})';
 }
 
 class ChildRouter extends StatefulWidget {
@@ -528,6 +629,7 @@ class ChildRouter extends StatefulWidget {
 class _ChildRouterState extends State<ChildRouter> {
 
   late AppRouterDelegate delegate;
+  late Router router;
   BackButtonDispatcher? dispatcher;
 
   @override
@@ -535,25 +637,25 @@ class _ChildRouterState extends State<ChildRouter> {
     super.didChangeDependencies();
     delegate = widget.createRouterDelegate();
     if(dispatcher != null) {
-      _givePriority(context, dispatcher);
+      _givePriority(router, dispatcher);
     }
-    dispatcher = Router.of(context).backButtonDispatcher?.createChildBackButtonDispatcher();
+    router = Router.of(context);
+    dispatcher = router.backButtonDispatcher?.createChildBackButtonDispatcher();
   }
 
   @override
   void dispose() {
-    _givePriority(context, dispatcher);
+    _givePriority(router, dispatcher);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final router = Router.of(context);
-    final route = (router.routerDelegate as AppRouterDelegate).state.last;
+    final route = (router.routerDelegate as AppRouterDelegate).state.currentLocal;
     if(route.runtimeType == delegate.homeType) {
       _takePriority(dispatcher);
     } else {
-      _givePriority(context, dispatcher);
+      _givePriority(router, dispatcher);
     }
     return Router(
       routerDelegate: delegate,
@@ -567,10 +669,10 @@ class _ChildRouterState extends State<ChildRouter> {
     _priorityDispatcher = dispatcher?..takePriority();
   }
 
-  static void _givePriority(BuildContext context, BackButtonDispatcher? dispatcher) {
+  static void _givePriority(Router router, BackButtonDispatcher? dispatcher) {
     if(_priorityDispatcher == dispatcher && dispatcher != null) {
       _priorityDispatcher = null;
-      Router.of(context).backButtonDispatcher?.takePriority();
+      router.backButtonDispatcher?.takePriority();
     }
   }
 }

@@ -1,49 +1,51 @@
-import 'dart:io';
-
 import 'package:collection/collection.dart';
 
-Future<void> main(List<String> args) async {
-  final params = _params(args);
-  final directory = _directory(params);
-
-  print('scanning ${directory.path} for routes...');
-  final files = await directory.list(recursive: true).where((file) => file.path.endsWith('routes.dart')).toList();
-  if(files.isEmpty) {
-    print('no routes files found');
-  }
-
-  for(var file in files) {
-    final path = file.path.substring(directory.path.length + 1); // remove leading slash
-    final name = file.path.substring(file.parent.path.length + 1).replaceAll('.dart', '');
-    print('found $name (${file.path})... processing...');
-
-    final lines = await (file as File).readAsLines();
-    final routes = RoutesParser(lines).parse();
-
-    if(routes == null) {
-      print('no routes found... exiting');
-    } else {
-      final library = [
-        'part of \'$name.dart\';',
-        'typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);',
-        ...routes.sections.map((section) => section.compile())
-      ].join('\n');
-
-      final outputs = <File>[];
-      outputs.add(await File('${directory.path}/${path.replaceAll('.dart', '.g.dart')}').writeAsString(library));
-      print('  $path processed. formatting...');
-
-      final results = await Process.run('dart', ['format', ...outputs.map((f) => f.path).toList()]);
-      print(results.stdout);
-    }
+class RoutesGenerator {
+  late final String routesLibrary;
+  late final String providerLibrary;
+  RoutesGenerator(this.routesLibrary, this.providerLibrary);
+  factory RoutesGenerator.generate(String name, RoutesClass primary) {
+    final sections = primary.sections;
+    final routesLibrary =
+      'part of \'$name\';'
+      'typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);'
+      'typedef Watch = List<Listenable> Function();'
+      '${sections.map((section) => section.compile()).join()}'
+    ;
+    final providerLibrary =
+      'import \'package:flutter/widgets.dart\';'
+      'import \'$name\';'
+      'extension BuildContextX on BuildContext {'
+        '${sections.map((s) => '${s.name} get ${s.varName} => RoutesProvider.of(this).${s.varName};').join()}'
+      '}'
+      'typedef Builder = Widget Function(BuildContext context, Routes mainRoutes);'
+      'class RoutesProvider extends InheritedWidget {'
+        '${sections.map((s) => 'late final ${s.name} ${s.varName};').join()}'
+        'RoutesProvider({required Builder builder}) : super(child: _RoutesProviderChild(builder)) {'
+          '${sections.map((s) => '${s.varName} = ${s.builder}(${s.builderVar});').join()}'
+        '}'
+        '@override bool updateShouldNotify(covariant InheritedWidget oldWidget) => true;'
+        'static RoutesProvider of(BuildContext context) {'
+          'return context.findAncestorWidgetOfExactType<RoutesProvider>() ?? (throw \'RoutesProvider not found in widget hierarchy\');'
+        '}'
+      '}'
+      'class _RoutesProviderChild extends StatelessWidget {'
+        'final Builder builder;'
+        '_RoutesProviderChild(this.builder);'
+        '@override Widget build(BuildContext context) {'
+          'return builder(context, context.${primary.varName});'
+        '}'
+      '}'
+    ;
+    return RoutesGenerator(routesLibrary, providerLibrary);
   }
 }
 
 class RoutesParser {
-  final List<String> lines;
+  final Iterable<String> lines;
   RoutesParser(this.lines);
 
-  SectionClass? parse() {
+  RoutesClass? parse() {
     final routes = findRoutesClass();
     if(routes != null) {
       findChildRoutesClasses(routes);
@@ -51,24 +53,17 @@ class RoutesParser {
     return routes;
   }
 
-  SectionClass? findRoutesClass() {
-    for(var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-
-      final routes = RegExp(r'\s+_Routes\(').firstMatch(line);
+  RoutesClass? findRoutesClass() {
+    for(var iter = lines.iterator; iter.moveNext(); ) {
+      final line = iter.current;
+      final routes = RegExp(r'final\s+([\w_]+)\s+=\s+_Routes\(').firstMatch(line);
       if(routes != null) {
-        final home = RegExp(r'[\(,\s]home:\s*[new|const]*\s*([\w_]+)[\(\),]').firstMatch(line);
-        final state = RegExp(r'[\(,\s]state:\s*[new]*\s*([\w_]+)[\(,\)]').firstMatch(line);
-        final section = SectionClass(
-          parent: null,
-          sections: <SectionClass>[],
-          routesClass: '_Routes',
-          homeClass: home?.group(1) ?? 'MissingHome',
-          stateClass: state?.group(1) ?? 'AppRouterState',
+        final section = RoutesClass(
+          sections: <RoutesClass>[],
+          name: 'Routes',
+          builder: routes.group(1)!
         );
-        while(i < lines.length && section.parseLine(lines[i])) {
-          i++;
-        }
+        while(iter.moveNext() && section.parseLine(iter.current));
         section.sections.add(section);
         return section;
       }
@@ -76,7 +71,7 @@ class RoutesParser {
     return null;
   }
 
-  void findChildRoutesClasses(SectionClass parent) {
+  void findChildRoutesClasses(RoutesClass parent) {
     for(final route in parent.routes) {
       final childRoutes = findChildRoutesClass(parent, route);
       if(childRoutes != null) {
@@ -85,24 +80,20 @@ class RoutesParser {
     }
   }
 
-  SectionClass? findChildRoutesClass(SectionClass parent, RouteClass route) {
-    for(var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-
-      final childRoutes = RegExp('\\.at${route.name}\\(').firstMatch(line);
+  RoutesClass? findChildRoutesClass(RoutesClass parent, RouteClass route) {
+    for(var iter = lines.iterator; iter.moveNext(); ) {
+      final line = iter.current;
+      final childRoutes = RegExp('final\\s+([\\w_]+)\\s+=\\s+${parent.builder}\\.at$route\\(').firstMatch(line);
       if(childRoutes != null) {
         route.child = true;
-        final section = SectionClass(
+        final section = RoutesClass(
           parent: parent,
           sections: parent.sections,
-          routesClass: '_RoutesAt${route.name}',
-          homeClass: route.name,
-          stateClass: 'AppRouterState',
-          parentClass: route.name,
+          name: 'RoutesAt${route.name}',
+          builder: childRoutes.group(1)!,
+          homeRoute: route,
         );
-        while(i < lines.length && section.parseLine(lines[i])) {
-          i++;
-        }
+        while(iter.moveNext() && section.parseLine(iter.current));
         parent.sections.add(section);
         return section;
       }
@@ -112,30 +103,34 @@ class RoutesParser {
   }
 }
 
-class SectionClass {
+class RoutesClass {
 
-  final SectionClass? parent;
-  final List<SectionClass> sections;
-  final String routesClass;
-  final String homeClass;
-  final String stateClass;
-  final String? parentClass;
+  final RoutesClass? parent;
+  final List<RoutesClass> sections;
+  final String name;
+  final String builder;
+  final RouteClass? homeRoute;
   final items = <Object>[];
-  SectionClass({
-    required this.parent,
+  RoutesClass({
+    this.parent,
     required this.sections,
-    required this.routesClass,
-    required this.homeClass,
-    required this.stateClass,
-    this.parentClass,
+    required this.name,
+    required this.builder,
+    this.homeRoute,
   });
 
   Iterable<ParserClass> get allParsers => sections.fold<List<ParserClass>>([], (a,s) {a.addAll(s.items.whereType<ParserClass>()); return a;});
   Iterable<RouteClass> get allRoutes => sections.fold<List<RouteClass>>([], (a,s) {a.addAll(s.items.whereType<RouteClass>()); return a;});
   Iterable<RouteClass> get routes => items.whereType<RouteClass>();
 
-  bool get isPrimary => parentClass == null;
+  bool get isPrimary => homeRoute == null;
   bool get isNotPrimary => !isPrimary;
+
+  String get shortBuilder => builder.endsWith('Builder')
+    ? builder.substring(0, builder.length-'Builder'.length)
+    : builder;
+  String get varName => '${shortBuilder}Routes';
+  String get builderVar => parent?.varName ?? '';
 
   bool parseLine(String line) {
     final eol = line.indexOf(';');
@@ -150,7 +145,7 @@ class SectionClass {
             routeClass,
             routePath,
             RegExp(r'\<([\w_]+)\>').allMatches(routePath).map((matches) => _Field(matches.group(1)!)),
-            parentClass
+            homeRoute
         ));
       }
     } else {
@@ -169,19 +164,20 @@ class SectionClass {
   String compile() {
     if(isPrimary) {
       return
-        'class $routesClass {'
+        'class _$name {'
           'final Build<HomeRoute> _build;'
-          '$routesClass(this._build);'
-          '$routesClass\$ call() => $routesClass\$(_build);'
+          'final Watch? _watch;'
+          '_$name(this._build, {Watch? watch}) : _watch = watch;'
+          '$name call() => $name(_build, _watch);'
           '${compileAtRoutes()}'
         '}'
-        'class $routesClass\$ {'
+        'class $name {'
           'final AppRoutes<HomeRoute> _routes;'
           'late final AppRouterState _state;'
-          '$routesClass\$(Build<HomeRoute> build) :'
+          '$name(Build<HomeRoute> build, Watch? watch) :'
             '_routes = AppRoutes<HomeRoute>({${compileParsers()}}) {'
               'build(_routes);'
-              '_state = AppRouterState(\'$routesClass\', _routes);'
+              '_state = AppRouterState(\'$name\', _routes, watch?.call() ?? []);'
           '}'
           'AppRouteParser createRouteParser() => AppRouteParser(_routes);'
           'AppRouterDelegate createRouterDelegate() => AppRouterDelegate(_routes, _state, primary: true);'
@@ -193,21 +189,22 @@ class SectionClass {
       ;
     } else {
       return
-        'class $routesClass {'
-          'final Build<$parentClass> _build;'
-          '$routesClass(this._build);'
-          '$routesClass\$ call(${parent!.routesClass}\$ parent) => $routesClass\$(parent._state, _build);'
+        'class _$name {'
+          'final Build<$homeRoute> _build;'
+          'final List<Listenable> _watch;'
+          '_$name(this._build, {List<Listenable>? watch}) : _watch = watch ?? [];'
+          '$name call(${parent!.name} parent) => $name(parent._state, _build, _watch);'
           '${compileAtRoutes()}'
         '}'
-        'class $routesClass\$ {'
-          'final AppRoutes<$parentClass> _routes;'
+        'class $name {'
+          'final AppRoutes<$homeRoute> _routes;'
           'late final AppRouterState _state;'
-          '$routesClass\$(AppRouterState parent, Build<$parentClass> build) :'
-            '_routes = AppRoutes<$parentClass>() {'
+          '$name(AppRouterState parent, Build<$homeRoute> build, List<Listenable> watch) :'
+            '_routes = AppRoutes<$homeRoute>() {'
               'build(_routes);'
-              '_state = AppRouterState(\'$routesClass\', _routes, parent: parent);'
+              '_state = AppRouterState(\'$name\', _routes, watch, parent: parent);'
           '}'
-          'ChildRouter router() => ChildRouter(\'$routesClass\', () => AppRouterDelegate(_routes, _state));'
+          'ChildRouter call() => ChildRouter(\'$name\', () => AppRouterDelegate(_routes, _state));'
           '${compileOrdinals()}'
           '${compileRouting()}'
         '}'
@@ -226,7 +223,7 @@ class SectionClass {
         'switch(ordinal) {'
           '${routes.mapIndexed((i,r) => 'case $i: return ${r.name}();').join()}'
         '}'
-        'throw \'invalid ordinal: \$ordinal\';'
+        'return ErrorRoute(message: \'invalid ordinal, \$ordinal, requested from $name\');'
       '}'
       'void addFromOrdinal(int ordinal) => _state.add(fromOrdinal(ordinal));'
       'void putFromOrdinal(int ordinal) => _state.put(fromOrdinal(ordinal));'
@@ -243,7 +240,7 @@ class SectionClass {
   String compileParsers() => allParsers.map((r) => r.compileParser()).join(',');
 
   String compileRouting() =>
-    'AppRoute get current => _state.last;'
+    'AppRoute get current => _state.currentLocal;'
     'void pop() => _state.pop();'
     '${routes.map((r) =>
       'void add${r.shortName}(${compileParams(r)}) => _state.add(${compileNewRoute(r)});'
@@ -257,7 +254,7 @@ abstract class ParserClass {
 }
 
 class RedirectClass implements ParserClass {
-  final SectionClass section;
+  final RoutesClass section;
   final String src;
   final String dst;
   RedirectClass(this.section, this.src, this.dst);
@@ -286,12 +283,12 @@ class Count {
   int get inc => i++;
 }
 class RouteClass implements ParserClass {
-  final SectionClass section;
+  final RoutesClass section;
   final String name;
   final String path;
   final Iterable<_Field> fields;
-  final String? parentName;
-  RouteClass(this.section, this.name, this.path, this.fields, this.parentName);
+  final RouteClass? parent;
+  RouteClass(this.section, this.name, this.path, this.fields, this.parent);
 
   bool get isConstant => isEmpty;
   bool get isNotConstant => !isConstant;
@@ -299,14 +296,12 @@ class RouteClass implements ParserClass {
   bool get isEmpty => fields.isEmpty;
   bool get isNotEmpty => !isEmpty;
 
-  RouteClass? get parent => section.allRoutes.firstWhereOrNull((route) => route.name == parentName);
-
   bool child = false;
   bool get childless => !child;
 
   String get shortName => name.endsWith('Route')
-      ? name.substring(0, name.length-'Route'.length)
-      : name;
+    ? name.substring(0, name.length-'Route'.length)
+    : name;
 
   String get varName => '${name[0].toLowerCase()}${shortName.substring(1)}';
 
@@ -372,6 +367,9 @@ class RouteClass implements ParserClass {
       return '$name(${fields.map((f) => '$f: data[${c.inc}],').join()})';
     }
   }
+
+  @override
+  String toString() => name;
 }
 
 class _Field {
@@ -379,23 +377,4 @@ class _Field {
   final String type;
   _Field(this.name, [this.type='String']);
   @override String toString() => name;
-}
-
-Directory _directory(Map<String, String> params) {
-  final clientDir = params['d'] ?? params['dir'] ?? '.';
-  return (clientDir == '.') ? Directory.current : Directory(clientDir);
-}
-
-Map<String, String> _params(List<String> args) {
-  final params = <String, String>{};
-  for(var i = 0; i < args.length; i++) {
-    if(args[i].startsWith('-')) {
-      if(i != args.length - 1 && !args[i+1].startsWith('-')) {
-        params[args[i].substring(1)] = args[i+1];
-      } else {
-        params[args[i].substring(1)] = 'true';
-      }
-    }
-  }
-  return params;
 }

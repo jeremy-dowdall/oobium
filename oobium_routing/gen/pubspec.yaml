@@ -1,0 +1,20 @@
+name: oobium_routing_gen
+description: Generators for Oobium Routing
+version: 0.2.0+1
+repository: https://github.com/jeremy-dowdall/oobium
+
+publish_to: 'none'
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+
+dependencies:
+  build: ^2.0.2
+  dart_style: ^2.0.1
+#  oobium:
+#    path: ../oobium
+
+dev_dependencies:
+  build_runner: ^2.0.4
+#  test: ^1.15.3
+#  mockito: ^4.1.2

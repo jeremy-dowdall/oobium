@@ -1,160 +1,139 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oobium_routing/oobium_routing2.dart';
 
+import 'app/main.dart';
 import 'app/routes.dart';
 
 void main() {
-  group('generated equals method', () {
-    test('constant route (declared non-const)', () {
-      expect(AuthorsRoute() == AuthorsRoute(), isTrue);
-      expect(AuthorsRoute() == BooksRoute(), isFalse);
+  testWidgets('initial state - uninitialized', (tester) async {
+    final app = createMaterialApp();
+    await tester.pumpWidget(app);
+    expect(find.text('TODO authors'), findsNothing);
+  });
+
+  group('setNewPath', () {
+    testWidgets('home', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
     });
 
-    test('constant route (declared const)', () {
-      expect(const AuthorsRoute() == const AuthorsRoute(), isTrue);
-      expect(const AuthorsRoute() == const BooksRoute(), isFalse);
+    testWidgets('Authors', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(AuthorsRoute());
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
     });
 
-    test('variable route (declared non-const)', () {
-      expect(AuthorRoute(id: '123') == AuthorRoute(id: '123'), isTrue);
-      expect(AuthorRoute(id: '123') == AuthorRoute(id: '456'), isFalse);
+    testWidgets('Author(1)', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(AuthorRoute(id: '1'));
+      await tester.pump();
+      expect(find.text(authors['0']!.name), findsNothing);
+      expect(find.text(authors['1']!.name), findsOneWidget);
+      expect(find.text(authors['0']!.name), findsNothing);
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
+      expect(find.text('Back'), findsOneWidget);
     });
 
-    test('variable route (declared const)', () {
-      expect(const AuthorRoute(id: '123') == const AuthorRoute(id: '123'), isTrue);
-      expect(const AuthorRoute(id: '123') == const AuthorRoute(id: '456'), isFalse);
+    testWidgets('Books', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(BooksRoute());
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsNothing);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsOneWidget);
+      }
+    });
+
+    testWidgets('Book(1)', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(BookRoute(id: '1'));
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsNothing);
+      }
+      expect(find.text(books['0']!.title), findsNothing);
+      expect(find.text(books['1']!.title), findsOneWidget);
+      expect(find.text(books['0']!.title), findsNothing);
+      expect(find.text('Back'), findsOneWidget);
     });
   });
 
-  group('setNewRoutePath', () {
-    test('initial state - uninitialized', () {
-      final main = MainRoutesTester();
-      final author = AuthorRoutesTester(main);
-      final book = BookRoutesTester(main);
-
-      expect(main.state.current, UninitializedRoute());
-
-      expect(main.state.last, UninitializedRoute());
-      expect(author.state.last, UninitializedRoute());
-      expect(book.state.last, UninitializedRoute());
-
-      expect(main.state.stack, []);
-      expect(author.state.stack, []);
-      expect(book.state.stack, []);
-
-      expect(main.pages, []);
-      expect(author.pages, []);
-      expect(book.pages, []);
+  group('add route', () {
+    testWidgets('home -> addAuthors', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.addAuthors();
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
     });
-
-    test('home', () {
-      final main = MainRoutesTester();
-      final author = AuthorRoutesTester(main);
-      final book = BookRoutesTester(main);
-
-      main.state.setNewRoutePath(HomeRoute());
-
-      expect(main.state.current, AuthorsRoute());
-
-      expect(main.state.last, AuthorsRoute());
-      expect(author.state.last, AuthorsRoute());
-      expect(book.state.last, UninitializedRoute());
-
-      expect(main.state.stack, [AuthorsRoute()]);
-      expect(author.state.stack, [AuthorsRoute()]);
-      expect(book.state.stack, []);
-
-      expect(main.pages, ['/authors']);
-      expect(author.pages, ['/authors']);
-      expect(book.pages, []);
+    testWidgets('home -> addBooks', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.addBooks();
+      await tester.pump();
+      expect(tester.takeException(), isA<DuplicateKeyException>());
     });
+  });
 
-    test('/authors', () {
-      final main = MainRoutesTester();
-      final author = AuthorRoutesTester(main);
-      final book = BookRoutesTester(main);
-
-      main.state.setNewRoutePath(AuthorsRoute());
-
-      expect(main.state.current, AuthorsRoute());
-
-      expect(main.state.last, AuthorsRoute());
-      expect(author.state.last, AuthorsRoute());
-      expect(book.state.last, UninitializedRoute());
-
-      expect(main.state.stack, [AuthorsRoute()]);
-      expect(author.state.stack, [AuthorsRoute()]);
-      expect(book.state.stack, []);
-
-      expect(main.pages, ['/authors']);
-      expect(author.pages, ['/authors']);
-      expect(book.pages, []);
+  group('set route', () {
+    testWidgets('home -> setAuthors', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.setAuthors();
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
     });
-
-    test('/authors/123', () {
-      final main = MainRoutesTester();
-      final author = AuthorRoutesTester(main);
-      final book = BookRoutesTester(main);
-
-      main.state.setNewRoutePath(AuthorRoute(id: '123'));
-
-      expect(main.state.current, AuthorRoute(id: '123'));
-
-      expect(main.state.last, AuthorsRoute());
-      expect(author.state.last, AuthorRoute(id: '123'));
-      expect(book.state.last, UninitializedRoute());
-
-      expect(main.state.stack, [AuthorsRoute()]);
-      expect(author.state.stack, [AuthorRoute(id: '123')]);
-      expect(book.state.stack, []);
-
-      expect(main.pages, ['/authors']);
-      expect(author.pages, ['/authors/123']);
-      expect(book.pages, []);
-    });
-
-    test('/books', () {
-      final main = MainRoutesTester();
-      final author = AuthorRoutesTester(main);
-      final book = BookRoutesTester(main);
-
-      main.state.setNewRoutePath(BooksRoute());
-
-      expect(main.state.current, BooksRoute());
-
-      expect(main.state.last, BooksRoute());
-      expect(author.state.last, UninitializedRoute());
-      expect(book.state.last, BooksRoute());
-
-      expect(main.state.stack, [BooksRoute()]);
-      expect(author.state.stack, []);
-      expect(book.state.stack, [BooksRoute()]);
-
-      expect(main.pages, ['/books']);
-      expect(author.pages, []);
-      expect(book.pages, ['/books']);
-    });
-
-    test('/books/123', () {
-      final main = MainRoutesTester();
-      final author = AuthorRoutesTester(main);
-      final book = BookRoutesTester(main);
-
-      main.state.setNewRoutePath(BookRoute(id: '123'));
-
-      expect(main.state.current, BookRoute(id: '123'));
-
-      expect(main.state.last, BooksRoute());
-      expect(author.state.last, UninitializedRoute());
-      expect(book.state.last, BookRoute(id: '123'));
-
-      expect(main.state.stack, [BooksRoute()]);
-      expect(author.state.stack, []);
-      expect(book.state.stack, [BookRoute(id: '123')]);
-
-      expect(main.pages, ['/books']);
-      expect(author.pages, []);
-      expect(book.pages, ['/books/123']);
+    testWidgets('home -> setBooks', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.setBooks();
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsNothing);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsOneWidget);
+      }
     });
   });
 }

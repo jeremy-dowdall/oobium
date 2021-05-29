@@ -9,33 +9,33 @@ part 'main3_routes.g.dart';
 
 final mainBuilder = _Routes((r) => r
   ..redirect('/old_path/<var1>/first/<var2>', '/new_path/<var2>/second/<var1>/<var3>')
-  ..page<AuthRoute>('/sign_in', (_,__) => MaterialPage(child: Text('auth page')),
-    // onGuard: (_,__) => !context.state.anonymous ? const HomeRoute() : null,
+  ..page<AuthRoute>('/sign_in', (_) => MaterialPage(child: Text('auth page')),
+    // onGuard: (_) => !context.state.anonymous ? const HomeRoute() : null,
   )
   ..guard(
     onGuard: (state) => null, // state.anonymous ? const AuthRoute() : null,
     guarded: (guarded) => guarded
-      ..view<AuthorsRoute>('/authors', (_,__) => Text('authors page'))
-      ..view<AuthorsDetailsRoute>('/authors/<id>', (_,__) => Text('authors page'))
-      ..page<BooksRoute>('/books', (_,__) => MaterialPage(child: Text('books page')))
-      ..page<BooksDetailsRoute>('/books/<id>', (_,__) => MaterialPage(child: Text('books page')))
-      ..page<SettingsRoute>('/settings', (_,__) => MaterialPage(child: Text('settings page')))
+      ..view<AuthorsRoute>('/authors', (_) => Text('authors page'))
+      ..view<AuthorsDetailsRoute>('/authors/<id>', (_) => Text('authors page'))
+      ..page<BooksRoute>('/books', (_) => MaterialPage(child: Text('books page')))
+      ..page<BooksDetailsRoute>('/books/<id>', (_) => MaterialPage(child: Text('books page')))
+      ..page<SettingsRoute>('/settings', (_) => MaterialPage(child: Text('settings page')))
   )
 );
 
 final authorBuilder = mainBuilder.atAuthorsRoute((r) => r
-  ..view<AuthorDetailsRoute>('/<id>', (_,r) => Text('author details page(${r.id})'))
-  ..page<AuthorsBookDetailsRoute>('/<authorId>/books/<bookId>', (_,r) => MaterialPage(child: Text('author ${r.authorId} details page(${r.bookId})')))
+  ..view<AuthorDetailsRoute>('/<id>', (s) => Text('author details page(${s.route.id})'))
+  ..page<AuthorsBookDetailsRoute>('/<authorId>/books/<bookId>', (s) => MaterialPage(child: Text('author ${s.route.authorId} details page(${s.route.bookId})')))
 );
 
 final bookBuilder = mainBuilder.atBooksRoute((r) => r
-  ..page<BookRoute>('/<id>', (_,r) => MaterialPage(child: Text('book details page${r.id}')))
+  ..page<BookRoute>('/<id>', (s) => MaterialPage(child: Text('book details page${s.route.id}')))
 );
 final chapterBuilder = bookBuilder.atBookRoute((r) => r
-  ..page<ChapterRoute>('/<id>', (_,r) => MaterialPage(child: Text('book details page${r.id}')))
+  ..page<ChapterRoute>('/<id>', (s) => MaterialPage(child: Text('book details page${s.route.id}')))
 );
 final verseBuilder = chapterBuilder.atChapterRoute((r) => r
-  ..page<VerseRoute>('/<id>', (_,r) => MaterialPage(child: Text('book details page${r.id}')))
+  ..page<VerseRoute>('/<id>', (s) => MaterialPage(child: Text('book details page${s.route.id}')))
 );
 
 final mainRoutes = mainBuilder();

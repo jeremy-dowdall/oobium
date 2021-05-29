@@ -6,21 +6,17 @@ part 'main2_routes.g.dart';
 
 final mainBuilder = _Routes((r) => r
   ..home(show: (_) => const AuthorsRoute())
-  ..page<AuthorsRoute>('/authors', (_,__) => const AppPage('/', HomeScreen()))
-  ..page<BooksRoute>('/books', (_,__) => const AppPage('/', HomeScreen()))
-  ..page<SettingsRoute>('/settings', (_,__) => const AppPage('/', HomeScreen()))
+  ..page<AuthorsRoute>('/authors', (_) => const AppPage('/', HomeScreen()))
+  ..page<BooksRoute>('/books', (_) => const AppPage('/', HomeScreen()))
+  ..page<SettingsRoute>('/settings', (_) => const AppPage('/', HomeScreen()))
 );
 
 final authorBuilder = mainBuilder.atAuthorsRoute((r) => r
-  ..home(view: (_,__) => const AuthorsView())
-  ..view<AuthorRoute>('/<id>', (_,r) => AuthorView(r.id))
+  ..home(view: (_) => const AuthorsView())
+  ..view<AuthorRoute>('/<id>', (s) => AuthorView(s.route.id))
 );
 
 final bookBuilder = mainBuilder.atBooksRoute((r) => r
-  ..home(view: (_,__) => BooksView())
-  ..view<BookRoute>('/<id>', (_,r) => BookView(r.id))
+  ..home(view: (_) => BooksView())
+  ..view<BookRoute>('/<id>', (s) => BookView(s.route.id))
 );
-
-final mainRoutes = mainBuilder();
-final authorRoutes = authorBuilder(mainRoutes);
-final bookRoutes = bookBuilder(mainRoutes);
