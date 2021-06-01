@@ -21,13 +21,13 @@ abstract class Json implements JsonString {
     return <T>[];
   }
 
-  static V value<V>(data, String field) => (data is Map && (data[field] is V)) ? (data[field] as V) : null;
+  static V? value<V>(data, String field) => (data is Map && (data[field] is V)) ? (data[field] as V) : null;
 
-  static T field<T,V>(data, String field, [T builder(V value)]) {
-    return (builder != null) ? builder(value<V>(data, field)) : value<V>(data, field);
+  static T? field<T,V>(data, String field, [T Function(V? value)? builder]) {
+    return (builder != null) ? builder(value<V>(data, field)) : value<T>(data, field);
   }
 
-  static String string(data, String field) => Json.field<String, String>(data, field);
+  static String? string(data, String field) => Json.field<String, String>(data, field);
 
   static bool has(data, String field) => (data is Map && data[field] != null);
 
@@ -35,12 +35,12 @@ abstract class Json implements JsonString {
     return (data is Map) ? data.keys.map((k) => k.toString()).toList() : [];
   }
 
-  static T toOption<T>(data, String field, List<T> options) {
+  static T toOption<T>(data, String field, List<T> options, {required T Function() orElse}) {
     final option = Json.field(data, field)?.toString();
-    return (option != null) ? options.firstWhere((test) => test.toString() == option) : null;
+    return (option != null) ? options.firstWhere((test) => test.toString() == option) : orElse();
   }
 
-  static DateTime toDateTime(data, String field, [DateTime builder(v)]) {
+  static DateTime? toDateTime(data, String field, [DateTime Function(dynamic v)? builder]) {
     if(data is Map) {
       var value = data[field];
       if(value is String) {
@@ -76,7 +76,7 @@ abstract class Json implements JsonString {
     return map;
   }
 
-  static Set<String> toSet(data, String field, [bool filter(value)]) {
+  static Set<String> toSet(data, String field, [bool Function(dynamic v)? filter]) {
     if(data is Map && data[field] is Iterable) {
       if(filter != null) {
         return data[field].where((e) => filter(e)).map((e) => e.toString()).cast<String>().toSet();
@@ -96,9 +96,9 @@ abstract class Json implements JsonString {
 
   static List<String> toStrings(data, String field) => toList(data, field, (e) => e.toString());
 
-  static from(field, {bool full}) {
+  static from(field, {bool full=true}) {
     if(field == null) return null;
-    if(field is JsonModel && full != true) return field.id;
+    if(field is JsonModel) return field.id;
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
     if(field is Iterable) return fromIterable(field, full: full);
@@ -112,8 +112,8 @@ abstract class Json implements JsonString {
     throw "don't know how to convert $field to JSON";
   }
 
-  static List<dynamic> fromIterable(Iterable iter, {bool full}) => iter?.map((e) => from(e, full: full))?.toList() ?? [];
-  static List<dynamic> fromList(List list) => list?.map((e) => from(e))?.toList() ?? [];
+  static List<dynamic> fromIterable(Iterable? iter, {bool full=true}) => iter?.map((e) => from(e, full: full)).toList() ?? [];
+  static List<dynamic> fromList(List? list) => list?.map((e) => from(e)).toList() ?? [];
 
   static Map<String, dynamic> fromMap(Map items) {
     final map = Map<String, dynamic>();
@@ -123,9 +123,9 @@ abstract class Json implements JsonString {
     return map;
   }
 
-  static Map<String, dynamic> fromSet(Set set) => { for(var id in set ?? {}) id: true };
+  static Map<String, dynamic> fromSet(Set? set) => { for(var id in set ?? {}) id: true };
 
-  static String _fromEnum(data) {
+  static String? _fromEnum(data) {
     final split = data.toString().split('.');
     return (split.length > 1 && split[0] == data.runtimeType.toString()) ? split[1] : null;
   }
@@ -134,7 +134,7 @@ abstract class Json implements JsonString {
 abstract class JsonModel extends Json {
 
   final String id;
-  const JsonModel(String id) : id = id ?? '';
+  const JsonModel([String? id]) : id = id ?? '';
   JsonModel.fromJson(data) : id = Json.field(data, 'id') ?? '';
 
   @override

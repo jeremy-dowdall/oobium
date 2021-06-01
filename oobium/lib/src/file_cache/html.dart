@@ -9,7 +9,7 @@ class FileCache implements IFileCache {
   Future<void> destroy() async { }
 
   @override
-  Future<String> get(String path) async => null;
+  Future<String?> get(String path) async => null;
 
   @override
   Future<FileCache> init() async => this;
@@ -21,7 +21,7 @@ class FileCache implements IFileCache {
   Future<FileCache> load() async => this;
 
   @override
-  Future<void> put(String path, String data, {Duration expiresIn, DateTime expiresAt, String expiresAtHttpDate}) async { }
+  Future<void> put(String path, String? data, {Duration? expiresIn, DateTime? expiresAt, String? expiresAtHttpDate}) async { }
 
   @override
   Future<void> remove(String path) async { }

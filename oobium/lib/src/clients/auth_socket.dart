@@ -5,22 +5,21 @@ import 'package:oobium/src/websocket.dart';
 class AuthSocket extends WebSocket {
 
   @override
-  Future<AuthSocket> connect({String address, int port, String uid, String token, List<String> protocols, String path = '/auth', bool autoStart = true}) async {
-    final authToken = (uid != null) ? '$uid-$token' : token;
-    assert(authToken != null);
+  Future<AuthSocket> connect({String address='127.0.0.1', int port=8080, String? token, String? uid, List<String>? protocols, String path = '/auth', bool autoStart = true}) async {
+    final authToken = (uid != null) ? '$uid-$token' : (token ?? '');
     protocols = ['authorized', authToken, ...?protocols];
     await super.connect(address: address, port: port, path: path, protocols: protocols, autoStart: autoStart);
-    _uid ??= (await get('/users/id')).data;
+    _uid = uid ?? (await get('/users/id')).data;
     _token = (await get('/users/token')).data;
     return this;
   }
 
-  String _uid;
-  String _token;
+  late String _uid;
+  late String _token;
   String get uid => _uid;
   String get token => _token;
 
-  Future<String> newInstallToken() async {
+  Future<String?> newInstallToken() async {
     assert(isConnected, 'cannot create install code when not connected');
     final result = await get('/installs/token');
     if(result.isSuccess) {
@@ -39,8 +38,8 @@ class AuthSocket extends WebSocket {
     }
   }
 
-  FutureOr<bool> Function() _onApprove;
-  WsSubscription _onApproveSub;
+  FutureOr<bool> Function()? _onApprove;
+  WsSubscription? _onApproveSub;
   set onApprove(FutureOr<bool> Function() value) {
     _onApprove = value;
     _onApproveSub?.cancel();
@@ -51,7 +50,7 @@ class AuthSocket extends WebSocket {
 
   Future<void> _onApproveInstall(WsRequest req, WsResponse res) async {
     assert(_onApprove != null, 'approval callback not set');
-    final approved = await _onApprove();
+    final approved = await _onApprove?.call();
     res.send(data: approved);
   }
 }

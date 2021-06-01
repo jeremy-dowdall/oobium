@@ -6,15 +6,15 @@ class KeyCache {
   factory KeyCache() => _instance;
   KeyCache._();
 
-  Map<String, String> _keys;
-  Map<String, String> get keys => _keys;
+  Map<String, String>? _keys;
+  Map<String, String> get keys => _keys ?? {};
 
-  DateTime _expiresAt;
-  bool get isExpired => _expiresAt == null || _expiresAt.isBefore(DateTime.now());
+  DateTime? _expiresAt;
+  bool get isExpired => _expiresAt == null || _expiresAt!.isBefore(DateTime.now());
 
-  void setKeys(Map data, String expires) {
+  void setKeys(Map? data, String? expires) {
     _keys = data?.map((k,v) => MapEntry(k.toString(), v.toString())) ?? {};
-    _expiresAt = parseHttpDate(expires);
+    _expiresAt = (expires != null) ? parseHttpDate(expires) : null;
   }
 
   static void expire() {

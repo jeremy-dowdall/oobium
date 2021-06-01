@@ -3,7 +3,7 @@ import 'dart:async';
 class Executor {
 
   bool _canceled = false;
-  Future<void> _last;
+  Future<void>? _last;
 
   Future<void> add(FutureOr Function() op) => _add(op);
   

@@ -96,7 +96,7 @@ Future<void> main() async {
       return Stream.value(model.toDataRecord());
     });
     expect(db.size, 1);
-    expect(db.get<TestType1>(model.id).isSameAs(model), isTrue);
+    expect(db.get<TestType1>(model.id)?.isSameAs(model), isTrue);
   });
 
   test('test DataModel without builders', () async {
@@ -109,7 +109,7 @@ Future<void> main() async {
     await db.open();
 
     expect(db.get(model.id), isNotNull);
-    expect(db.get(model.id).isSameAs(model), isTrue);
+    expect(db.get(model.id)?.isSameAs(model), isTrue);
     expect(db.get(model.id), isNot(model));
   });
 
@@ -123,7 +123,7 @@ Future<void> main() async {
     await db.open();
 
     expect(db.get(model.id), isNotNull);
-    expect(db.get(model.id).isSameAs(model), isFalse); // runtimeType is different
+    expect(db.get(model.id)?.isSameAs(model), isFalse); // runtimeType is different
   });
 
   test('test data event serialization', () {
@@ -144,7 +144,7 @@ Future<void> main() async {
     await db.open();
     final model1 = db.put(TestType1(name: 'test01'));
     final model2 = db.get<TestType1>(model1.id);
-    expect(model2.name, 'test01');
+    expect(model2?.name, 'test01');
     expect(model2, model1);
   });
 
@@ -157,7 +157,7 @@ Future<void> main() async {
     final db2 = create(db);
     await db2.open();
     expect(db2.get(model.id), isNotNull);
-    expect((db2.get<TestType1>(model.id)).name, model.name);
+    expect((db2.get<TestType1>(model.id))?.name, model.name);
     expect(db2.get(model.id), isNot(model));
     await db2.close();
   });
@@ -171,7 +171,7 @@ Future<void> main() async {
     final db2 = create(db);
     await db2.open();
     expect(db2.get(model.id), isNotNull);
-    expect((db2.get<TestType1>(model.id)).name, model.name);
+    expect((db2.get<TestType1>(model.id))?.name, model.name);
     expect(db2.get(model.id), isNot(model));
   });
 
@@ -258,7 +258,7 @@ Future<void> main() async {
     final db2 = create(db);
     await db2.open();
     expect(db2.getAll().length, 1);
-    expect(db2.get(model.id).isSameAs(model), isTrue);
+    expect(db2.get(model.id)?.isSameAs(model), isTrue);
 
     db2.remove(model.id);
     await db2.close();
@@ -279,8 +279,8 @@ Future<void> main() async {
     final db2 = create(db);
     await db2.open();
     expect(db2.getAll().length, 2);
-    expect(db2.get(model1.id).isSameAs(model1), isTrue);
-    expect(db2.get(model2.id).isSameAs(model2), isTrue);
+    expect(db2.get(model1.id)?.isSameAs(model1), isTrue);
+    expect(db2.get(model2.id)?.isSameAs(model2), isTrue);
 
     db2.remove(model1.id);
     await db2.close();
@@ -289,7 +289,7 @@ Future<void> main() async {
     await db3.open();
     expect(db3.getAll().length, 1);
     expect(db3.get(model1.id), isNull);
-    expect(db3.get(model2.id).isSameAs(model2), isTrue);
+    expect(db3.get(model2.id)?.isSameAs(model2), isTrue);
   });
 
   test('test getAll', () async {
@@ -388,7 +388,7 @@ Future<void> main() async {
 }
 
 final databases = <Database>[];
-Database create([Database clone]) {
+Database create([Database? clone]) {
   final path = clone?.path ?? 'test-data/test-${databases.length}';
   final db = Database(path, [(data) => TestType1.fromJson(data)]);
   databases.add(db);
@@ -399,21 +399,21 @@ Future<void> destroy() => Future.forEach<Database>(databases, (db) => db.destroy
 
 class TestType1 extends DataModel {
   String get name => this['name'];
-  TestType1({String name}) : super({'name': name});
-  TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
-  TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
+  TestType1({String? name}) : super({'name': name});
+  TestType1.copyNew(TestType1 original, {String? name}) : super.copyNew(original, {'name': name});
+  TestType1.copyWith(TestType1 original, {String? name}) : super.copyWith(original, {'name': name});
   TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
-  TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
-  TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
+  TestType1 copyNew({String? name}) => TestType1.copyNew(this, name: name);
+  TestType1 copyWith({String? name}) => TestType1.copyWith(this, name: name);
 }
 
 class TestType2 extends DataModel {
   String get name => this['name'];
   TestType1 get type1 => this['type1'];
-  TestType2({String name, TestType1 type1}) : super({'name': name});
-  TestType2.copyNew(TestType2 original, {String name, TestType1 type1}) : super.copyNew(original, {'name': name, 'type1': type1});
-  TestType2.copyWith(TestType2 original, {String name, TestType1 type1}) : super.copyWith(original, {'name': name, 'type1': type1});
+  TestType2({String? name, TestType1? type1}) : super({'name': name});
+  TestType2.copyNew(TestType2 original, {String? name, TestType1? type1}) : super.copyNew(original, {'name': name, 'type1': type1});
+  TestType2.copyWith(TestType2 original, {String? name, TestType1? type1}) : super.copyWith(original, {'name': name, 'type1': type1});
   TestType2.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {'type1'}, newId);
-  TestType2 copyNew({String name, TestType1 type1}) => TestType2.copyNew(this, name: name, type1: type1);
-  TestType2 copyWith({String name, TestType1 type1}) => TestType2.copyWith(this, name: name, type1: type1);
+  TestType2 copyNew({String? name, TestType1? type1}) => TestType2.copyNew(this, name: name, type1: type1);
+  TestType2 copyWith({String? name, TestType1? type1}) => TestType2.copyWith(this, name: name, type1: type1);
 }

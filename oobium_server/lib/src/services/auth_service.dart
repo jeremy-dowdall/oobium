@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:oobium/oobium.dart' hide User, Group, Membership;
 import 'package:oobium_server/src/services/auth/validators.dart';
 import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
@@ -18,49 +19,49 @@ class AuthService extends Service<Host, AuthConnection> {
   final AuthServiceData _db;
   final _connections = <AuthConnection>[];
   final _validators = <AuthValidator>[];
-  AuthService({this.root='test-data', Iterable<AuthValidator> validators}) : _db = AuthServiceData(root) {
+  AuthService({this.root='test-data', Iterable<AuthValidator>? validators}) : _db = AuthServiceData(root) {
     setValidators(validators ?? [AuthSocketValidator()]);
   }
 
   bool any(String id) => _db.any(id);
   bool none(String id) => _db.none(id);
 
-  List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => _db.batch<T>(put: put, remove: remove);
+  List<T?> batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) => _db.batch<T>(put: put, remove: remove);
 
-  Group getGroup(String id) => _db.get<Group>(id);
+  Group? getGroup(String id) => _db.get<Group>(id);
   Iterable<Group> getGroups() => _db.getAll<Group>();
   Group putGroup(Group group) => _db.put(group);
-  Group removeGroup(String id) => _db.remove(_db.get<Group>(id)?.id);
+  Group? removeGroup(String id) => _db.remove(_db.get<Group>(id)?.id);
 
-  Membership getMembership(String id) => _db.get<Membership>(id);
+  Membership? getMembership(String id) => _db.get<Membership>(id);
   Iterable<Membership> getMemberships() => _db.getAll<Membership>();
   Membership putMembership(Membership membership) => _db.put(membership);
-  Membership removeMembership(String id) => _db.remove(_db.get<Membership>(id)?.id);
+  Membership? removeMembership(String id) => _db.remove(_db.get<Membership>(id)?.id);
 
-  User getUser(String id) => _db.get<User>(id);
+  User? getUser(String id) => _db.get<User>(id);
   Iterable<User> getUsers() => _db.getAll<User>();
   User putUser(User user) => any(user.id) ? _db.put(user) : _db.put(user.copyWith(token: Token()));
-  User removeUser(String id) => _db.remove(_db.get<User>(id)?.id);
+  User? removeUser(String id) => _db.remove(_db.get<User>(id)?.id);
 
-  Link getLink(String id) => _db.get<Link>(id);
+  Link? getLink(String id) => _db.get<Link>(id);
   Iterable<Link> getLinks() => _db.getAll<Link>();
   Link putLink(Link link) => any(link.id) ? _db.put(link) : _db.put(link);
-  Link removeLink(String id) => _db.remove(_db.get<Link>(id)?.id);
+  Link? removeLink(String id) => _db.remove(_db.get<Link>(id)?.id);
 
-  Token getToken(String id) => _db.get<Token>(id);
+  Token? getToken(String id) => _db.get<Token>(id);
   Iterable<Token> getTokens() => _db.getAll<Token>();
   Token putToken(Token token) => any(token.id) ? _db.put(token) : _db.put(token);
-  Token removeToken(String id) => _db.remove(_db.get<Token>(id)?.id);
+  Token? removeToken(String? id) => _db.remove(_db.get<Token>(id)?.id);
 
   Stream<DataModelEvent> streamAll() => _db.streamAll();
-  Stream<DataModelEvent<Group>> streamGroups({bool Function(Group model) where}) => _db.streamAll<Group>(where: where);
-  Stream<DataModelEvent<Membership>> streamMemberships({bool Function(Membership model) where}) => _db.streamAll<Membership>(where: where);
-  Stream<DataModelEvent<User>> streamUsers({bool Function(User model) where}) => _db.streamAll<User>(where: where);
+  Stream<DataModelEvent<Group>> streamGroups({bool Function(Group model)? where}) => _db.streamAll<Group>(where: where);
+  Stream<DataModelEvent<Membership>> streamMemberships({bool Function(Membership model)? where}) => _db.streamAll<Membership>(where: where);
+  Stream<DataModelEvent<User>> streamUsers({bool Function(User model)? where}) => _db.streamAll<User>(where: where);
 
-  InstallCodes _codes;
-  Token consume(String code) => removeToken(_codes.consume(code));
+  InstallCodes? _codes;
+  Token? consume(String code) => removeToken(_codes?.consume(code));
 
-  String/*?*/ getUserToken(String uid, {bool forceNew = false}) {
+  String? getUserToken(String uid, {bool forceNew = false}) {
     final user = _db.get<User>(uid);
     if(user != null) {
       final token = user.token;
@@ -79,7 +80,7 @@ class AuthService extends Service<Host, AuthConnection> {
     return null;
   }
 
-  User/*?*/ updateUserToken(String uid) {
+  User? updateUserToken(String uid) {
     getUserToken(uid, forceNew: true);
     return _db.get<User>(uid);
   }
@@ -177,7 +178,7 @@ class AuthConnection {
     _socket.on.get('/users/id', (req, res) => res.send(data: uid));
     _socket.on.get('/users/token', (req, res) => res.send(data: _service.getUserToken(uid)));
     _socket.on.get('/users/token/new', (req, res) => res.send(data: _service.getUserToken(uid, forceNew: true)));
-    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _service._codes.createInstallCode(uid)));
+    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _service._codes?.createInstallCode(uid)));
   }
 
   Future<void> close() => _socket.close();
@@ -188,9 +189,9 @@ class AuthConnection {
 
 abstract class AuthValidator {
 
-  /*late*/ AuthService _service;
+  late AuthService _service;
   AuthValidator();
-  AuthValidator.values({AuthService service}) {
+  AuthValidator.values({required AuthService service}) {
     _service = service;
   }
 
@@ -201,10 +202,10 @@ abstract class AuthValidator {
   void onStart() {}
   void onStop() {}
 
-  Token consume(String code) => _service.consume(code);
+  Token? consume(String code) => _service.consume(code);
 
-  Link getLink(bool Function(Link link) where) => _service.getLinks().firstWhere(where, orElse: () => null);
-  Link putLink({String type, String code, Map<String, String> data}) =>  _service.putLink(Link(user: User(token: Token()), type: type, code: code, data: data));
+  Link? getLink(bool Function(Link link) where) => _service.getLinks().firstWhereOrNull(where);
+  Link putLink({required String type, required String code, Map<String, String>? data}) =>  _service.putLink(Link(user: User(token: Token()), type: type, code: code, data: data));
 
   bool hasUser(String userId, String tokenId) => _service.getUserToken(userId) == tokenId;
   User putUser(Token token) => _service.putUser(User(token: token.copyNew(), referredBy: token.user));
@@ -226,23 +227,23 @@ class InstallCodes {
   final _codes = <String, InstallCode>{};
   InstallCodes(this._db);
 
-  String consume(String code) {
+  String? consume(String code) {
     return _codes.remove(code)?.token;
   }
 
   String createInstallCode(String userId) {
     final user = _db.get<User>(userId);
-    final old = _codes.keys.firstWhere((k) => _codes[k].user == user.id, orElse: () => null);
+    final old = _codes.keys.firstWhereOrNull((k) => _codes[k]?.user == user?.id);
     if(old != null) {
       print('found old code ($old), removing');
-      _db.remove(_codes.remove(old).token);
+      _db.remove(_codes.remove(old)?.token);
     }
 
     final token = _db.put(Token(user: user));
     final code = _generateInstallCode();
     print('new code: $code');
 
-    _codes[code] = InstallCode(user.id, token.id);
+    _codes[code] = InstallCode(user!.id, token.id);
     return code;
   }
 

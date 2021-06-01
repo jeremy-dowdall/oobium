@@ -4,16 +4,16 @@ import 'package:oobium/src/json.dart';
 
 abstract class ApiClient {
 
-  final FileCache cache;
+  final FileCache? cache;
   ApiClient(this.cache);
 
-  Future<T> get<T>({String path, T Function(Map json) builder, force = false}) async {
+  Future<T> get<T>({required String path, required T Function(Map json) builder, force = false}) async {
     final data = await _get(path, force: force);
     final json = Json.decode(data);
     return builder(json);
   }
 
-  Future<List<T>> getAll<T>({String path, T Function(Map json) builder, force = false}) async {
+  Future<List<T>> getAll<T>({required String path, required T Function(Map json) builder, force = false}) async {
     final data = await _get(path, force: force);
     final json = Json.decode(data);
     assert(json is List, 'expected $path to return a List; instead received $json');
@@ -28,7 +28,7 @@ abstract class ApiClient {
   Map<String, String> createHeaders();
 
   Future<String> _get(String path, {force = false}) async {
-    if(force || cache == null || cache.isExpired(path)) {
+    if(force || cache == null || cache!.isExpired(path)) {
       final url = createUrl(path);
       final headers = createHeaders();
       try {
@@ -46,7 +46,8 @@ abstract class ApiClient {
         throw e;
       }
     } else {
-      return await cache?.get(path);
+      final data = await cache?.get(path);
+      return data ?? '';
     }
   }
 }

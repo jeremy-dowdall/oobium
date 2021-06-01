@@ -23,10 +23,10 @@ Future<void> main() async {
 
 class TestType1 extends DataModel {
   String get name => this['name'];
-  TestType1({String name}) : super({'name': name});
-  TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
-  TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
+  TestType1({required String name}) : super({'name': name});
+  TestType1.copyNew(TestType1 original, {required String name}) : super.copyNew(original, {'name': name});
+  TestType1.copyWith(TestType1 original, {required String name}) : super.copyWith(original, {'name': name});
   TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
-  TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
-  TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
+  TestType1 copyNew({required String name}) => TestType1.copyNew(this, name: name);
+  TestType1 copyWith({required String name}) => TestType1.copyWith(this, name: name);
 }

@@ -12,9 +12,9 @@ export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 
-  Sync(Data db, Repo repo, [Models models]) : super(db, repo, models);
+  Sync(Data db, Repo repo, [Models? models]) : super(db, repo, models);
 
-  Database idb;
+  late Database idb;
   final executor = Executor();
 
   @override
@@ -46,7 +46,7 @@ class Replicant extends base.Replicant {
 
   Replicant(Data db, String id) : super(db, id);
 
-  Database idb;
+  late Database idb;
 
   @override
   Replicant open() {
@@ -81,6 +81,6 @@ class Replicant extends base.Replicant {
     for(var record in records) {
       tx.put(record.toString(), '$id:${record.id}');
     }
-    await tx.transaction.completed;
+    await tx.transaction?.completed;
   }
 }

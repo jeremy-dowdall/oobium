@@ -30,7 +30,7 @@ Future<void> main() async {
     for(var i = 0; i < 10; i++) {
       final record = records[i];
       final position = positions[record.id];
-      final data = await read(position);
+      final data = await read(position!);
       print(data);
       expect(data, record.data);
     }
@@ -46,10 +46,10 @@ Future<String> read(List<int> position) async {
 }
 
 class Record {
-  String id;
-  String meta;
-  String data;
-  int end;
+  late String id;
+  late String meta;
+  late String data;
+  late int end;
   Record(int position, data) {
     this.id = ObjectId().hexString;
     this.data = jsonEncode(data);

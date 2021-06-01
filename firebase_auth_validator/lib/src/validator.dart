@@ -9,14 +9,14 @@ import 'package:oobium_server/oobium_server.dart';
 
 class FirebaseAuthValidator extends AuthValidator {
 
-  final FutureOr<FirebaseToken> Function(String projectId, String token) _decoder;
+  final FutureOr<FirebaseToken> Function(String projectId, String token)? _decoder;
 
   FirebaseAuthValidator() :
     _decoder = null
   ;
   FirebaseAuthValidator.values({
-    FutureOr<FirebaseToken> Function(String projectId, String token) decoder,
-    AuthService service
+    FutureOr<FirebaseToken> Function(String projectId, String token)? decoder,
+    required AuthService service
   }) : _decoder = decoder, super.values(service: service);
 
   @override
@@ -29,12 +29,12 @@ class FirebaseAuthValidator extends AuthValidator {
     final projectId = _getProjectId(req.host);
     final authHeader = req.headers[HttpHeaders.authorizationHeader];
     if(projectId is String && authHeader?.startsWith('Token ') == true) {
-      final fireToken = await _decodeToken(projectId, authHeader.split(' ')[1]);
+      final fireToken = await _decodeToken(projectId, authHeader!.split(' ')[1]);
       if(fireToken?.isValid() == true) {
-        print('user: ${fireToken.name} - ${fireToken.email} (${fireToken.uid})');
+        print('user: ${fireToken?.name} - ${fireToken?.email} (${fireToken?.uid})');
         final link = getLink((l) => l.type == 'firebase' && l.data == fireToken);
         if(link == null) {
-          final link = putLink(type: 'firebase', code: fireToken.uid, data: fireToken.data.map((e,v) => MapEntry(e.toString(), v.toString())));
+          final link = putLink(type: 'firebase', code: fireToken!.uid!, data: fireToken.data.map((e,v) => MapEntry(e.toString(), v.toString())));
           req['uid'] = link.user.id;
         } else {
           updateUserToken(link.user.id);
@@ -42,16 +42,16 @@ class FirebaseAuthValidator extends AuthValidator {
         }
         return true;
       } else {
-        print('invalid fireToken: ${fireToken.errors.join('\n')}');
+        print('invalid fireToken: ${fireToken?.errors.join('\n')}');
       }
     }
     return false;
   }
 
-  Future<FirebaseToken> _decodeToken(String projectId, String token) async {
+  Future<FirebaseToken?> _decodeToken(String projectId, String token) async {
     try {
       if(_decoder != null) {
-        return _decoder(projectId, token);
+        return _decoder!(projectId, token);
       } else {
         return FirebaseToken.decode(
             projectId: projectId,

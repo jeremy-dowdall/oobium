@@ -1,13 +1,12 @@
-import 'package:meta/meta.dart';
 import 'package:corsac_jwt/corsac_jwt.dart';
 
 class FirebaseToken {
 
-  final String/*?*/ uid;
-  final String/*?*/ name;
-  final String/*?*/ picture;
-  final String/*?*/ email;
-  final String/*?*/ emailVerified;
+  final String? uid;
+  final String? name;
+  final String? picture;
+  final String? email;
+  final String? emailVerified;
   final List<String> errors;
   final bool validated;
 
@@ -17,8 +16,8 @@ class FirebaseToken {
     this.picture,
     this.email,
     this.emailVerified,
-    List<String> errors,
-    bool validated
+    List<String>? errors,
+    bool? validated
   }) :
     errors = errors ?? [],
     validated = validated ?? (uid != null)
@@ -33,10 +32,10 @@ class FirebaseToken {
     if(emailVerified != null) 'emailVerified': emailVerified,
   };
 
-  static FirebaseToken decode({@required String token, String projectId, Map<String, String> publicKeys}) {
-    final jwt = (token != null) ? JWT.parse(token) : null;
+  static FirebaseToken decode({required String token, required String projectId, required Map<String, String> publicKeys}) {
+    final jwt = JWT.parse(token);
     final errors = <String>[];
-    final validated = token != null && (projectId != null || publicKeys != null);
+    final validated = (projectId != null || publicKeys != null);
 
     if(validated) {
       // https://firebase.google.com/docs/auth/admin/verify-id-tokens#verify_id_tokens_using_a_third-party_jwt_library
@@ -59,7 +58,7 @@ class FirebaseToken {
     }
 
     return FirebaseToken(
-      uid:           jwt?.subject,
+      uid:           jwt.subject,
       name:          (jwt.claims != null) ? jwt.claims['name'] : null,
       picture:       (jwt.claims != null) ? jwt.claims['picture'] : null,
       email:         (jwt.claims != null) ? jwt.claims['email'] : null,

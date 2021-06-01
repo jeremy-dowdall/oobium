@@ -14,12 +14,12 @@ class Account extends DataModel {
   int get lastOpenedAt => this['lastOpenedAt'];
 
   Account(
-      {@required String uid,
-      String token,
-      String avatar,
-      String description,
-      int lastConnectedAt,
-      int lastOpenedAt})
+      {required String uid,
+      String? token,
+      String? avatar,
+      String? description,
+      int? lastConnectedAt,
+      int? lastOpenedAt})
       : super({
           'uid': uid,
           'token': token,
@@ -30,12 +30,12 @@ class Account extends DataModel {
         });
 
   Account.copyNew(Account original,
-      {String uid,
-      String token,
-      String avatar,
-      String description,
-      int lastConnectedAt,
-      int lastOpenedAt})
+      {String? uid,
+      String? token,
+      String? avatar,
+      String? description,
+      int? lastConnectedAt,
+      int? lastOpenedAt})
       : super.copyNew(original, {
           'uid': uid,
           'token': token,
@@ -46,12 +46,12 @@ class Account extends DataModel {
         });
 
   Account.copyWith(Account original,
-      {String uid,
-      String token,
-      String avatar,
-      String description,
-      int lastConnectedAt,
-      int lastOpenedAt})
+      {String? uid,
+      String? token,
+      String? avatar,
+      String? description,
+      int? lastConnectedAt,
+      int? lastOpenedAt})
       : super.copyWith(original, {
           'uid': uid,
           'token': token,
@@ -76,12 +76,12 @@ class Account extends DataModel {
             newId);
 
   Account copyNew(
-          {String uid,
-          String token,
-          String avatar,
-          String description,
-          int lastConnectedAt,
-          int lastOpenedAt}) =>
+          {String? uid,
+          String? token,
+          String? avatar,
+          String? description,
+          int? lastConnectedAt,
+          int? lastOpenedAt}) =>
       Account.copyNew(this,
           uid: uid,
           token: token,
@@ -91,12 +91,12 @@ class Account extends DataModel {
           lastOpenedAt: lastOpenedAt);
 
   Account copyWith(
-          {String uid,
-          String token,
-          String avatar,
-          String description,
-          int lastConnectedAt,
-          int lastOpenedAt}) =>
+          {String? uid,
+          String? token,
+          String? avatar,
+          String? description,
+          int? lastConnectedAt,
+          int? lastOpenedAt}) =>
       Account.copyWith(this,
           uid: uid,
           token: token,

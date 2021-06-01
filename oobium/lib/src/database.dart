@@ -22,18 +22,18 @@ class Database {
   static Future<void> clean(String path) => Data(path).destroy();
 
   final String path;
-  final List<Function(Map data)> _builders;
+  final List<Function(Map data)>? _builders;
   Database(this.path, [this._builders]) {
     assert(path.isNotBlank, 'database path cannot be blank');
   }
 
-  int _version;
-  Models _models;
-  Data _data;
-  Repo _repo;
-  Sync _sync;
+  int _version = 0;
+  Models? _models;
+  Data? _data;
+  Repo? _repo;
+  Sync? _sync;
 
-  int get version => _version ?? 0;
+  int get version => _version;
 
   int get size => _models?.length ?? 0;
   bool get isEmpty => size == 0;
@@ -43,33 +43,31 @@ class Database {
   bool get isOpen => _open;
   bool get isNotOpen => !isOpen;
 
-  Future<Database> open({int version, Stream<DataRecord> Function(UpgradeEvent event) onUpgrade}) async {
+  Future<Database> open({int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
     if(isNotOpen) {
       _open = true;
-      _version = version ?? 1;
+      _version = version;
       _data = await Data(path).open(version: version, onUpgrade: (event) async {
         if(onUpgrade != null) {
-          final oldRepo = (event.oldData != null) ? (await Repo(event.oldData).open()) : null;
+          final oldRepo = (event.oldData != null) ? (await Repo(event.oldData!).open()) : null;
           final stream = onUpgrade(UpgradeEvent._(event.oldVersion, event.newVersion, oldRepo?.get() ?? Stream<DataRecord>.empty()));
-          if(stream != null) {
-            final newRepo = await Repo(event.newData).open();
-            newRepo.put(stream);
-            await newRepo.close();
-          }
+          final newRepo = await Repo(event.newData).open();
+          newRepo.put(stream);
+          await newRepo.close();
           await oldRepo?.close();
         }
         return true;
       });
-      _repo = await Repo(_data).open();
-      _models = await Models(_builders).load(_repo.get());
-      _sync = await Sync(_data, _repo, _models).open();
+      _repo = await Repo(_data!).open();
+      _models = await Models(_builders).load(_repo!.get());
+      _sync = await Sync(_data!, _repo!, _models).open();
     }
     return this;
   }
 
   Future<void> flush() async {
-    await _sync.flush();
-    await _repo.flush();
+    await _sync?.flush();
+    await _repo?.flush();
   }
 
   Future<void> close() async {
@@ -98,7 +96,7 @@ class Database {
     _sync = null;
   }
 
-  Future<void> reset({WebSocket socket}) async {
+  Future<void> reset({WebSocket? socket}) async {
     await destroy();
     if(socket != null) {
       final data = await Data(path).open();
@@ -109,31 +107,31 @@ class Database {
     await open();
   }
 
-  bool any(String id) => _models?.any(id) == true;
-  bool none(String id) => _models?.none(id) == true;
+  bool any(String? id) => _models?.any(id) == true;
+  bool none(String? id) => _models?.none(id) == true;
 
-  List<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) => _batch(put: put, remove: remove);
+  List<T?> batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) => _batch(put: put, remove: remove);
 
-  T get<T extends DataModel>(String id, {T Function() orElse}) => _models.get<T>(id, orElse: orElse);
-  Iterable<T> getAll<T extends DataModel>() => _models.getAll<T>();
+  T? get<T extends DataModel>(String? id, {T Function()? orElse}) => _models!.get<T>(id, orElse: orElse);
+  Iterable<T> getAll<T extends DataModel>() => _models!.getAll<T>();
 
-  T put<T extends DataModel>(T model) => batch(put: [model])[0];
-  List<T> putAll<T extends DataModel>(Iterable<T> models) => batch(put: models);
+  T put<T extends DataModel>(T model) => batch(put: [model])[0]!;
+  List<T> putAll<T extends DataModel>(Iterable<T> models) => _batch(put: models) as List<T>;
 
-  T remove<T extends DataModel>(String id) => batch(remove: [id])[0];
-  List<T> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
+  T? remove<T extends DataModel>(String? id) => batch(remove: [id])[0] as T?;
+  List<T?> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
 
-  Stream<T> stream<T extends DataModel>(String id) => _models.stream<T>(id);
-  Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model) where}) => _models.streamAll<T>(where: where);
+  Stream<T> stream<T extends DataModel>(String id) => _models!.stream<T>(id);
+  Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) => _models!.streamAll<T>(where: where);
 
-  bool get isBound => _sync.isBound;
-  bool get isNotBound => _sync.isNotBound;
+  bool get isBound => _sync!.isBound;
+  bool get isNotBound => _sync!.isNotBound;
 
-  Future<void> bind(WebSocket socket, {String name, bool wait = true}) => _sync.bind(socket, name: name, wait: wait);
-  void unbind(WebSocket socket, {String name}) => _sync?.unbind(socket, name: name);
+  Future<void> bind(WebSocket socket, {String? name, bool wait = true}) => _sync!.bind(socket, name: name, wait: wait);
+  void unbind(WebSocket socket, {String? name}) => _sync?.unbind(socket, name: name);
 
-  List<T> _batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
-    final batch = _models.batch(put: put, remove: remove);
+  List<T?> _batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) {
+    final batch = _models!.batch(put: put, remove: remove);
 
     if(batch.isNotEmpty) {
       _sync?.put(batch.records);
@@ -146,9 +144,9 @@ class Database {
 class DataRecord implements JsonString {
 
   final String id;
-  final String type;
+  final String? type;
   final int timestamp;
-  final Map<String, dynamic> _data;
+  final Map<String, dynamic>? _data;
   DataRecord(this.id, this.timestamp, [this.type, this._data]);
 
   factory DataRecord.delete(String id) {
@@ -175,7 +173,7 @@ class DataRecord implements JsonString {
     return DataRecord(model.id, model.timestamp, model.runtimeType.toString(), data);
   }
 
-  Map<String, dynamic> get data => {..._data, 'id': id, 'timestamp': timestamp};
+  Map<String, dynamic> get data => {...?_data, 'id': id, 'timestamp': timestamp};
 
   bool get isDelete => (type == null);
   bool get isNotDelete => !isDelete;

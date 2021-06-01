@@ -212,8 +212,8 @@ class WsTestServerClient {
       else if(msg == 'done') {
         _done.complete();
       }
-      else if(completer != null && !completer.isCompleted) {
-        completer.complete(msg);
+      else if(completer != null && !completer!.isCompleted) {
+        completer!.complete(msg);
         completer = null;
       }
     });
@@ -227,11 +227,11 @@ class WsTestServerClient {
 
   Future<void> close() => _send('close');
 
-  Completer completer;
+  Completer? completer;
   Future _send(String path, [dynamic data]) async {
     await completer?.future;
     completer = Completer();
     channel.sink.add([path, data]);
-    return completer.future;
+    return completer!.future;
   }
 }

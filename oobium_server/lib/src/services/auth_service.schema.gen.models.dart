@@ -12,12 +12,12 @@ class AuthServiceData extends Database {
 }
 
 class User extends DataModel {
-  String get name => this['name'];
-  String get avatar => this['avatar'];
-  Token get token => this['token'];
-  User get referredBy => this['referredBy'];
+  String? get name => this['name'];
+  String? get avatar => this['avatar'];
+  Token? get token => this['token'];
+  User? get referredBy => this['referredBy'];
 
-  User({String name, String avatar, Token token, User referredBy})
+  User({String? name, String? avatar, Token? token, User? referredBy})
       : super({
           'name': name,
           'avatar': avatar,
@@ -26,7 +26,7 @@ class User extends DataModel {
         });
 
   User.copyNew(User original,
-      {String name, String avatar, Token token, User referredBy})
+      {String? name, String? avatar, Token? token, User? referredBy})
       : super.copyNew(original, {
           'name': name,
           'avatar': avatar,
@@ -35,7 +35,7 @@ class User extends DataModel {
         });
 
   User.copyWith(User original,
-      {String name, String avatar, Token token, User referredBy})
+      {String? name, String? avatar, Token? token, User? referredBy})
       : super.copyWith(original, {
           'name': name,
           'avatar': avatar,
@@ -47,54 +47,54 @@ class User extends DataModel {
       : super.fromJson(
             data, {'name', 'avatar'}, {'token', 'referredBy'}, newId);
 
-  User copyNew({String name, String avatar, Token token, User referredBy}) =>
+  User copyNew({String? name, String? avatar, Token? token, User? referredBy}) =>
       User.copyNew(this,
           name: name, avatar: avatar, token: token, referredBy: referredBy);
 
-  User copyWith({String name, String avatar, Token token, User referredBy}) =>
+  User copyWith({String? name, String? avatar, Token? token, User? referredBy}) =>
       User.copyWith(this,
           name: name, avatar: avatar, token: token, referredBy: referredBy);
 }
 
 class Token extends DataModel {
-  User get user => this['user'];
+  User? get user => this['user'];
 
-  Token({User user}) : super({'user': user});
+  Token({User? user}) : super({'user': user});
 
-  Token.copyNew(Token original, {User user})
+  Token.copyNew(Token original, {User? user})
       : super.copyNew(original, {'user': user});
 
-  Token.copyWith(Token original, {User user})
+  Token.copyWith(Token original, {User? user})
       : super.copyWith(original, {'user': user});
 
   Token.fromJson(data, {bool newId = false})
       : super.fromJson(data, {}, {'user'}, newId);
 
-  Token copyNew({User user}) => Token.copyNew(this, user: user);
+  Token copyNew({User? user}) => Token.copyNew(this, user: user);
 
-  Token copyWith({User user}) => Token.copyWith(this, user: user);
+  Token copyWith({User? user}) => Token.copyWith(this, user: user);
 }
 
 class Link extends DataModel {
   User get user => this['user'];
   String get type => this['type'];
   String get code => this['code'];
-  Map<String, String> get data => this['data'];
+  Map<String, String>? get data => this['data'];
 
-  Link(
-      {@required User user,
-      @required String type,
-      @required String code,
-      Map<String, String> data})
-      : super({'user': user, 'type': type, 'code': code, 'data': data});
+  Link({
+    required User user,
+    required String type,
+    required String code,
+    Map<String, String>? data
+  }) : super({'user': user, 'type': type, 'code': code, 'data': data});
 
   Link.copyNew(Link original,
-      {User user, String type, String code, Map<String, String> data})
+      {User? user, String? type, String? code, Map<String, String>? data})
       : super.copyNew(
             original, {'user': user, 'type': type, 'code': code, 'data': data});
 
   Link.copyWith(Link original,
-      {User user, String type, String code, Map<String, String> data})
+      {User? user, String? type, String? code, Map<String, String>? data})
       : super.copyWith(
             original, {'user': user, 'type': type, 'code': code, 'data': data});
 
@@ -102,60 +102,60 @@ class Link extends DataModel {
       : super.fromJson(data, {'type', 'code', 'data'}, {'user'}, newId);
 
   Link copyNew(
-          {User user, String type, String code, Map<String, String> data}) =>
+          {User? user, String? type, String? code, Map<String, String>? data}) =>
       Link.copyNew(this, user: user, type: type, code: code, data: data);
 
   Link copyWith(
-          {User user, String type, String code, Map<String, String> data}) =>
+          {User? user, String? type, String? code, Map<String, String>? data}) =>
       Link.copyWith(this, user: user, type: type, code: code, data: data);
 }
 
 class Group extends DataModel {
-  String get name => this['name'];
-  User get owner => this['owner'];
+  String? get name => this['name'];
+  User? get owner => this['owner'];
 
-  Group({String name, User owner}) : super({'name': name, 'owner': owner});
+  Group({String? name, User? owner}) : super({'name': name, 'owner': owner});
 
-  Group.copyNew(Group original, {String name, User owner})
+  Group.copyNew(Group original, {String? name, User? owner})
       : super.copyNew(original, {'name': name, 'owner': owner});
 
-  Group.copyWith(Group original, {String name, User owner})
+  Group.copyWith(Group original, {String? name, User? owner})
       : super.copyWith(original, {'name': name, 'owner': owner});
 
   Group.fromJson(data, {bool newId = false})
       : super.fromJson(data, {'name'}, {'owner'}, newId);
 
-  Group copyNew({String name, User owner}) =>
+  Group copyNew({String? name, User? owner}) =>
       Group.copyNew(this, name: name, owner: owner);
 
-  Group copyWith({String name, User owner}) =>
+  Group copyWith({String? name, User? owner}) =>
       Group.copyWith(this, name: name, owner: owner);
 }
 
 class Membership extends DataModel {
-  User get user => this['user'];
-  Group get group => this['group'];
-  User get invitedBy => this['invitedBy'];
+  User? get user => this['user'];
+  Group? get group => this['group'];
+  User? get invitedBy => this['invitedBy'];
 
-  Membership({User user, Group group, User invitedBy})
+  Membership({User? user, Group? group, User? invitedBy})
       : super({'user': user, 'group': group, 'invitedBy': invitedBy});
 
   Membership.copyNew(Membership original,
-      {User user, Group group, User invitedBy})
+      {User? user, Group? group, User? invitedBy})
       : super.copyNew(
             original, {'user': user, 'group': group, 'invitedBy': invitedBy});
 
   Membership.copyWith(Membership original,
-      {User user, Group group, User invitedBy})
+      {User? user, Group? group, User? invitedBy})
       : super.copyWith(
             original, {'user': user, 'group': group, 'invitedBy': invitedBy});
 
   Membership.fromJson(data, {bool newId = false})
       : super.fromJson(data, {}, {'user', 'group', 'invitedBy'}, newId);
 
-  Membership copyNew({User user, Group group, User invitedBy}) =>
+  Membership copyNew({User? user, Group? group, User? invitedBy}) =>
       Membership.copyNew(this, user: user, group: group, invitedBy: invitedBy);
 
-  Membership copyWith({User user, Group group, User invitedBy}) =>
+  Membership copyWith({User? user, Group? group, User? invitedBy}) =>
       Membership.copyWith(this, user: user, group: group, invitedBy: invitedBy);
 }

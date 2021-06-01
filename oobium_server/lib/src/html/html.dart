@@ -1,4 +1,3 @@
-import 'package:meta/meta.dart';
 import 'package:oobium/oobium.dart';
 import 'package:oobium_server/src/server_settings.dart';
 
@@ -7,9 +6,9 @@ abstract class PageBuilder<T extends Json> {
 }
 
 class Page {
-  final Page layout;
+  final Page? layout;
   final Map<String, List<Element>> blocks;
-  Page({this.layout, List<Element> content, List<Element> scripts, List<Element> styles, Map<String, List<Element>> blocks}) : blocks = blocks ?? {} {
+  Page({this.layout, List<Element>? content, List<Element>? scripts, List<Element>? styles, Map<String, List<Element>>? blocks}) : blocks = blocks ?? {} {
     if(content != null) {
       assert(this.blocks.containsKey('content') == false, 'content will shadow blocks[\'content\']');
       this.blocks['content'] = content;
@@ -22,10 +21,10 @@ class Page {
       assert(this.blocks.containsKey('styles') == false, 'styles will shadow blocks[\'styles\']');
       this.blocks['styles'] = styles;
     }
-    for(var e in this.blocks.values.expand((l) => l ?? <Element>[])) { e._page = this; }
+    for(var e in this.blocks.values.expand((l) => l)) { e._page = this; }
   }
 
-  Page _page;
+  Page? _page;
   String render() {
     final buffer = StringBuffer();
     buffer.write('<!DOCTYPE html>');
@@ -33,14 +32,14 @@ class Page {
     if(layout == null) {
       renderTo(buffer, content: blocks['content']);
     } else {
-      layout._page = this;
-      renderTo(buffer, content: layout.blocks['content']);
+      layout!._page = this;
+      renderTo(buffer, content: layout!.blocks['content']);
     }
     buffer.write('</html>');
     return buffer.toString();
   }
 
-  void renderTo(StringBuffer buffer, {List<Element> content}) {
+  void renderTo(StringBuffer buffer, {List<Element>? content}) {
     if(content != null) {
       for (var e in content) { e.renderTo(buffer); }
     }
@@ -48,22 +47,22 @@ class Page {
 }
 
 abstract class Element {
-  Page _page;
-  Element _parent;
+  Page? _page;
+  Element? _parent;
   void renderTo(StringBuffer buffer);
-  Page get page => _page?._page ?? _page ?? _parent.page;
+  Page get page => _page?._page ?? _page ?? _parent?.page ?? (throw 'page not defined in Element hierarchy');
 }
 
 class Link extends Element {
-  final String crossorigin;
-  final String href;
-  final String hreflang;
-  final String media;
-  final String referrerPolicy;
-  final String rel;
-  final String sizes;
-  final String title;
-  final String type;
+  final String? crossorigin;
+  final String? href;
+  final String? hreflang;
+  final String? media;
+  final String? referrerPolicy;
+  final String? rel;
+  final String? sizes;
+  final String? title;
+  final String? type;
   Link({this.crossorigin, this.href, this.hreflang, this.media, this.referrerPolicy, this.rel, this.sizes, this.title, this.type});
   @override
   void renderTo(StringBuffer buffer) {
@@ -82,32 +81,32 @@ class Link extends Element {
 }
 
 class Script extends Element {
-  final String type;
-  final String src;
-  final String content;
+  final String? type;
+  final String? src;
+  final String? content;
   final bool async;
   final bool defer;
-  Script({this.type, this.src, this.content, this.async, this.defer});
+  Script({this.type, this.src, this.content, this.async=false, this.defer=false});
   @override
   void renderTo(StringBuffer buffer) {
     buffer.write('<script');
     if(type != null) buffer..write(' type=\'')..write(type)..write('\'');
     if(src != null) buffer..write(' src=\'')..write(src)..write('\'');
-    if(async == true) buffer..write(' async');
-    if(defer == true) buffer..write(' defer');
+    if(async) buffer.write(' async');
+    if(defer) buffer.write(' defer');
     if(content != null) { buffer..write('>')..write(content)..write('</script>'); }
     else { buffer.write('></script>'); }
   }
 }
 
 class Style extends Element {
-  final String media;
-  final String type;
-  final String content;
+  final String? media;
+  final String? type;
+  final String? content;
   Style({this.media, this.type, this.content});
   @override
   void renderTo(StringBuffer buffer) {
-    buffer..write('<style');
+    buffer.write('<style');
     if(media != null) buffer..write(' media=\'')..write(media)..write('\'');
     if(type != null) buffer..write(' type=\'')..write(type)..write('\'');
     buffer..write('>')..write(content)..write('</style>');
@@ -115,24 +114,24 @@ class Style extends Element {
 }
 
 class Html extends Element {
-  final String tag;
-  final String text;
-  final Map<String, dynamic> attributes;
-  final List<Element> children;
+  final String? tag;
+  final String? text;
+  final Map<String, dynamic>? attributes;
+  final List<Element>? children;
   Html({this.tag, this.text, this.attributes, this.children}) {
-    if(children != null) for(var e in children) { e._parent = this; }
+    if(children != null) for(var e in children!) { e._parent = this; }
   }
   @override
   void renderTo(StringBuffer buffer) {
     if(tag != null) {
       buffer..write('<')..write(tag);
-      if(attributes != null) for(var k in attributes.keys) { buffer..write(' ')..write(k)..write('=\'')..write(attributes[k])..write('\''); }
+      if(attributes != null) for(var k in attributes!.keys) { buffer..write(' ')..write(k)..write('=\'')..write(attributes![k])..write('\''); }
       buffer.write('>');
       if(text != null) buffer.write(text);
-      if(children != null) for (var child in children) { child.renderTo(buffer); }
+      if(children != null) for(var child in children!) { child.renderTo(buffer); }
       if(tag != null) buffer..write('</')..write(tag)..write('>');
     } else {
-      if(children != null) for(var child in children) { child.renderTo(buffer); }
+      if(children != null) for(var child in children!) { child.renderTo(buffer); }
     }
   }
   @override
@@ -158,45 +157,45 @@ Block content({bool optional=false}) => Block('content', optional: optional);
 Block scripts({bool optional=true}) => Block('scripts', optional: optional);
 Block styles({bool optional=true}) => Block('styles', optional: optional);
 Html head(List<Element> children) => Html(tag: 'head', children: children);
-Html body({String id, List<String> classes, String style, Map<String, dynamic> data, List<Element> children}) => Html(tag: 'body', attributes: _attrs(id, classes, style, data, null), children: children);
+Html body({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, List<Element>? children}) => Html(tag: 'body', attributes: _attrs(id, classes, style, data, null), children: children);
 Html meta(Map<String, String> attributes) => Html(tag: 'meta', attributes: attributes);
 Html title(String text) => Html(tag: 'title', text: text);
-Link link({String rel = 'stylesheet', String media, String type, String href, String content}) => Link(href: href, media: media, rel: rel, type: type);
-Script script({String type, String src, String content, bool async=false, bool defer=false}) => Script(type: type, src: src, content: content, async: async, defer: defer);
-Style style({String media, String type, String content}) => Style(media: media, type: type, content: content);
-Html iframe({String src, int frameborder, int width, int height, bool allowFullScreen, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'iframe', attributes: _attrs(id, classes, style, data, {'src': src, 'frameborder': frameborder, 'width': width, 'height': height, 'allowFullScreen': allowFullScreen}), text: text, children: children);
-Html div({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'div', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html span({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'span', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html h1({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h1', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html h2({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h2', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html h3({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h3', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html h4({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h4', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html h5({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h5', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html h6({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'h6', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html p({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'p', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html ol({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'ol', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html ul({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'ul', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html li({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'li', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html a({@required String href, String rel, String target, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'a', attributes: _attrs(id, classes, style, data, {'href': href, 'rel': rel, 'target': target}), text: text, children: children);
-Html i({String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'i', attributes: _attrs(id, classes, style, data), text: text, children: children);
-Html img({String src, String alt, List<String> srcSet, List<String> sizes, int width, int height, String loading, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'img', attributes: _attrs(id, classes, style, data, {'src': src, 'alt': alt, 'srcset': srcSet?.join(','), 'sizes': sizes?.join(','), 'width': width, 'height': height, 'loading': loading}), text: text, children: children);
-Html form({String action, bool autocomplete, String enctype, String method, String name, bool novalidate, String rel, String target, String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'form', attributes: _attrs(id, classes, style, data, {
-  'action': action, 'autocomplete': (autocomplete == false) ? 'off' : null, 'enctype': enctype, 'method': method, 'name': name, 'novalidate': (novalidate == true) ? 'novalidate' : null, 'rel': rel, 'target': target}), text: text, children: children
+Link link({String rel = 'stylesheet', String? media, String? type, String? href, String? content}) => Link(href: href, media: media, rel: rel, type: type);
+Script script({String? type, String? src, String? content, bool async=false, bool defer=false}) => Script(type: type, src: src, content: content, async: async, defer: defer);
+Style style({String? media, String? type, String? content}) => Style(media: media, type: type, content: content);
+Html iframe({String? src, int? frameborder, int? width, int? height, bool allowFullScreen=false, String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'iframe', attributes: _attrs(id, classes, style, data, {'src': src, 'frameborder': frameborder, 'width': width, 'height': height, 'allowFullScreen': allowFullScreen}), text: text, children: children);
+Html div({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'div', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html span({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'span', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h1({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'h1', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h2({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'h2', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h3({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'h3', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h4({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'h4', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h5({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'h5', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html h6({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'h6', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html p({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'p', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html ol({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'ol', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html ul({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'ul', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html li({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'li', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html a({required String href, String? rel, String? target, String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'a', attributes: _attrs(id, classes, style, data, {'href': href, 'rel': rel, 'target': target}), text: text, children: children);
+Html i({String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'i', attributes: _attrs(id, classes, style, data), text: text, children: children);
+Html img({String? src, String? alt, List<String>? srcSet, List<String>? sizes, int? width, int? height, String? loading, String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'img', attributes: _attrs(id, classes, style, data, {'src': src, 'alt': alt, 'srcset': srcSet?.join(','), 'sizes': sizes?.join(','), 'width': width, 'height': height, 'loading': loading}), text: text, children: children);
+Html form({String? action, bool autocomplete=true, String? enctype, String? method, String? name, bool novalidate=false, String? rel, String? target, String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'form', attributes: _attrs(id, classes, style, data, {
+  'action': action, 'autocomplete': (autocomplete == false) ? 'off' : null, 'enctype': enctype, 'method': method, 'name': name, 'novalidate': novalidate ? 'novalidate' : null, 'rel': rel, 'target': target}), text: text, children: children
 );
 Html input({
-  String accept, String alt, bool autocomplete, bool autofocus, bool checked, bool disabled, String form, String formaction, String formenctype, String formmethod, bool formnovalidate, int height, String list, String max, int maxlength, String min, int minLength, bool multiple, String name, String pattern, String placeholder, bool readonly, bool required, int size, String src, String step, String type, String value, int width,
-  String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'input', attributes: _attrs(id, classes, style, data,
-    {'accept': accept, 'alt': alt, 'autocomplete': (autocomplete == false) ? 'off' : null, 'autofocus': (autofocus == true) ? 'autofocus' : null, 'checked': (checked == true) ? 'checked' : null, 'disabled': (disabled == true) ? 'disabled' : null, 'form': form, 'formaction': formaction, 'formenctype': formenctype, 'formmethod': formmethod, 'formnovalidate': (formnovalidate == true) ? 'formnovalidate' : null, 'height': height, 'list': list, 'max': max, 'maxlength': maxlength, 'min': min, 'minLength': minLength, 'multiple': (multiple == true) ? 'multiple' : null, 'name': name, 'pattern': pattern, 'placeholder': placeholder, 'readonly': (readonly == true) ? 'readonly' : null, 'required': (required == true) ? 'required' : null, 'size': size, 'src': src, 'step': step, 'type': type, 'value': value, 'width': width,})
+  String? accept, String? alt, bool autocomplete=true, bool autofocus=false, bool checked=false, bool disabled=false, String? form, String? formaction, String? formenctype, String? formmethod, bool formnovalidate=false, int? height, String? list, String? max, int? maxlength, String? min, int? minLength, bool multiple=false, String? name, String? pattern, String? placeholder, bool readonly=false, bool required=false, int? size, String? src, String? step, String? type, String? value, int? width,
+  String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'input', attributes: _attrs(id, classes, style, data,
+    {'accept': accept, 'alt': alt, 'autocomplete': (autocomplete == false) ? 'off' : null, 'autofocus': autofocus ? 'autofocus' : null, 'checked': checked ? 'checked' : null, 'disabled': disabled ? 'disabled' : null, 'form': form, 'formaction': formaction, 'formenctype': formenctype, 'formmethod': formmethod, 'formnovalidate': formnovalidate ? 'formnovalidate' : null, 'height': height, 'list': list, 'max': max, 'maxlength': maxlength, 'min': min, 'minLength': minLength, 'multiple': multiple ? 'multiple' : null, 'name': name, 'pattern': pattern, 'placeholder': placeholder, 'readonly': readonly ? 'readonly' : null, 'required': required ? 'required' : null, 'size': size, 'src': src, 'step': step, 'type': type, 'value': value, 'width': width,})
 );
 Html video({
-  bool autoplay, bool controls, int height, bool loop, bool muted, String poster, String preload, String src, int width,
-  String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'video', attributes: _attrs(id, classes, style, data,
-    {'autoplay': (autoplay == true) ? 'autoplay' : null, 'controls': (controls == true) ? 'controls' : null, 'height': height, 'loop': (loop == true) ? 'loop' : null, 'muted': (muted == true) ? 'muted' : null, 'poster': poster, 'preload': preload, 'src': src, 'width': width,}), text: text, children: children
+  bool autoplay=false, bool controls=false, int? height, bool loop=false, bool muted=false, String? poster, String? preload, String? src, int? width,
+  String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'video', attributes: _attrs(id, classes, style, data,
+    {'autoplay': autoplay ? 'autoplay' : null, 'controls': controls ? 'controls' : null, 'height': height, 'loop': loop ? 'loop' : null, 'muted': muted ? 'muted' : null, 'poster': poster, 'preload': preload, 'src': src, 'width': width,}), text: text, children: children
 );
 Html audio({
-  bool autoplay, bool controls, bool loop, bool muted, String preload, String src,
-  String id, List<String> classes, String style, Map<String, dynamic> data, String text, List<Element> children}) => Html(tag: 'audio', attributes: _attrs(id, classes, style, data,
-    {'autoplay': (autoplay == true) ? 'autoplay' : null, 'controls': (controls == true) ? 'controls' : null, 'loop': (loop == true) ? 'loop' : null, 'muted': (muted == true) ? 'muted' : null, 'preload': preload, 'src': src,}), text: text, children: children
+  bool autoplay=false, bool controls=false, bool loop=false, bool muted=false, String? preload, String? src,
+  String? id, List<String>? classes, String? style, Map<String, dynamic>? data, String? text, List<Element>? children}) => Html(tag: 'audio', attributes: _attrs(id, classes, style, data,
+    {'autoplay': autoplay ? 'autoplay' : null, 'controls': controls ? 'controls' : null, 'loop': loop ? 'loop' : null, 'muted': muted ? 'muted' : null, 'preload': preload, 'src': src,}), text: text, children: children
 );
 
 Html icon(String name) => i(classes: ['material-icons'], text: name);
@@ -214,7 +213,7 @@ Html fileUploader(String action) => Html(children: [
   ])
 ]);
 
-Html firebase({FirebaseConfig config, String version='8.0.0', bool defer=false,
+Html firebase({FirebaseConfig? config, String version='8.0.0', bool defer=false,
   bool analytics=false, bool auth=false, bool firestore=false, bool functions=false, bool messaging=false,
   bool storage=false, bool performance=false, bool database=false, bool remoteConfig=false}) => Html(children: [
   // https://firebase.google.com/docs/web/setup#available-libraries
@@ -240,7 +239,7 @@ Html firebase({FirebaseConfig config, String version='8.0.0', bool defer=false,
   '''),
 ]);
 
-Html googleAnalytics({String create, String send, bool production=false}) => Html(children: [
+Html googleAnalytics({String? create, String? send, bool production=false}) => Html(children: [
   if(production && create != null && send != null)
     script(content: '''
       (function(i,s,o,g,r,a,m) {
@@ -276,7 +275,7 @@ Html unfurl(String url, String title, String description, String image) => Html(
 ]);
 
 
-Map<String, dynamic> _attrs(String id, List<String> classes, String style, Map<String, dynamic> data, [Map<String, dynamic> others]) {
+Map<String, dynamic> _attrs(String? id, List<String>? classes, String? style, Map<String, dynamic>? data, [Map<String, dynamic>? others]) {
   final attributes = <String, dynamic>{};
   if(id != null) attributes['id'] = id;
   if(classes != null && classes.isNotEmpty) attributes['class'] = classes.join(' ');

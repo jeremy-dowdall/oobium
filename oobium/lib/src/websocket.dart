@@ -10,12 +10,12 @@ const _GET_PUT_PATH = '/UseSocketStatesInsteadOfThisHack';
 
 class WebSocket {
 
-  WsSocket _ws;
+  WsSocket? _ws;
   Completer _ready = Completer();
   Completer _done = Completer();
-  StreamSubscription _wsSubscription;
+  StreamSubscription? _wsSubscription;
 
-  Future<WebSocket> upgrade(httpRequest, {String Function(List<String> protocols) protocol, bool autoStart = true}) async {
+  Future<WebSocket> upgrade(httpRequest, {String Function(List<String> protocols)? protocol, bool autoStart = true}) async {
     assert(isNotStarted && isNotDone);
     _ws = await WsSocket.upgrade(httpRequest, protocol: protocol);
     if(autoStart == true) {
@@ -23,9 +23,9 @@ class WebSocket {
     }
     return this;
   }
-  Future<WebSocket> connect({String address, int port, String path, List<String> protocols, bool autoStart = true}) async {
+  Future<WebSocket> connect({String address='127.0.0.1', int port=8080, String path='', List<String>? protocols, bool autoStart = true}) async {
     assert(isNotStarted && isNotDone);
-    final url = 'ws://${address ?? '127.0.0.1'}:${port ?? 8080}${path ?? ''}';
+    final url = 'ws://$address:$port$path';
     _ws = await WsSocket.connect(url, protocols: protocols);
     if(autoStart == true) {
       start();
@@ -43,7 +43,7 @@ class WebSocket {
     return retry ? _sendMessageWithRetries(message) : _sendMessage(message);
   }
 
-  WsHandler _on;
+  WsHandler? _on;
   WsHandler get on => _on ??= WsHandler(this);
 
   Future<void> get ready => _ready.future;
@@ -66,7 +66,7 @@ class WebSocket {
   void start() {
     assert(_ws != null, 'attempted to start before native socket was attached');
     if(isNotStarted) {
-      _wsSubscription = _ws.listen(_onData, onError: _onError, onDone: _onDone);
+      _wsSubscription = _ws!.listen(_onData, onError: _onError, onDone: _onDone);
       _ready.complete();
     }
   }
@@ -92,15 +92,15 @@ class WebSocket {
     if(isNotDone) _done.complete();
   }
 
-  Completer<WsResult> _completer;
-  WsResult _closedResult;
-  WsStreamResult _streamResult;
+  Completer<WsResult>? _completer;
+  WsResult? _closedResult;
+  WsStreamResult? _streamResult;
 
   Future<WsResult> _sendMessageWithRetries(WsMessage message) async {
     for(var i = 0; i < 10; i++) {
       await Future.delayed(Duration(milliseconds: i * 50));
       if(isClosed) {
-        return _closedResult;
+        return _closedResult!;
       }
       final result = (await _sendMessage(message));
       if(result.isSuccess) {
@@ -123,19 +123,19 @@ class WebSocket {
             on._handlers.remove(_GET_PUT_PATH);
             res.send(data: message.data);
           });
-          _ws.add(message.copyWith(data: {_GET_PUT_KEY: _GET_PUT_PATH}));
+          _ws!.add(message.copyWith(data: {_GET_PUT_KEY: _GET_PUT_PATH}));
         } else {
-          _ws.add(message);
+          _ws!.add(message);
         }
-        return _completer.future;
+        return _completer!.future;
       }
       else {
-        return _completer.future.then((_) => _sendMessage(message));
+        return _completer!.future.then((_) => _sendMessage(message));
       }
     } else {
       // 3. 'server' send the response
       if(isNotClosed) {
-        _ws.add(message);
+        _ws!.add(message);
       }
       return Future.value(null);
     }
@@ -149,12 +149,12 @@ class WebSocket {
       // 4. 'client' receives the response (and completes #1 with a result)
       if(message.type == '100') {
         _streamResult = WsStreamResult();
-        _completer.complete(_streamResult);
+        _completer!.complete(_streamResult);
         _completer = Completer<WsResult>();
       } else {
         final success = _complete(int.parse(message.type), message.data);
-        if(success) _streamResult?._controller?.close();
-        else _streamResult?._controller?.addError(message.data);
+        if(success) _streamResult?._controller.close();
+        else _streamResult?._controller.addError(message.data);
         _streamResult = null;
       }
     }
@@ -162,12 +162,12 @@ class WebSocket {
 
   void _sendData(List<int> data) {
     assert(_ws != null, 'cannot send data: native socket not attached');
-    _ws.add(data);
+    _ws!.add(data);
   }
 
   void _receiveData(List<int> data) {
     if(_streamResult != null) {
-      _streamResult._controller.add(data);
+      _streamResult!._controller.add(data);
     }
     else if(_completer != null) {
       _complete(200, data);
@@ -179,7 +179,7 @@ class WebSocket {
 
   bool _complete(int code, data) {
     final result = WsResult(code, data);
-    _completer.complete(result);
+    _completer!.complete(result);
     _completer = null;
     return result.isSuccess;
   }
@@ -211,8 +211,14 @@ class WsMessage {
   final String id;
   final String method;
   final String path;
-  final dynamic data;
-  WsMessage({this.type, this.id, this.method, this.path, this.data});
+  final dynamic? data;
+  WsMessage({
+    required this.type,
+    required this.id,
+    required this.method,
+    required this.path,
+    this.data
+  });
 
   factory WsMessage.parse(String data) {
     final i0 = data.indexOf(':');
@@ -228,7 +234,7 @@ class WsMessage {
     );
   }
 
-  WsMessage copyWith({String type, String id, String method, String path, dynamic data}) => WsMessage(
+  WsMessage copyWith({String? type, String? id, String? method, String? path, dynamic? data}) => WsMessage(
     type: type ?? this.type, id: id ?? this.id, method: method ?? this.method, path: path ?? this.path,
     data: data // data is NOT automatically copied over
   );
@@ -241,7 +247,7 @@ class WsMessage {
   bool get isNotResponse => isRequest;
 
   WsMessage toResponse(int code, [dynamic data]) => WsMessage(
-    type: (code ?? 200).toString(),
+    type: code.toString(),
     id: id,
     method: method,
     path: path,
@@ -271,7 +277,7 @@ class WsRequest {
   String get method => _message.method;
   String get path => _message.path;
 
-  Map<String, dynamic> _params;
+  Map<String, dynamic>? _params;
   Map<String, dynamic> get params => _params ??= '$method$path'.parseParams(_routePath);
 }
 
@@ -283,7 +289,7 @@ class WsResponse {
 
   bool _sent = false;
 
-  void send({int code, dynamic data}) {
+  void send({int code=200, dynamic data}) {
     _sent = true;
     if(data is List<int>) {
       _socket._sendData(data);
@@ -327,10 +333,8 @@ class WsData {
   bool get isStream => _result is WsStreamResult;
   bool get isNotStream => !isStream;
   StreamController<List<int>> get _controller {
-    if(_result is WsStreamResult) {
-      return _result._controller;
-    }
-    return null;
+    assert(_result is WsStreamResult);
+    return _result._controller;
   }
 }
 
@@ -367,7 +371,7 @@ class WsHandler {
     final handler = _handlers[routePath];
     if(handler != null) {
       try {
-        final request = WsRequest._(message, routePath, await _getData(message));
+        final request = WsRequest._(message, routePath!, await _getData(message));
         final response = WsResponse._(_socket, message);
         await handler(request, response);
         if(!response._sent) response.send(code: 200);

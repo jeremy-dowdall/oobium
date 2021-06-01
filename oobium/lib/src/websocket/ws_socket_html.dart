@@ -8,9 +8,9 @@ class WsSocket {
   final WebSocket ws;
   WsSocket(this.ws);
 
-  static Future<WsSocket> upgrade(HttpRequest request, {String Function(List<String> protocols) protocol}) => throw UnsupportedError('platform not supported');
+  static Future<WsSocket> upgrade(HttpRequest request, {String Function(List<String> protocols)? protocol}) => throw UnsupportedError('platform not supported');
 
-  static Future<WsSocket> connect(String url, {List<String> protocols}) async {
+  static Future<WsSocket> connect(String url, {List<String>? protocols}) async {
     final ws = WebSocket(url, protocols);
     ws.binaryType = 'arraybuffer';
     await ws.onOpen.first;
@@ -19,7 +19,7 @@ class WsSocket {
 
   StreamSubscription listen(onData, {onError, onDone}) => ws.onMessage.map(_decode).listen(onData, onError: onError, onDone: onDone);
 
-  Future<void> close([int code, String reason]) {
+  Future<void> close([int? code, String? reason]) {
     ws.close(code, reason);
     return ws.onClose.first;
   }

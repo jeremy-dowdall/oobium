@@ -6,7 +6,7 @@ import 'package:oobium_server/src/server.dart';
 class AuthSocketValidator extends AuthValidator {
 
   AuthSocketValidator();
-  AuthSocketValidator.values({AuthService service}) : super.values(service: service);
+  AuthSocketValidator.values({required AuthService service}) : super.values(service: service);
 
   @override
   Future<bool> validate(Request req) async {
@@ -21,9 +21,9 @@ class AuthSocketValidator extends AuthValidator {
         print('auth failed with token: $authToken');
       } else {
         final token = consume(authToken);
-        if(token != null) {
-          final approval = await req.host.socket(token?.user?.id)?.getAny('/installs/approval');
-          if(approval?.isSuccess == true && approval.data == true) {
+        if(token != null && token.user != null) {
+          final approval = await req.host.socket(token.user!.id).getAny('/installs/approval');
+          if(approval.isSuccess == true && approval.data == true) {
             final user = putUser(token);
             req['uid'] = user.id;
             return true;
@@ -38,7 +38,7 @@ class AuthSocketValidator extends AuthValidator {
     return false;
   }
 
-  String _parseAuthToken(Request req) {
+  String? _parseAuthToken(Request req) {
     final protocols = req.headers[WsProtocolHeader]?.split(', ') ?? <String>[];
     if(protocols.length == 2 && protocols[0] == WsAuthProtocol) {
       return protocols[1];

@@ -22,10 +22,9 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
 class DbTestServer {
 
-  Database db;
-  TestWebsocketServer server;
+  late Database db;
 
-  Future<void> start(String path, int port, [List<String> databases]) async {
+  Future<void> start(String path, int port, List<String> databases) async {
     db = Database(path, [(data) => TestType1.fromJson(data)]);
     await db.reset();
 

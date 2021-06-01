@@ -35,7 +35,7 @@ Future<void> main() async {
     await models.open();
 
     expect(models.get<Message>(id), isNotNull);
-    expect(models.get<Message>(id).from, isNotNull);
+    expect(models.get<Message>(id)?.from, isNotNull);
   });
 
   test('test delete nested model', () async {
@@ -49,6 +49,6 @@ Future<void> main() async {
     await models.open();
 
     expect(models.get<Message>(message.id), isNull);
-    expect(models.get<User>(user.id), isNotNull);
+    expect(models.get<User>(user?.id), isNotNull);
   });
 }

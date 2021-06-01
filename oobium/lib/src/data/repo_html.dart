@@ -9,7 +9,7 @@ class Repo extends base.Repo {
 
   Repo(Data db) : super(db);
 
-  Database idb;
+  late Database idb;
 
   @override
   Future<Repo> open() {
@@ -18,7 +18,7 @@ class Repo extends base.Repo {
   }
 
   @override
-  Stream<DataRecord> get([int timestamp]) {
+  Stream<DataRecord> get([int? timestamp]) {
     // TODO timestamp unused
     return idb.transaction('repo', 'readonly').objectStore('repo').openCursor(autoAdvance: true).map((event) {
       return DataRecord.fromLine(event.value);
@@ -35,7 +35,7 @@ class Repo extends base.Repo {
         futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.id)));
       }
     }
-    return Future.wait(futures);
+    await Future.wait(futures);
   }
 
   @override

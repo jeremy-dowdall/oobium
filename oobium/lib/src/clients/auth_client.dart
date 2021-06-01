@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:meta/meta.dart';
 import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
 import 'package:oobium/src/clients/auth_socket.dart';
 import 'package:oobium/src/websocket.dart';
@@ -10,15 +9,15 @@ class AuthClient {
   final String root;
   final String address;
   final int port;
-  AuthClient({@required this.root, this.address='127.0.0.1', this.port=8001});
+  AuthClient({required this.root, this.address='127.0.0.1', this.port=8001});
 
-  AuthClientData _db;
-  Account _account;
-  AuthSocket _socket;
+  AuthClientData? _db;
+  Account? _account;
+  AuthSocket? _socket;
 
-  Account get account => _account;
+  Account? get account => _account;
   Iterable<Account> get accounts => _db?.getAll<Account>() ?? <Account>[];  
-  WebSocket get socket => _socket;
+  WebSocket? get socket => _socket;
 
   bool get isConnected => _socket?.isConnected == true;
   bool get isNotConnected => !isConnected;
@@ -31,10 +30,10 @@ class AuthClient {
 
   Future<AuthClient> open() async {
     if(isNotOpen) {
-      _db = await AuthClientData('$root/auth').open();
-      if(_db.isNotEmpty) {
+      _db = await AuthClientData('$root/auth').open() as AuthClientData;
+      if(_db!.isNotEmpty) {
         _account = (accounts.toList()..sort((a,b) => a.lastOpenedAt - b.lastOpenedAt)).first;
-        await _setAccount(account);
+        await _setAccount(account!);
       }
     }
     return this;
@@ -43,15 +42,15 @@ class AuthClient {
   Future<void> close() async {
     if(isOpen) {
       await _setAccount(null);
-      await _db.close();
+      await _db?.close();
       _db = null;
     }
   }
 
-  Future<String> requestInstallCode(FutureOr<bool> Function() onApprove) async {
+  Future<String?> requestInstallCode(FutureOr<bool> Function() onApprove) async {
     if(isSignedIn && isConnected) {
-      _socket.onApprove = onApprove;
-      return _socket.newInstallToken();
+      _socket!.onApprove = onApprove;
+      return _socket!.newInstallToken();
     }
     return null;
   }
@@ -72,7 +71,7 @@ class AuthClient {
 
   Future<void> signOut() async {
     if(isSignedIn) {
-      _db?.remove(_account.id);
+      _db?.remove(_account!.id);
       await _db?.flush();
       await _setAccount(null);
     }
@@ -80,7 +79,7 @@ class AuthClient {
 
   Future<void> connect() async {
     if(isNotConnected && isSignedIn) {
-      final socket = await AuthSocket().connect(address: address, port: port, uid: _account.uid, token: _account.token);
+      final socket = await AuthSocket().connect(address: address, port: port, uid: _account!.uid, token: _account!.token);
       await _setSocket(socket);
     }
   }
@@ -89,14 +88,14 @@ class AuthClient {
     return _setSocket(null);
   }
 
-  void _onSocketDone(AuthSocket socket) {
+  void _onSocketDone(AuthSocket? socket) {
     print('_onSocketDone($socket)');
   }
 
-  Future<void> _setAccount(Account account) async {
+  Future<void> _setAccount(Account? account) async {
     if(_account?.id != account?.id) {
       if(account != null) {
-        _account = _db.put(account.copyWith(lastOpenedAt: DateTime.now().millisecondsSinceEpoch));
+        _account = _db?.put(account.copyWith(lastOpenedAt: DateTime.now().millisecondsSinceEpoch));
       } else {
         _account = null;
       }
@@ -106,20 +105,20 @@ class AuthClient {
     }
   }
 
-  Future<void> _setSocket(AuthSocket socket) async {
+  Future<void> _setSocket(AuthSocket? socket) async {
     if(_socket != socket) {
       if(_socket != null) {
-        await _socket.close();
+        await _socket?.close();
       }
 
       _socket = socket;
 
       if(_socket != null) {
         if(_account != null) {
-          _account = _db.put(account.copyWith(lastConnectedAt: DateTime.now().millisecondsSinceEpoch));
+          _account = _db?.put(account!.copyWith(lastConnectedAt: DateTime.now().millisecondsSinceEpoch));
         }
-        _socket.done.then((_) => _onSocketDone(socket));
-        await _socket.ready;
+        _socket!.done.then((_) => _onSocketDone(socket));
+        await _socket!.ready;
       }
     }
   }

@@ -7,13 +7,13 @@ class TestWebsocketServer {
 
   final int port;
 
-  io.HttpServer _http;
-  StreamSubscription _subscription;
-  Future<void> Function(WebSocket socket) _onUpgrade;
+  late io.HttpServer _http;
+  late StreamSubscription _subscription;
+  late Future<void> Function(WebSocket socket) _onUpgrade;
 
   TestWebsocketServer._(this.port);
 
-  static Future<TestWebsocketServer> start({int port = 8080, Future<void> Function(WebSocket socket) onUpgrade}) async {
+  static Future<TestWebsocketServer> start({int port = 8080, required Future<void> Function(WebSocket socket) onUpgrade}) async {
     final server = TestWebsocketServer._(port);
     server._onUpgrade = onUpgrade;
     server._http = await io.HttpServer.bind('127.0.0.1', port);

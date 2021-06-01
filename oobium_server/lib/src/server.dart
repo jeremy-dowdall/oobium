@@ -16,23 +16,23 @@ class Host {
   final Server _server;
   final _handlers = <String, List<RequestHandler>>{};
   final _loggers = <String, Logger>{};
-  ServiceRegistry _registry;
+  ServiceRegistry? _registry;
   Host._(this.name, this._server);
 
   ServerSettings get settings => _server.settings;
 
-  Logger _logger;
-  Logger get logger => _logger ?? _server._logger;
+  Logger? _logger;
+  Logger get logger => _logger ?? _server.logger;
   set logger(Logger value) => _logger = value;
 
-  RequestHandler error404Handler;
-  RequestHandler error500Handler;
+  RequestHandler? error404Handler;
+  RequestHandler? error500Handler;
 
   bool livePages = false;
 
   void addService(Service service) {
     _registry ??= ServiceRegistry();
-    _registry.add(service);
+    _registry!.add(service);
     if(service.consumes == Host) {
       service.onAttach(this);
     }
@@ -42,17 +42,17 @@ class Host {
       addService(service);
     }
   }
-  T getService<T extends Service>() => _registry.get<T>();
+  T getService<T extends Service>() => _registry!.get<T>();
   
-  void get(String path, List<RequestHandler> handlers, {Logger logger}) => _add('GET', path, handlers, logger: logger);
-  void head(String path, List<RequestHandler> handlers, {Logger logger}) => _add('HEAD', path, handlers, logger: logger);
-  void options(String path, List<RequestHandler> handlers, {Logger logger}) => _add('OPTIONS', path, handlers, logger: logger);
-  void patch(String path, List<RequestHandler> handlers, {Logger logger}) => _add('PATCH', path, handlers, logger: logger);
-  void post(String path, List<RequestHandler> handlers, {Logger logger}) => _add('POST', path, handlers, logger: logger);
-  void put(String path, List<RequestHandler> handlers, {Logger logger}) => _add('PUT', path, handlers, logger: logger);
-  void delete(String path, List<RequestHandler> handlers, {Logger logger}) => _add('DELETE', path, handlers, logger: logger);
+  void get(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('GET', path, handlers, logger: logger);
+  void head(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('HEAD', path, handlers, logger: logger);
+  void options(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('OPTIONS', path, handlers, logger: logger);
+  void patch(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('PATCH', path, handlers, logger: logger);
+  void post(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('POST', path, handlers, logger: logger);
+  void put(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('PUT', path, handlers, logger: logger);
+  void delete(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('DELETE', path, handlers, logger: logger);
 
-  void static(String directoryPath, {String at, String Function(String path) pathBuilder, Logger logger, optional = false}) {
+  void static(String directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, optional = false}) {
     if(livePages) {
       final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
       get(path, [(req, res) {
@@ -98,9 +98,9 @@ class Host {
     return [];
   }
 
-  List<RequestHandler> get _notFoundHandlers => null;
+  List<RequestHandler>? get _notFoundHandlers => null;
 
-  void _add(String method, String path, List<RequestHandler> handlers, {Logger logger}) {
+  void _add(String method, String path, List<RequestHandler> handlers, {Logger? logger}) {
     final route = '$method$path';
     final sa = route.verifiedSegments;
     for(var handlerRoute in _handlers.keys) {
@@ -117,7 +117,7 @@ class Host {
     final lookupMethod = (httpRequest.method == 'HEAD') ? 'GET' : httpRequest.method;
     final requestPath = '$lookupMethod${httpRequest.requestedUri.path}';
     final routePath = _handlers.containsKey(requestPath) ? requestPath : requestPath.findRouterPath(_handlers.keys);
-    final request = Request(this, routePath, httpRequest);
+    final request = Request(this, routePath ?? '', httpRequest);
     final response = Response(request);
     final handlers = _handlers[routePath] ?? _notFoundHandlers ?? [];
     print(requestPath);
@@ -164,10 +164,10 @@ class Host {
 
   Future<void> _handleError(Request req, Response res, int code) {
     if(code == 404 && error404Handler != null) {
-      return error404Handler(req, res);
+      return error404Handler!(req, res);
     }
     if(code >= 500 && error500Handler != null) {
-      return error500Handler(req, res);
+      return error500Handler!(req, res);
     }
     return res.send(code: code);
   }
@@ -184,11 +184,11 @@ class Server {
   final _redirects = <String, Redirect>{};
   final _subdomains = <String, String>{};
   Server({
-    String address,
-    int port,
-    String certPath,
-    String keyPath,
-    ServerSettings settings
+    String address='127.0.0.1',
+    int port=8080,
+    String? certPath,
+    String? keyPath,
+    ServerSettings? settings
   }) : settings = settings ?? ServerSettings() {
     this.settings['server']['address'] ??= address;
     this.settings['server']['port'] ??= port;
@@ -196,31 +196,26 @@ class Server {
     this.settings['server']['keyPath'] ??= keyPath;
   }
 
-  Logger _logger = Logger();
-  Logger get logger => _logger;
-  set logger(Logger value) {
-    assert(logger != null, 'logger must not be null');
-    _logger = value;
-  }
+  Logger logger = Logger();
 
-  HttpServer http;
-  HttpServer https;
-  StreamSubscription httpSubscription;
-  StreamSubscription httpsSubscription;
+  HttpServer? http;
+  HttpServer? https;
+  StreamSubscription? httpSubscription;
+  StreamSubscription? httpsSubscription;
 
-  Host host([String name]) {
+  Host host([String name='']) {
     return _hosts.putIfAbsent(name, () => Host._(name, this));
   }
 
-  void hostRedirect({String from, String to, bool temporary = false}) {
+  void hostRedirect({required String from, required String to, bool temporary = false}) {
     _redirects[from] = Redirect(to, temporary);
   }
   
-  void hostSubdomain({String host, String sub}) {
+  void hostSubdomain({required String host, required String sub}) {
     _subdomains['$sub.$host'] = host;
   }
 
-  void hostSubdomains({String host, List<String> subs}) {
+  void hostSubdomains({required String host, required List<String> subs}) {
     for(var sub in subs) {
       _subdomains['$sub.$host'] = host;
     }
@@ -244,12 +239,12 @@ class Server {
     await httpSubscription?.cancel();
     await httpsSubscription?.cancel();
     if(https == null) {
-      httpSubscription = http.listen((httpRequest) async => await _handle(httpRequest));
-      print('Listening on http://${http.address.host}:${http.port}/');
+      httpSubscription = http!.listen((httpRequest) async => await _handle(httpRequest));
+      print('Listening on http://${http!.address.host}:${http!.port}/');
     } else {
-      httpSubscription = http.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
-      httpsSubscription = https.listen((httpRequest) async => await _handle(httpRequest));
-      print('Listening on https://${https.address.host}:${https.port}/ with redirect from http on port 80');
+      httpSubscription = http!.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
+      httpsSubscription = https!.listen((httpRequest) async => await _handle(httpRequest));
+      print('Listening on https://${https!.address.host}:${https!.port}/ with redirect from http on port 80');
     }
   }
 
@@ -270,9 +265,10 @@ class Server {
   }
 
   Future<void> _createServers() async {
-    if(settings.isSecure) {
+    final securityContext = settings.securityContext;
+    if(securityContext != null) {
       http = await HttpServer.bind(settings.address, 80);
-      https = await HttpServer.bindSecure(settings.address, settings.port, settings.securityContext);
+      https = await HttpServer.bindSecure(settings.address, settings.port, securityContext);
     } else {
       http = await HttpServer.bind(settings.address, settings.port);
     }
@@ -287,22 +283,22 @@ class Server {
     if(redirect != null) {
       return _redirect(request, host: redirect.host, temporary: redirect.temporary);
     }
-    final host = _hosts[hostName] ?? _hosts[_subdomains[hostName]] ?? _hosts[null];
+    final host = _hosts[hostName] ?? _hosts[_subdomains[hostName]] ?? _hosts[''];
     if(host == null) {
       return _send(request, code: 400, data: 'Bad Request - Invalid Host');
     }
     return host._handle(request);
   }
 
-  String _hostName(HttpRequest request) {
-    final hostHeaders = request.headers[HttpHeaders.hostHeader];
-    if(hostHeaders?.length == 1 && hostHeaders[0]?.isNotEmpty == true) {
-      return hostHeaders[0].split(':')[0];
+  String? _hostName(HttpRequest request) {
+    final headers = request.headers[HttpHeaders.hostHeader];
+    if(headers != null && headers.length == 1 && headers[0].isNotEmpty == true) {
+      return headers[0].split(':')[0];
     }
     return null;
   }
 
-  Future<void> _redirect(HttpRequest request, {String scheme, String host, bool temporary = false}) async {
+  Future<void> _redirect(HttpRequest request, {String? scheme, String? host, bool temporary = false}) async {
     return _send(request,
       code: temporary ? HttpStatus.movedTemporarily : HttpStatus.movedPermanently,
       data: 'Moved ${temporary ? 'Temporary' : 'Permanently'}',
@@ -310,7 +306,7 @@ class Server {
     );
   }
   
-  Future<void> _send(HttpRequest request, {int code, Object data, Map<String, Object> headers}) async {
+  Future<void> _send(HttpRequest request, {required int code, Object? data, Map<String, Object>? headers}) async {
     request.response.statusCode = code;
     if(headers != null) {
       for(var header in headers.entries) {
@@ -337,11 +333,11 @@ class Server {
 
   
   //--- Default HOST Convenience Methods ---//
-  RequestHandler get error404Handler => host().error404Handler;
-  set error404Handler(RequestHandler value) => host().error404Handler = value;
+  RequestHandler? get error404Handler => host().error404Handler;
+  set error404Handler(RequestHandler? value) => host().error404Handler = value;
 
-  RequestHandler get error500Handler => host().error500Handler;
-  set error500Handler(RequestHandler value) => host().error500Handler = value;
+  RequestHandler? get error500Handler => host().error500Handler;
+  set error500Handler(RequestHandler? value) => host().error500Handler = value;
 
   bool get livePages => host().livePages;
   set livePages(bool value) => host().livePages = value;
@@ -349,21 +345,21 @@ class Server {
   void addService(Service service) => host().addService(service);
   void addServices(List<Service> services) => host().addServices(services);
   T getService<T extends Service>() => host().getService<T>();
-  void delete(String path, List<RequestHandler> handlers, {Logger logger}) => host().delete(path, handlers, logger: logger);
-  void get(String path, List<RequestHandler> handlers, {Logger logger}) => host().get(path, handlers, logger: logger);
-  void head(String path, List<RequestHandler> handlers, {Logger logger}) => host().head(path, handlers, logger: logger);
-  void options(String path, List<RequestHandler> handlers, {Logger logger}) => host().options(path, handlers, logger: logger);
-  void patch(String path, List<RequestHandler> handlers, {Logger logger}) => host().patch(path, handlers, logger: logger);
-  void post(String path, List<RequestHandler> handlers, {Logger logger}) => host().post(path, handlers, logger: logger);
-  void put(String path, List<RequestHandler> handlers, {Logger logger}) => host().put(path, handlers, logger: logger);
-  void static(String directoryPath, {String at, String Function(String path) pathBuilder, Logger logger, optional = false}) => host().static(directoryPath, at: at, pathBuilder: pathBuilder, logger: logger, optional: optional);
+  void delete(String path, List<RequestHandler> handlers, {Logger? logger}) => host().delete(path, handlers, logger: logger);
+  void get(String path, List<RequestHandler> handlers, {Logger? logger}) => host().get(path, handlers, logger: logger);
+  void head(String path, List<RequestHandler> handlers, {Logger? logger}) => host().head(path, handlers, logger: logger);
+  void options(String path, List<RequestHandler> handlers, {Logger? logger}) => host().options(path, handlers, logger: logger);
+  void patch(String path, List<RequestHandler> handlers, {Logger? logger}) => host().patch(path, handlers, logger: logger);
+  void post(String path, List<RequestHandler> handlers, {Logger? logger}) => host().post(path, handlers, logger: logger);
+  void put(String path, List<RequestHandler> handlers, {Logger? logger}) => host().put(path, handlers, logger: logger);
+  void static(String directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, optional = false}) => host().static(directoryPath, at: at, pathBuilder: pathBuilder, logger: logger, optional: optional);
 }
 
 class ServerWebSocket extends WebSocket {
   
   final String uid;
   final Host _host;
-  ServerWebSocket._(String id, this._host) : uid = id ?? ObjectId().hexString;
+  ServerWebSocket._(String? id, this._host) : uid = id ?? ObjectId().hexString;
   
   WsProxy proxy(String uid) => WsProxy(uid, _host);
 }
@@ -434,21 +430,15 @@ typedef MessageConverter = String Function(Request req, Response res, String mes
 
 class Logger {
 
-  ErrorConverter errorConverter;
-  MessageConverter messageConverter;
+  ErrorConverter? errorConverter;
+  MessageConverter? messageConverter;
 
   String convertMessage(Request req, Response res, String message) {
-    if(messageConverter != null) {
-      return messageConverter(req, res, message);
-    }
-    return message;
+    return messageConverter?.call(req, res, message) ?? message;
   }
 
   String convertError(Request req, Response res, Object error, StackTrace stackTrace) {
-    if(errorConverter != null) {
-      return errorConverter(req, res, error, stackTrace);
-    }
-    return '$error\n$stackTrace';
+    return errorConverter?.call(req, res, error, stackTrace) ?? '$error\n$stackTrace';
   }
 }
 
@@ -461,7 +451,7 @@ class Request {
   final String path;
   final RequestHeaders headers;
   final query = <String, String>{};
-  final HttpRequest/*?*/ _httpRequest;
+  final HttpRequest? _httpRequest;
   Request(this.host, this.routePath, HttpRequest httpRequest) :
     method = httpRequest.method,
     path = httpRequest.requestedUri.path,
@@ -471,12 +461,12 @@ class Request {
     query.addAll(httpRequest.uri.queryParameters);
   }
   Request.values({
-    this.host,
+    required this.host,
     this.routePath='/',
     this.method='GET',
     this.path='/',
     this.headers=const RequestHeaders.empty(),
-    Map<String, String> query
+    Map<String, String>? query
   }) :
     _httpRequest = null
   {
@@ -485,12 +475,12 @@ class Request {
     }
   }
 
-  Response _response;
+  late Response _response;
 
-  String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]]);
+  String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]!]);
 
-  Map<String, String> _params;
-  String operator [](String name) => params[name] ?? query[name];
+  Map<String, String>? _params;
+  String operator [](String name) => params[name] ?? query[name] ?? '';
   operator []=(String name, String value) => params[name] = value;
 
   Map<String, String> get params => _params ??= '$method$path'.parseParams(routePath);
@@ -500,11 +490,11 @@ class Request {
   bool get isPartial => headers[HttpHeaders.rangeHeader]?.startsWith('bytes=') == true;
   bool get isNotPartial => !isPartial;
 
-  List<List<int>> get ranges => headers[HttpHeaders.rangeHeader].substring(6).split(',')
+  List<List<int?>>? get ranges => headers[HttpHeaders.rangeHeader]?.substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 
   ServerWebSocket _websocket() {
-    final socket = ServerWebSocket._(params['uid'], host);
+    final socket = ServerWebSocket._(params['uid']!, host);
     host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
     socket.done.then((_) {
       host._sockets.remove(socket.uid);
@@ -515,25 +505,25 @@ class Request {
 }
 class RequestHeaders {
   final Map<String, String> _headers;
-  const RequestHeaders.empty() : _headers = null;
+  const RequestHeaders.empty() : _headers = const {};
   RequestHeaders.values(this._headers);
   RequestHeaders(HttpRequest request) : _headers = {} {
     request.headers.forEach((name, values) {
       _headers[name] = values.join(', ');
     });
   }
-  String/*?*/ operator [](String name) => (_headers != null) ? _headers[name] : null;
+  String? operator [](String name) => _headers[name];
 }
 
 class Response {
 
-  final Request _request;
+  final Request? _request;
   final headers = <String, dynamic>{};
-  Response(Request request) : _request = request {
+  Response(Request? request) : _request = request {
     request?._response = this;
   }
-  HttpRequest get _httpRequest => _request?._httpRequest;
-  HttpResponse get _httpResponse => _httpRequest?.response;
+  HttpRequest? get _httpRequest => _request?._httpRequest;
+  HttpResponse? get _httpResponse => _httpRequest?.response;
 
   bool _closed = false;
   bool get isClosed => _closed;
@@ -541,13 +531,13 @@ class Response {
   bool get isOpen => isNotClosed;
   bool get isNotOpen => !isOpen;
 
-  void add(List<int> data) => _httpResponse.add(data);
-  void write(data) => _httpResponse.write(data);
+  void add(List<int> data) => _httpResponse!.add(data);
+  void write(data) => _httpResponse!.write(data);
 
-  int get statusCode => _httpResponse.statusCode;
-  set statusCode(int value) => _httpResponse.statusCode = value;
+  int get statusCode => _httpResponse!.statusCode;
+  set statusCode(int value) => _httpResponse!.statusCode = value;
 
-  bool get _livePages => _request.host.livePages && _request.host.settings.isDebug;
+  bool get _livePages => _request!.host.livePages && _request!.host.settings.isDebug;
 
   Future<void> render<T extends Json>(PageBuilder<T> builder, T data) async {
     if(_livePages) {
@@ -559,18 +549,18 @@ class Response {
     return sendPage(builder.build(data));
   }
 
-  Future<void> send({int code, data}) async {
+  Future<void> send({int code=200, data}) async {
     assert(isOpen, 'called send after response has already been closed');
     _closed = true;
-    statusCode = code ?? 200;
+    statusCode = code;
     final content = _getContent(data);
     for(var header in (headers).entries) {
-      _httpResponse.headers.add(header.key, header.value);
+      _httpResponse!.headers.add(header.key, header.value);
     }
-    _httpResponse.headers.add(HttpHeaders.serverHeader, 'oobium');
-    _httpResponse.contentLength = content.length;
-    if(_httpRequest.method != 'HEAD') {
-      await _httpResponse.addStream(content.stream);
+    _httpResponse!.headers.add(HttpHeaders.serverHeader, 'oobium');
+    _httpResponse!.contentLength = content.length;
+    if(_httpRequest!.method != 'HEAD') {
+      await _httpResponse!.addStream(content.stream);
     }
     await close();
   }
@@ -579,20 +569,20 @@ class Response {
     if(await file.exists()) {
       final stat = await file.stat();
       final etag = 'todo'; // TODO
-      if(_request.isPartial) {
-        final ranges = _request.ranges;
+      if(_request!.isPartial) {
+        final ranges = _request!.ranges ?? [];
         if(ranges.isEmpty) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
         if(ranges.length > 1) {
           return send(code: 501, data: 'Multipart Ranges Not Supported');
         }
-        final start = ranges[0][0];
+        final start = ranges[0][0] ?? 0;
         final end = min((ranges[0][1] ?? (start + (5*1024*1024))), stat.size - 1);
         if(start > end) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
-        final condition = _request.headers[HttpHeaders.ifRangeHeader];
+        final condition = _request!.headers[HttpHeaders.ifRangeHeader];
         if(condition == null || condition == etag) {
           headers[HttpHeaders.contentRangeHeader] =  'bytes $start-$end/${stat.size}';
           headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();
@@ -606,12 +596,12 @@ class Response {
     return send(code: 404);
   }
 
-  Future<void> sendHtml(html, {int code}) {
+  Future<void> sendHtml(html, {int code=200}) {
     headers[HttpHeaders.contentTypeHeader] = ContentType.html.toString();
     return send(code: code, data: html);
   }
 
-  Future<void> sendJson(FutureOr<dynamic> data, {int code}) async {
+  Future<void> sendJson(FutureOr<dynamic> data, {int code=200}) async {
     headers[HttpHeaders.contentTypeHeader] = ContentType.json.toString();
     // TODO
     headers['Access-Control-Allow-Origin'] = '*';
@@ -620,14 +610,14 @@ class Response {
     return send(code: code, data: Json.encode(await data));
   }
 
-  Future<void> sendPage(Page page, {int code}) => sendHtml(page.render(), code: code);
+  Future<void> sendPage(Page page, {int code=200}) => sendHtml(page.render(), code: code);
 
   Future<void> close() async {
-    await _httpResponse.flush();
-    await _httpResponse.close();
+    await _httpResponse?.flush();
+    await _httpResponse?.close();
   }
 
-  Future<String> _findSource(String builderType, String dataType) async {
+  Future<String?> _findSource(String builderType, String dataType) async {
     final classDeclaration = 'class $builderType extends PageBuilder<$dataType>';
     final views = Directory('lib/www/views');
     for(var file in (await views.list(recursive: true).toList())) {
@@ -659,7 +649,7 @@ class Response {
     // TODO really just need the imports... it re-compiles / builds everything
 
     final matches = RegExp(r'class (\w+) extends PageBuilder<(\w+)>').firstMatch(source);
-    final builder = matches.group(1);
+    final builder = matches!.group(1);
     final dataType = matches.group(2);
 
     final content = '''
@@ -695,13 +685,14 @@ abstract class Content {
 }
 class FileContent implements Content {
   final File file;
-  final int size, start, end;
+  final int size;
+  final int? start, end;
   FileContent(this.file, this.size, [this.start, this.end]);
   @override int get length {
     if(start == null && end == null) return size;
-    if(start == null) return end;
-    if(end == null) return size - start;
-    return end - start;
+    if(start == null) return end!;
+    if(end == null) return size - start!;
+    return end! - start!;
   }
   @override Stream<List<int>> get stream => file.openRead(start, end);
 }
@@ -716,8 +707,8 @@ class StringContent implements Content {
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
 
-RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols) protocol, bool autoStart = true}) => (req, res) async {
+RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols)? protocol, bool autoStart = true}) => (req, res) async {
   final socket = req._websocket();
   await f(socket);
-  return socket.upgrade(req._httpRequest, protocol: protocol, autoStart: autoStart);
+  await socket.upgrade(req._httpRequest, protocol: protocol, autoStart: autoStart);
 };

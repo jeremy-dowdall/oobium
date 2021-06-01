@@ -25,7 +25,7 @@ class FileCache implements IFileCache {
     _items.clear();
     _size = 0;
     final files = await Directory(_metaPath).list(recursive: true).toList();
-    await Future.forEach(files.whereType<File>(), (f) async {
+    await Future.forEach<File>(files.whereType<File>(), (f) async {
       final meta = await f.readAsLines();
       final item = _FileItem.fromMeta(this, meta);
       _items[item.path] = item;
@@ -49,20 +49,20 @@ class FileCache implements IFileCache {
     return this;
   }
 
-  Future<String> get(String path) async => _items[path]?.read();
+  Future<String?> get(String? path) async => _items[path]?.read();
 
-  bool isExpired(String path) => _items[path] == null || _items[path].isExpired;
+  bool isExpired(String path) => _items[path] == null || _items[path]!.isExpired;
 
-  Future<void> put(String path, String data, {
-    Duration expiresIn,
-    DateTime expiresAt,
-    String expiresAtHttpDate
+  Future<void> put(String path, String? data, {
+    Duration? expiresIn,
+    DateTime? expiresAt,
+    String? expiresAtHttpDate
   }) async {
     final previous = _items[path];
     if(previous != null) {
       _size -= previous.size;
       if(data == null) {
-        await _items.remove(path).delete();
+        await _items.remove(path)?.delete();
       }
     }
 
@@ -74,7 +74,7 @@ class FileCache implements IFileCache {
     }
   }
 
-  static DateTime _expiresAt(Duration expiresIn, DateTime expiresAt, String httpDate) {
+  static DateTime? _expiresAt(Duration? expiresIn, DateTime? expiresAt, String? httpDate) {
     if(expiresAt != null) return DateTime.fromMillisecondsSinceEpoch(expiresAt.millisecondsSinceEpoch);
     if(httpDate  != null) return parseHttpDate(httpDate);
     if(expiresIn != null) return DateTime.now().add(expiresIn);
@@ -87,8 +87,8 @@ class FileCache implements IFileCache {
 class _FileItem {
   final FileCache cache;
   final String path;
-  final DateTime expiresAt;
-  int size;
+  final DateTime? expiresAt;
+  int size = 0;
 
   _FileItem(this.cache, this.path, this.expiresAt);
   _FileItem.fromMeta(this.cache, List<String> meta) :
@@ -96,9 +96,9 @@ class _FileItem {
         expiresAt = (meta[1] != 'null') ? DateTime.fromMillisecondsSinceEpoch(int.parse(meta[1])) : null,
         size = int.parse(meta[2]);
 
-  String get meta => '$path\n${expiresAt?.millisecondsSinceEpoch}\n${size??0}';
+  String get meta => '$path\n${expiresAt?.millisecondsSinceEpoch}\n$size';
 
-  bool get isExpired => expiresAt != null && expiresAt.isBefore(DateTime.now());
+  bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
 
   String get metaPath => '${cache._metaPath}/$path.meta';
   String get dataPath => '${cache._dataPath}/$path.json';

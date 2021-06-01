@@ -11,7 +11,7 @@ abstract class IFileCache {
 
   bool isExpired(String path);
 
-  Future<String> get(String path);
-  Future<void> put(String path, String data, {Duration expiresIn, DateTime expiresAt, String expiresAtHttpDate});
+  Future<String?> get(String path);
+  Future<void> put(String path, String? data, {Duration? expiresIn, DateTime? expiresAt, String? expiresAtHttpDate});
   Future<void> remove(String path) => put(path, null);
 }

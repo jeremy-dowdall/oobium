@@ -9,7 +9,7 @@ class Repo extends base.Repo {
 
   Repo(Data db) : super(db);
 
-  File file;
+  late File file;
 
   @override
   Future<Repo> open() async {
@@ -19,7 +19,8 @@ class Repo extends base.Repo {
   }
 
   @override
-  Stream<DataRecord> get([int timestamp]) async* {
+  Stream<DataRecord> get([int? timestamp]) async* {
+    // TODO timestamp unused
     for(var line in await file.readAsLines()) {
       yield(DataRecord.fromLine(line));
     }

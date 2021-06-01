@@ -21,7 +21,7 @@ extension RouterStringsExtensions on List<String> {
 
 extension RouterStringExtensions on String {
 
-  String findRouterPath(Iterable<String> routerPaths) {
+  String? findRouterPath(Iterable<String> routerPaths) {
     final sa = segments;
     for(var routerPath in routerPaths) {
       if(sa.matches(routerPath.segments)) {

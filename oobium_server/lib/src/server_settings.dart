@@ -3,9 +3,6 @@ import 'dart:io';
 
 class ServerSettings {
 
-  static ServerSettings _instance;
-  static Future<ServerSettings> instance() async => _instance ??= await load();
-
   static Future<ServerSettings> load([String path = 'env/server.json']) async {
     return ServerSettings._(jsonDecode(await File(path).readAsString()));
   }
@@ -15,13 +12,13 @@ class ServerSettings {
     _settings.addAll(settings);
   }
   ServerSettings({
-    String address,
-    int port,
-    String certPath,
-    String keyPath,
-    String cachePath,
-    String webroot,
-    Map<String, dynamic> custom
+    String? address,
+    int? port,
+    String? certPath,
+    String? keyPath,
+    String? cachePath,
+    String? webroot,
+    Map<String, dynamic>? custom
   }) {
     _settings['server'] ??= {};
     if(address != null) _settings['server']['address'] = address;
@@ -43,16 +40,16 @@ class ServerSettings {
   bool get isProduction => _settings['mode'] == 'production';
   bool get isNotProduction => !isProduction;
 
-  bool get isSecure => (certPath != null) && (keyPath != null) && File(certPath).existsSync() && File(keyPath).existsSync();
+  bool get isSecure => (certPath != null) && (keyPath != null) && File(certPath!).existsSync() && File(keyPath!).existsSync();
   bool get isNotSecure => !isSecure;
-  String get certPath => _settings['server']['certPath'];
-  String get keyPath => _settings['server']['keyPath'];
+  String? get certPath => _settings['server']['certPath'];
+  String? get keyPath => _settings['server']['keyPath'];
 
   String get protocol => isSecure ? 'https' : 'http';
   String get address => _settings['server']['address'] ?? '127.0.0.1';
   String get host => _settings['server']['host'];
   int get port => _settings['server']['port'] ?? (isSecure ? 443 : 8080);
-  SecurityContext get securityContext => isSecure ? (SecurityContext()..useCertificateChain(certPath)..usePrivateKey(keyPath)) : null;
+  SecurityContext? get securityContext => isSecure ? (SecurityContext()..useCertificateChain(certPath!)..usePrivateKey(keyPath!)) : null;
   String get cachePath => _settings['server']['cachePath'] ?? 'cache';
   String get webroot => _settings['web']['path'] ?? 'www';
 }
@@ -69,12 +66,12 @@ class FirebaseConfig {
   final String storageBucket;
   final String messagingSenderId;
   FirebaseConfig({
-    this.apiKey,
-    this.authDomain,
-    this.databaseURL,
-    this.projectId,
-    this.storageBucket,
-    this.messagingSenderId
+    required this.apiKey,
+    required this.authDomain,
+    required this.databaseURL,
+    required this.projectId,
+    required this.storageBucket,
+    required this.messagingSenderId
   });
 }
 

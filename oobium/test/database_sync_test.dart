@@ -119,8 +119,8 @@ Future<void> main() async {
 
     expect(await server.dbModelCount, 2);
     expect(await server.dbModelCount, db2.size);
-    expect((await server.dbGet(m1.id)).name, 'test01');
-    expect((await server.dbGet(m2.id)).name, 'test02');
+    expect((await server.dbGet(m1.id))?.name, 'test01');
+    expect((await server.dbGet(m2.id))?.name, 'test02');
     expect(db2.get<TestType1>(m1.id)?.name, 'test01');
     expect(db2.get<TestType1>(m2.id)?.name, 'test02');
   });
@@ -140,14 +140,14 @@ Future<void> main() async {
     expect(await server.dbModelCount, 1);
     expect(db.size, 1);
     expect(db.get(m1.id), isNotNull);
-    expect(db.get<TestType1>(m1.id).name, 'test01');
+    expect(db.get<TestType1>(m1.id)?.name, 'test01');
 
     final m2 = TestType1(name: 'test02');
     db.put(m2);
     await db.flush();
     expect(db.size, 2);
     expect(await server.dbModelCount, db.size);
-    expect((await server.dbGet(m2.id)).name, 'test02');
+    expect((await server.dbGet(m2.id))?.name, 'test02');
   });
 
   test('test bind(2 <-> 1 <-> 3)', () async {
@@ -173,7 +173,7 @@ Future<void> main() async {
     expect(await server.dbModelCount, 1);
     expect(db1.size, 1);
     expect(db2.size, 1);
-    expect((await server.dbGet(m1.id)).name, 'test01');
+    expect((await server.dbGet(m1.id))?.name, 'test01');
     expect(db1.get<TestType1>(m1.id)?.name, 'test01');
     expect(db2.get<TestType1>(m1.id)?.name, 'test01');
 
@@ -183,7 +183,7 @@ Future<void> main() async {
     expect(await server.dbModelCount, 2);
     expect(db1.size, 2);
     expect(db2.size, 2);
-    expect((await server.dbGet(m2.id)).name, 'test02');
+    expect((await server.dbGet(m2.id))?.name, 'test02');
     expect(db1.get<TestType1>(m2.id)?.name, 'test02');
     expect(db2.get<TestType1>(m2.id)?.name, 'test02');
 
@@ -193,7 +193,7 @@ Future<void> main() async {
     expect(await server.dbModelCount, 3);
     expect(db1.size, 3);
     expect(db2.size, 3);
-    expect((await server.dbGet(m3.id)).name, 'test03');
+    expect((await server.dbGet(m3.id))?.name, 'test03');
     expect(db1.get<TestType1>(m3.id)?.name, 'test03');
     expect(db2.get<TestType1>(m3.id)?.name, 'test03');
   });
@@ -212,7 +212,7 @@ Future<void> main() async {
 }
 
 Database database(String path) => Database(path, [(data) => TestType1.fromJson(data)]);
-Future<DbTestServerClient> serverHybrid(String path, int port, [List<String> databases]) => DbTestServerClient.start(path, port, databases);
+Future<DbTestServerClient> serverHybrid(String path, int port, [List<String?>? databases]) => DbTestServerClient.start(path, port, databases);
 Future<void> cleanHybrid(String path) => DbTestServerClient.clean(path);
 
 int dbCount = 0;
@@ -222,7 +222,7 @@ int nextPort() => 8000 + (serverCount++);
 
 class DbTestServerClient {
 
-  static Future<DbTestServerClient> start(String path, int port, [List<String> databases]) async {
+  static Future<DbTestServerClient> start(String path, int port, [List<String?>? databases]) async {
     final server = DbTestServerClient(spawnHybridUri('database_sync_test_server.dart', message: ['serve', path, port, databases ?? [null]]));
     await server.ready;
     return server;
@@ -239,39 +239,42 @@ class DbTestServerClient {
       if(msg == 'ready') {
         _ready.complete();
       }
-      else if(completer != null && !completer.isCompleted) {
-        if(msg is Map) {
-          completer.complete(TestType1.fromJson(msg));
-        } else {
-          completer.complete(msg);
+      else {
+        final completer = this.completer;
+        if(completer != null && !completer.isCompleted) {
+          if(msg is Map) {
+            completer.complete(TestType1.fromJson(msg));
+          } else {
+            completer.complete(msg);
+          }
+          this.completer = null;
         }
-        completer = null;
       }
     });
   }
 
   Future<void> get ready => _ready.future;
 
-  Future<TestType1> dbGet(String id) => _send<TestType1>('/db/get', id);
+  Future<TestType1?> dbGet(String id) => _send<TestType1>('/db/get', id);
   Future<TestType1> dbPut(DataModel model) => _send<TestType1>('/db/put', model.toJson());
 
   Future<int> get dbModelCount => _send<int>('/db/count/models');
 
-  Completer completer;
+  Completer? completer;
   Future<T> _send<T>(String path, [dynamic data]) async {
     await completer?.future;
     completer = Completer<T>();
     channel.sink.add([path, data]);
-    return completer.future;
+    return completer!.future as Future<T>;
   }
 }
 
 class TestType1 extends DataModel {
   String get name => this['name'];
-  TestType1({String name}) : super({'name': name});
-  TestType1.copyNew(TestType1 original, {String name}) : super.copyNew(original, {'name': name});
-  TestType1.copyWith(TestType1 original, {String name}) : super.copyWith(original, {'name': name});
+  TestType1({String? name}) : super({'name': name});
+  TestType1.copyNew(TestType1 original, {String? name}) : super.copyNew(original, {'name': name});
+  TestType1.copyWith(TestType1 original, {String? name}) : super.copyWith(original, {'name': name});
   TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
-  TestType1 copyNew({String name}) => TestType1.copyNew(this, name: name);
-  TestType1 copyWith({String name}) => TestType1.copyWith(this, name: name);
+  TestType1 copyNew({String? name}) => TestType1.copyNew(this, name: name);
+  TestType1 copyWith({String? name}) => TestType1.copyWith(this, name: name);
 }

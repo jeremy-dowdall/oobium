@@ -22,7 +22,7 @@ class WsTestServer {
   final StreamChannel channel;
   WsTestServer(this.channel);
 
-  WebSocket ws;
+  late WebSocket ws;
   var wsData;
 
   Future<void> start(int port) async {

@@ -10,9 +10,9 @@ export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 
-  Sync(Data db, Repo repo, [Models models]) : super(db, repo, models);
+  Sync(Data db, Repo repo, [Models? models]) : super(db, repo, models);
 
-  File file;
+  late File file;
 
   @override
   Future<Sync> open() async {
@@ -47,7 +47,7 @@ class Replicant extends base.Replicant {
 
   Replicant(Data db, String id) : super(db, id);
 
-  File file;
+  late File file;
 
   @override
   Replicant open() {

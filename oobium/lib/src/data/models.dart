@@ -5,8 +5,8 @@ import 'package:oobium/src/database.dart';
 import 'package:oobium/src/json.dart';
 
 class Models {
-  Models([List<Function(Map data)> builders]) {
-    _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.toSet(), {}, false);
+  Models([List<Function(Map data)>? builders]) {
+    _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.map((k) => '$k').toSet(), {}, false);
     if(builders != null) for(var builder in builders) {
       final type = builder.runtimeType.toString().split(' => ')[1];
       _builders[type] = builder;
@@ -15,10 +15,10 @@ class Models {
   
   final _builders = <String, Function(Map data)>{};
   final _models = <String, DataModel>{};
-  StreamController<Batch> _controller;
+  StreamController<Batch>? _controller;
   Stream<Batch> get _stream {
     _controller ??= StreamController<Batch>.broadcast(onCancel: () => _controller = null);
-    return _controller.stream;
+    return _controller!.stream;
   }
 
   Future<Models> load(Stream<DataRecord> records) async {
@@ -42,29 +42,29 @@ class Models {
     return _controller?.close() ?? Future.value();
   }
 
-  bool any(String id) => _models.containsKey(id);
-  bool none(String id) => !any(id);
+  bool any(String? id) => _models.containsKey(id);
+  bool none(String? id) => !any(id);
 
   int get length => _models.length;
   bool get isEmpty => _models.isEmpty;
   bool get isNotEmpty => _models.isNotEmpty;
 
-  T get<T extends DataModel>(String id, {T Function() orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
-  Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? _models.values : _models.values.whereType<T>();
+  T? get<T extends DataModel>(String? id, {T Function()? orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
+  Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? (_models.values as Iterable<T>) : _models.values.whereType<T>();
 
   Stream<T> stream<T extends DataModel>(String id) {
     return _stream
-      .where((batch) => batch.updates.any((model) => (model.id == id)))
-      .map((_) => _models[id]);
+      .where((batch) => batch.updates.any((model) => (model.runtimeType == T) && (model.id == id)))
+      .map((_) => _models[id] as T);
   }
 
-  Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model) where}) {
+  Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) {
     return _stream
       .where((batch) => batch.updates.any((model) => (model is T) && ((where == null) || where(model))))
       .map((batch) => DataModelEvent<T>._(this, batch, where));
   }
 
-  Batch<T> batch<T extends DataModel>({Iterable<T> put, Iterable<String> remove}) {
+  Batch<T> batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) {
     final batch = Batch<T>();
 
     if(put != null) for(var model in put) {
@@ -85,14 +85,14 @@ class Models {
 
     if(remove != null) for(var id in remove) {
       final model = _models.remove(id);
-      batch.results.add(model);
+      batch.results.add((model is T) ? model : null);
       if(model != null) {
         batch.removes.add(model);
       }
     }
 
     for(var model in batch.puts) {
-      model._fields._context ??= this;
+      model._fields._context = this;
     }
 
     if(batch.isNotEmpty) {
@@ -105,14 +105,14 @@ class Models {
   DataModel _build(DataRecord record) {
     final builder = _builders[record.type] ?? _builders['DataModel'];
     assert(builder != null, 'no builder registered for ${record.type}');
-    final value = builder(record.data);
+    final value = builder!(record.data);
     assert(value is DataModel, 'builder did not return a DataModel: $value');
     return (value as DataModel).._fields._context = this;
   }
 }
 
 class Batch<T extends DataModel> {
-  final results = <T>[];
+  final results = <T?>[];
   final puts = <DataModel>[];
   final removes = <DataModel>[];
   bool get isEmpty => puts.isEmpty && removes.isEmpty;
@@ -124,14 +124,14 @@ class Batch<T extends DataModel> {
 class DataModelEvent<T extends DataModel> {
   final Models _models;
   final Batch _batch;
-  final bool Function(T model) _where;
+  final bool Function(T model)? _where;
   DataModelEvent._(this._models, this._batch, this._where);
 
   Iterable<T> get all {
     if(_where == null) {
       return _models._models.values.whereType<T>();
     } else {
-      return _models._models.values.whereType<T>().where(_where);
+      return _models._models.values.whereType<T>().where(_where!);
     }
   }
 
@@ -139,7 +139,7 @@ class DataModelEvent<T extends DataModel> {
     if(_where == null) {
       return _batch.puts.whereType<T>();
     } else {
-      return _batch.puts.whereType<T>().where(_where);
+      return _batch.puts.whereType<T>().where(_where!);
     }
   }
 
@@ -147,7 +147,7 @@ class DataModelEvent<T extends DataModel> {
     if(_where == null) {
       return _batch.removes.whereType<T>();
     } else {
-      return _batch.removes.whereType<T>().where(_where);
+      return _batch.removes.whereType<T>().where(_where!);
     }
   }
 }
@@ -156,23 +156,23 @@ class DataModel extends JsonModel implements DataId {
   final int timestamp;
   final DataFields _fields;
 
-  DataModel([Map<String, dynamic> fields]) :
+  DataModel([Map<String, dynamic>? fields]) :
         timestamp = DateTime.now().millisecondsSinceEpoch,
         _fields = DataFields(fields ?? {}),
         super(ObjectId().hexString);
 
-  DataModel.copyNew(DataModel original, Map<String, dynamic> fields) :
+  DataModel.copyNew(DataModel original, Map<String, dynamic>? fields) :
         timestamp = DateTime.now().millisecondsSinceEpoch,
         _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))),
         super(ObjectId().hexString);
 
-  DataModel.copyWith(DataModel original, Map<String, dynamic> fields) :
+  DataModel.copyWith(DataModel original, Map<String, dynamic>? fields) :
         timestamp = DateTime.now().millisecondsSinceEpoch,
         _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))),
         super(original.id);
 
   DataModel.fromJson(data, Set<String> fields, Set<String> modelFields, bool newId) :
-        timestamp = Json.field<int, int>(data, 'timestamp') ?? DateTime.now().millisecondsSinceEpoch,
+        timestamp = Json.field<int?, int?>(data, 'timestamp') ?? DateTime.now().millisecondsSinceEpoch,
         _fields = DataFields({
           for(var k in fields.where((k) => k != 'id' && k != 'timestamp')) k: Json.field(data, k),
           for(var k in modelFields) k: DataId(Json.field(data, k))
@@ -217,7 +217,7 @@ class DataFields {
   final Map<String, dynamic> _map;
   DataFields(this._map);
 
-  Models _context;
+  late Models _context;
 
   Iterable<DataModel> get models => _map.values.whereType<DataModel>();
 

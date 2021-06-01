@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
+
 class ServiceRegistry {
   
   final _services = <Service>[];
@@ -12,9 +14,9 @@ class ServiceRegistry {
 
   T get<T>() => _services.firstWhere((s) => s.runtimeType == T, orElse: () => throw Exception('service not found: $T')) as T;
  
-  T find<T>() => _services.firstWhere((s) => s.runtimeType == T, orElse: () => null) as T;
+  T? find<T>() => _services.firstWhereOrNull((s) => s.runtimeType == T) as T?;
  
-  Iterable _consumers(data) => _services.where((s) => s.consumes == data.runtimeType);
+  Iterable<Service> _consumers(data) => _services.where((s) => s.consumes == data.runtimeType);
   
   Future<void> _attach(data) => Future.forEach<Service>(_consumers(data), (c) => c.onAttach(data));
   Future<void> _detach(data) => Future.forEach<Service>(_consumers(data), (c) => c.onDetach(data));
@@ -24,7 +26,7 @@ class ServiceRegistry {
 }
 
 class Services<P> {
-  ServiceRegistry _registry;
+  late ServiceRegistry _registry;
 
   Future<void> attach(P data) => _registry._attach(data);
   Future<void> detach(P data) => _registry._detach(data);
