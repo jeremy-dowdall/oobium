@@ -1,12 +1,12 @@
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/data/executor.dart';
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore/executor.dart';
+import 'package:oobium/src/datastore.dart';
 
 class Repo implements Connection {
 
-  final Data db;
+  final Data ds;
   final executor = Executor();
-  Repo(this.db);
+  Repo(this.ds);
 
   Future<Repo> open() => throw UnsupportedError('platform not supported');
   Future<void> flush() => executor.flush();

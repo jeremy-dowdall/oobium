@@ -1,6 +1,6 @@
 import 'package:oobium/oobium.dart';
 
-class ModelGenTestData extends Database {
+class ModelGenTestData extends DataStore {
   ModelGenTestData(String path)
       : super('$path/model_gen_test',
             [(data) => User.fromJson(data), (data) => Message.fromJson(data)]);

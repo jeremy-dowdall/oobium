@@ -11,12 +11,12 @@ class AuthClient {
   final int port;
   AuthClient({required this.root, this.address='127.0.0.1', this.port=8001});
 
-  AuthClientData? _db;
+  AuthClientData? _ds;
   Account? _account;
   AuthSocket? _socket;
 
   Account? get account => _account;
-  Iterable<Account> get accounts => _db?.getAll<Account>() ?? <Account>[];  
+  Iterable<Account> get accounts => _ds?.getAll<Account>() ?? <Account>[];
   WebSocket? get socket => _socket;
 
   bool get isConnected => _socket?.isConnected == true;
@@ -25,13 +25,13 @@ class AuthClient {
   bool get isNotAnonymous => !isAnonymous;
   bool get isSignedIn => _account != null;
   bool get isNotSignedIn => !isSignedIn;
-  bool get isOpen => _db != null;
+  bool get isOpen => _ds != null;
   bool get isNotOpen => !isOpen;
 
   Future<AuthClient> open() async {
     if(isNotOpen) {
-      _db = await AuthClientData('$root/auth').open() as AuthClientData;
-      if(_db!.isNotEmpty) {
+      _ds = await AuthClientData('$root/auth').open() as AuthClientData;
+      if(_ds!.isNotEmpty) {
         _account = (accounts.toList()..sort((a,b) => a.lastOpenedAt - b.lastOpenedAt)).first;
         await _setAccount(account!);
       }
@@ -42,8 +42,8 @@ class AuthClient {
   Future<void> close() async {
     if(isOpen) {
       await _setAccount(null);
-      await _db?.close();
-      _db = null;
+      await _ds?.close();
+      _ds = null;
     }
   }
 
@@ -71,8 +71,8 @@ class AuthClient {
 
   Future<void> signOut() async {
     if(isSignedIn) {
-      _db?.remove(_account!.id);
-      await _db?.flush();
+      _ds?.remove(_account!.id);
+      await _ds?.flush();
       await _setAccount(null);
     }
   }
@@ -95,7 +95,7 @@ class AuthClient {
   Future<void> _setAccount(Account? account) async {
     if(_account?.id != account?.id) {
       if(account != null) {
-        _account = _db?.put(account.copyWith(lastOpenedAt: DateTime.now().millisecondsSinceEpoch));
+        _account = _ds?.put(account.copyWith(lastOpenedAt: DateTime.now().millisecondsSinceEpoch));
       } else {
         _account = null;
       }
@@ -115,7 +115,7 @@ class AuthClient {
 
       if(_socket != null) {
         if(_account != null) {
-          _account = _db?.put(account!.copyWith(lastConnectedAt: DateTime.now().millisecondsSinceEpoch));
+          _account = _ds?.put(account!.copyWith(lastConnectedAt: DateTime.now().millisecondsSinceEpoch));
         }
         _socket!.done.then((_) => _onSocketDone(socket));
         await _socket!.ready;

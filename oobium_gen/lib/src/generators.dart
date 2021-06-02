@@ -19,14 +19,14 @@ String generateModelsLibrary(Schema schema) {
     "import 'package:oobium/oobium.dart';",
   ].toSet().toList()..sort();
 
-  final dbname = '${schema.name.camelCase}Data';
+  final dsname = '${schema.name.camelCase}Data';
   final models = schema.models.map((model) => ModelBuilder(model));
 
   return '''
       ${imports.join('\n')}
       
-      class $dbname extends Database {
-        $dbname(String path) : super('\$path/${schema.name.underscored}', [
+      class $dsname extends DataStore {
+        $dsname(String path) : super('\$path/${schema.name.underscored}', [
           ${models.map((m) => '(data) => ${m.ctor}.fromJson(data)').join(',\n')}
         ]);
       }

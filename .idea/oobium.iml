@@ -3,18 +3,28 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/firebase_auth_validator/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/firebase_auth_validator/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/firebase_auth_validator/build" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_client/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_client/build" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_token_validator/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_token_validator/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_client/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_client/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_gen/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_gen/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_gen/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_routing/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_routing/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_server/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_server/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_server/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_test/.pub" />

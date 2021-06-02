@@ -3,11 +3,11 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:objectid/objectid.dart';
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/data/executor.dart';
-import 'package:oobium/src/data/models.dart';
-import 'package:oobium/src/data/repo.dart';
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore/executor.dart';
+import 'package:oobium/src/datastore/models.dart';
+import 'package:oobium/src/datastore/repo.dart';
+import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/json.dart';
 import 'package:oobium/src/websocket.dart';
 
@@ -15,17 +15,17 @@ import 'sync_base.dart'
   if (dart.library.io) 'sync_io.dart'
   if (dart.library.html) 'sync_html.dart' as platform;
 
-String replicantPath([String? name]) => (name != null) ? '/db/$name/replicant' : '/db/replicant';
-String connectPath([String? name]) => (name != null) ? '/db/$name/connect' : '/db/connect';
-String syncPath([String? name]) => (name != null) ? '/db/$name/sync' : '/db/sync';
-String dataPath([String? name]) => (name != null) ? '/db/$name/data' : '/db/data';
+String replicantPath([String? name]) => (name != null) ? '/ds/$name/replicant' : '/ds/replicant';
+String connectPath([String? name]) => (name != null) ? '/ds/$name/connect' : '/ds/connect';
+String syncPath([String? name]) => (name != null) ? '/ds/$name/sync' : '/ds/sync';
+String dataPath([String? name]) => (name != null) ? '/ds/$name/data' : '/ds/data';
 
 class Sync implements Connection {
 
-  final Data db;
+  final Data ds;
   final Models? models;
   final Repo repo;
-  Sync(this.db, this.repo, [this.models]);
+  Sync(this.ds, this.repo, [this.models]);
 
   String? id;
   final binders = <String, Binder>{};
@@ -124,7 +124,7 @@ class Sync implements Connection {
   }
 
   Future<platform.Replicant> _addReplicant([String? id]) async {
-    final replicant = platform.Replicant(db, id ?? ObjectId().hexString);
+    final replicant = platform.Replicant(ds, id ?? ObjectId().hexString);
     await replicant.open();
     replicants.add(replicant);
     await save();
@@ -237,7 +237,7 @@ class Binder {
     }
   }
 
-  /// new remote records -> update local db and then notify other binders (with same event)
+  /// new remote records -> update local ds and then notify other binders (with same event)
   Future<void> onData(data) async {
     final event = (data is DataEvent) ? data : (data is WsData) ? DataEvent.fromJson(data.value) : null;
     if(event != null && event.isNotEmpty && event.visit(localId)) {
@@ -282,10 +282,10 @@ class Binder {
 
 class Replicant implements Connection {
 
-  final Data db;
+  final Data ds;
   final String id;
   final _executor = Executor();
-  Replicant(this.db, this.id);
+  Replicant(this.ds, this.id);
 
   platform.Replicant open() => throw UnsupportedError('platform not supported');
   Future<void> flush() => _executor.flush();
@@ -300,7 +300,7 @@ class Replicant implements Connection {
   bool get isConnected => _binder != null;
   bool get isNotConnected => !isConnected;
 
-  /// new records in db, notify the socket or save relevant records for a future sync
+  /// new records in ds, notify the socket or save relevant records for a future sync
   void putAll(Iterable<DataRecord> records) async {
     if(records.isNotEmpty) {
       if(isConnected) {

@@ -1,19 +1,18 @@
 import 'dart:async';
 
-import 'package:meta/meta.dart';
 import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
 import 'package:oobium/src/clients/data_client.schema.gen.models.dart';
-import 'package:oobium/src/data/executor.dart';
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore/executor.dart';
+import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/websocket.dart';
 
 const SchemaName = '__schema__';
 
-class DataStore {
+class DefinedDataStore {
   
   final Definition definition;
-  final Database database;
-  DataStore(this.definition, this.database);
+  final DataStore datastore;
+  DefinedDataStore(this.definition, this.datastore);
 
   String get id => definition.id;
   String get name => definition.name;
@@ -30,10 +29,10 @@ class DataClient {
 
   final String _root;
   final List<Definition> Function() _create;
-  final FutureOr<Database?> Function(String root, Definition ds) _builder;
+  final FutureOr<DataStore?> Function(String root, Definition ds) _builder;
   DataClient({
     required String root,
-    required FutureOr<Database?> Function(String root, Definition ds) builder,
+    required FutureOr<DataStore?> Function(String root, Definition ds) builder,
     required List<Definition> Function() create}) : _root = root, _create = create, _builder = builder;
 
   String get _path => '$_root/${_account?.uid}';
@@ -42,11 +41,11 @@ class DataClient {
   DataClientData? _schema;
   WebSocket? _socket;
   Executor? _executor;
-  final _datastores = <String, DataStore>{};
+  final _datastores = <String, DefinedDataStore>{};
   final _updates = <String, Completer>{};
   final _controller = StreamController<SchemaEvent>.broadcast();
 
-  T? db<T extends Database>(String id) => _datastores[id]?.database as T?;
+  T? ds<T extends DefinedDataStore>(String id) => _datastores[id]?.datastore as T?;
 
   Future<void> add(Definition def) => _update(def.id, () => _schema!.put(def));
 
@@ -64,7 +63,7 @@ class DataClient {
       if(_account != null) {
         await _schema?.close();
         _schema = null;
-        await Future.forEach<DataStore>(_datastores.values, (ds) => ds.database.close());
+        await Future.forEach<DefinedDataStore>(_datastores.values, (ds) => ds.datastore.close());
         _datastores.clear();
       }
 
@@ -83,7 +82,7 @@ class DataClient {
     }
   }
 
-  Future<void> setSocket(WebSocket socket) async {
+  Future<void> setSocket(WebSocket? socket) async {
     if(socket != _socket) {
       await _executor?.cancel();
       _executor = null;
@@ -91,7 +90,7 @@ class DataClient {
       if(_socket != null) {
         _schema?.unbind(_socket!, name: SchemaName);
         for(var ds in _datastores.values) {
-          ds.database.unbind(_socket!, name: ds.id);
+          ds.datastore.unbind(_socket!, name: ds.id);
         }
       }
 
@@ -100,16 +99,16 @@ class DataClient {
       if(_socket != null) {
         _bind(_schema, SchemaName);
         for(var ds in _datastores.values) {
-          _bind(ds.database, ds.id);
+          _bind(ds.datastore, ds.id);
         }
       }
     }
   }
 
-  Future<void> _bind(Database? db, String id) {
-    if(_socket != null && db != null) {
+  Future<void> _bind(DataStore? ds, String id) {
+    if(_socket != null && ds != null) {
       _executor ??= Executor();
-      return _executor!.add(() {if(_socket != null) db.bind(_socket!, name: id);});
+      return _executor!.add(() {if(_socket != null) ds.bind(_socket!, name: id);});
     } else {
       return Future.value();
     }
@@ -117,10 +116,10 @@ class DataClient {
 
   Future<void> _add(Definition def) async {
     if(!_datastores.containsKey(def.id)) {
-      final db = await _builder(_path, def);
-      if(db != null) {
-        _datastores[def.id] = DataStore(def, await db.open());
-        _bind(db, def.id);
+      final ds = await _builder(_path, def);
+      if(ds != null) {
+        _datastores[def.id] = DefinedDataStore(def, await ds.open());
+        _bind(ds, def.id);
       }
     }
     _complete(def.id);
@@ -131,7 +130,7 @@ class DataClient {
 
   void _remove(String id) {
     final ds = _datastores.remove(id);
-    ds?.database.unbind(_socket!, name: id);
+    ds?.datastore.unbind(_socket!, name: id);
     _complete(id);
     if(ds != null) {
       _controller.add(SchemaEvent._(null, ds.definition));

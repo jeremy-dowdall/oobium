@@ -24,7 +24,7 @@ Future<void> main() async {
     await userClient.setAccount(authClient.account);
     await userClient.setSocket(authClient.socket);
 
-    expect(userClient.user.id, user['id']);
+    expect(userClient.user?.id, user['id']);
     expect(userClient.groups, isEmpty);
 
     final users = userClient.getUsers();
@@ -82,14 +82,14 @@ Future<void> main() async {
     client1.putGroup(Group(name: 'test-group-2', owner: client2.user));
     await Future.delayed(Duration(milliseconds: 100));
 
-    final data = await server.dbGetAll('/auth_service') as List;
+    final data = await server.dsGetAll('/auth_service') as List;
     expect(data.where((e) => e['name'] == 'test-group-1').length, 1);
     expect(data.where((e) => e['name'] == 'test-group-2'), isEmpty);
     expect(client2.getGroups(), isEmpty);
   });
 }
 
-Future<AuthClient> createAuthClient({String path, int port, user}) async {
+Future<AuthClient> createAuthClient({required String path, required int port, user}) async {
   user ??= await AdminClient(port: port).createUser('test-1');
   final authClient = await AuthClient(root: '$path/test-client/auth-client', port: port).open();
   await authClient.signIn(user['id'], user['token']);
@@ -97,7 +97,7 @@ Future<AuthClient> createAuthClient({String path, int port, user}) async {
   return authClient;
 }
 
-Future<UserClient> createUserClient({String path, int port, AuthClient authClient}) async {
+Future<UserClient> createUserClient({required String path, required int port, AuthClient? authClient}) async {
   authClient ??= await createAuthClient(path: path, port: port);
   final userClient = UserClient(root: '$path/test-client/user-client');
   await userClient.setAccount(authClient.account);
@@ -106,7 +106,7 @@ Future<UserClient> createUserClient({String path, int port, AuthClient authClien
 }
 
 String root = 'test-data';
-int dbCount = 0;
+int dsCount = 0;
 int serverCount = 0;
-String nextPath() => '$root/user_client_test-${dbCount++}';
+String nextPath() => '$root/user_client_test-${dsCount++}';
 int nextPort() => 8000 + (serverCount++);

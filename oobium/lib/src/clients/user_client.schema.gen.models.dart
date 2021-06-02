@@ -1,6 +1,6 @@
 import 'package:oobium/oobium.dart';
 
-class UserClientData extends Database {
+class UserClientData extends DataStore {
   UserClientData(String path)
       : super('$path/user_client', [
           (data) => User.fromJson(data),

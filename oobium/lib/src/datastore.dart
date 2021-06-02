@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/data/models.dart';
-import 'package:oobium/src/data/repo.dart';
-import 'package:oobium/src/data/sync.dart';
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore/models.dart';
+import 'package:oobium/src/datastore/repo.dart';
+import 'package:oobium/src/datastore/sync.dart';
 import 'package:oobium/src/json.dart';
 import 'package:oobium/src/websocket.dart';
 import 'package:oobium/src/string.extensions.dart';
 
-export 'package:oobium/src/data/models.dart' show DataModel, DataModelEvent;
+export 'package:oobium/src/datastore/models.dart' show DataModel, DataModelEvent;
 
 class UpgradeEvent {
   final int oldVersion;
@@ -17,14 +17,14 @@ class UpgradeEvent {
   UpgradeEvent._(this.oldVersion, this.newVersion, this.oldData);
 }
 
-class Database {
+class DataStore {
 
   static Future<void> clean(String path) => Data(path).destroy();
 
   final String path;
   final List<Function(Map data)>? _builders;
-  Database(this.path, [this._builders]) {
-    assert(path.isNotBlank, 'database path cannot be blank');
+  DataStore(this.path, [this._builders]) {
+    assert(path.isNotBlank, 'datastore path cannot be blank');
   }
 
   int _version = 0;
@@ -43,7 +43,7 @@ class Database {
   bool get isOpen => _open;
   bool get isNotOpen => !isOpen;
 
-  Future<Database> open({int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
+  Future<DataStore> open({int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
     if(isNotOpen) {
       _open = true;
       _version = version;
@@ -116,12 +116,12 @@ class Database {
   Iterable<T> getAll<T extends DataModel>() => _models!.getAll<T>();
 
   T put<T extends DataModel>(T model) => batch(put: [model])[0]!;
-  List<T> putAll<T extends DataModel>(Iterable<T> models) => _batch(put: models) as List<T>;
+  List<T> putAll<T extends DataModel>(Iterable<T> models) => _batch(put: models).whereType<T>().toList();
 
   T? remove<T extends DataModel>(String? id) => batch(remove: [id])[0] as T?;
   List<T?> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
 
-  Stream<T> stream<T extends DataModel>(String id) => _models!.stream<T>(id);
+  Stream<T?> stream<T extends DataModel>(String id) => _models!.stream<T>(id);
   Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) => _models!.streamAll<T>(where: where);
 
   bool get isBound => _sync!.isBound;

@@ -13,7 +13,7 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
   print('server $message');
 
   if(message[0] == 'clean') {
-    await Database.clean(message[1]);
+    await DataStore.clean(message[1]);
   }
   if(message[0] == 'serve') {
     final path = '${message[1]}/test_server';
@@ -44,18 +44,18 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 Future<List<String>> onMessage(String path, String event) async {
   final sa = event.split(':');
   print('message: $sa');
-  final db = await Database('$path${sa[0]}').open();
-  print(' dbPath: ${db.path}');
+  final ds = await DataStore('$path${sa[0]}').open();
+  print(' dsPath: ${ds.path}');
   switch(sa[1]) {
-    case '/db/destroy':
-      await db.destroy();
+    case '/ds/destroy':
+      await ds.destroy();
       return [event, '200'];
-    case '/db/get':
-      return [event, Json.encode(db.get(sa[2]))];
-    case '/db/getAll':
-      return [event, Json.encode(db.getAll())];
-    case '/db/count':
-      return [event, '${db.getAll().length}'];
+    case '/ds/get':
+      return [event, Json.encode(ds.get(sa[2]))];
+    case '/ds/getAll':
+      return [event, Json.encode(ds.getAll())];
+    case '/ds/count':
+      return [event, '${ds.getAll().length}'];
     default:
       return [event, '404'];
   }

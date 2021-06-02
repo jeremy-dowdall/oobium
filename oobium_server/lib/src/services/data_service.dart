@@ -13,7 +13,7 @@ class DataService extends Service<AuthConnection, Null> {
   final String path;
   final _clients = <String/*uid*/, DataClientData>{};
   final _sockets = <String/*uid*/, List<ServerWebSocket>>{};
-  final _datastores = <String/*path*/, DataStore>{};
+  final _datastores = <String/*path*/, DefinedDataStore>{};
   DataService({this.path = 'test-data'});
 
   DataClientData? _shared;
@@ -51,7 +51,7 @@ class DataService extends Service<AuthConnection, Null> {
     final uid = socket.uid;
     _clients[uid]!.unbind(socket, name: SchemaName);
     for(var ds in _datastores.values) {
-      ds.database.unbind(socket, name: ds.id);
+      ds.datastore.unbind(socket, name: ds.id);
     }
     _sockets[uid]!.remove(socket);
     if(_sockets[uid]!.isEmpty) {
@@ -119,7 +119,7 @@ class DataService extends Service<AuthConnection, Null> {
     );
   }
 
-  /// client adds shared db -> add to service -> add to other clients (onServiceEvent) -> each sync to it's other clients
+  /// client adds shared ds -> add to service -> add to other clients (onServiceEvent) -> each sync to it's other clients
   void _onSharedEvent(DataModelEvent<Definition> event) {
     if(_verbose) print('dataService._onSharedEvent(put: ${event.puts.map((e) => e.name)}, remove: ${event.removes.map((e) => e.name)})');
     for(var uid in _clients.keys) {
@@ -179,36 +179,36 @@ class DataService extends Service<AuthConnection, Null> {
   Future<void> _addDefinition(String uid, Definition def) async {
     if(_verbose) print('dataService._addDefinition(${_path(uid, def: def)})');
     final path = _path(uid, def: def);
-    final ds = _datastores[path] ??= DataStore(def, await Database(path).open());
-    await _bind(uid, ds);
+    final dsDef = _datastores[path] ??= DefinedDataStore(def, await DataStore(path).open());
+    await _bind(uid, dsDef);
   }
 
   void _removeDefinition(String uid, Definition def) {
     if(_verbose) print('dataService._removeDefinition(${_path(uid, def: def)})');
     final path = _path(uid, def: def);
-    final ds = _datastores.remove(path);
-    if(ds != null) {
-      _unbind(uid, ds);
+    final dsDef = _datastores.remove(path);
+    if(dsDef != null) {
+      _unbind(uid, dsDef);
     }
   }
 
-  Future<void> _bind(String uid, DataStore ds) async {
-    if(_verbose) print('dataService._bind($uid, $ds)');
-    for(var socket in _dsSockets(uid, ds)) {
-      await ds.database.bind(socket, name: ds.id, wait: false);
+  Future<void> _bind(String uid, DefinedDataStore def) async {
+    if(_verbose) print('dataService._bind($uid, $def)');
+    for(var socket in _dsSockets(uid, def)) {
+      await def.datastore.bind(socket, name: def.id, wait: false);
     }
   }
 
-  void _unbind(String uid, DataStore ds) {
-    if(_verbose) print('dataService._unbind($uid, $ds)');
-    for(var socket in _dsSockets(uid, ds)) {
-      ds.database.unbind(socket, name: ds.id);
+  void _unbind(String uid, DefinedDataStore def) {
+    if(_verbose) print('dataService._unbind($uid, $def)');
+    for(var socket in _dsSockets(uid, def)) {
+      def.datastore.unbind(socket, name: def.id);
     }
   }
 
-  List<ServerWebSocket> _dsSockets(String uid, DataStore ds) => (ds.access == null)
+  List<ServerWebSocket> _dsSockets(String uid, DefinedDataStore def) => (def.access == null)
     ? _sockets[uid]?.toList() ?? []
-    : services.get<AuthService>().getMemberships().where((m) => m.group?.id == ds.access).expand((m) => _sockets[m.user?.id] ?? <ServerWebSocket>[]).toList();
+    : services.get<AuthService>().getMemberships().where((m) => m.group?.id == def.access).expand((m) => _sockets[m.user?.id] ?? <ServerWebSocket>[]).toList();
 
   /// '$path/$id/$name'
   String _path(String uid, {Definition? def, String? id}) {

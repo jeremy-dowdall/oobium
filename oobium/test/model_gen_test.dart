@@ -16,7 +16,7 @@ Future<void> main() async {
   tearDown(() async => await directory.delete(recursive: true));
 
   test('test simple model', () async {
-    final models = ModelGenTestData('$path/test1.db');
+    final models = ModelGenTestData('$path/test1.ds');
     await models.open();
 
     final id = models.put(Message(message: 'test-01')).id;
@@ -27,7 +27,7 @@ Future<void> main() async {
   });
 
   test('test nested model', () async {
-    final models = ModelGenTestData('$path/test1.db');
+    final models = ModelGenTestData('$path/test1.ds');
     await models.open();
 
     final id = models.put(Message(from: User(name: 'joe'), message: 'test-01')).id;
@@ -39,7 +39,7 @@ Future<void> main() async {
   });
 
   test('test delete nested model', () async {
-    final models = ModelGenTestData('$path/test1.db');
+    final models = ModelGenTestData('$path/test1.ds');
     await models.open();
 
     final message = models.put(Message(from: User(name: 'joe'), message: 'test-01'));

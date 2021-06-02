@@ -90,7 +90,7 @@ class UserService extends Service<AuthConnection, Null> {
   void Function(DataModelEvent event) _onClientEvent(String uid) => (event) {
     final service = services.get<AuthService>();
 
-    // do not put client users into the service db
+    // do not put client users into the service ds
 
     // all memberships involving the user
     final memberships = event.puts.whereType<c.Membership>()
@@ -127,7 +127,7 @@ class UserService extends Service<AuthConnection, Null> {
       final groups = event.puts.whereType<s.Group>()
         .where((g) => (g.owner?.id == uid)
           || memberships.any((m) => (m.group?.id == g.id) && (m.user?.id == uid))               // this event
-          || service.getMemberships().any((m) => (m.group?.id == g.id) && (m.user?.id == uid))) // the whole db
+          || service.getMemberships().any((m) => (m.group?.id == g.id) && (m.user?.id == uid))) // the whole ds
         .followedBy(memberships.map((m) => m.group!))
         .fold<Map<String, s.Group>>({}, (a,g) {a[g.id] = g; return a;}).values;
 

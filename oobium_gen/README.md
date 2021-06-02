@@ -1,13 +1,13 @@
 # oobium gen
 Code generation tools and utilities.
 
-Currently consists of model generator for the oobium connected Database.
+Currently consists of model generator for the oobium connected Datastore.
 
 ## Usage
 `$ dart run runner.dart -client <schema_directory>`
 
 ## Schema files
-All files in the `<schema_directory>` that end with '.schema' will be parsed and used to generate a database definition with the corresponding name. For example, `/data/users.schema` will generate a database definition `UsersData` in the file `/data/users.schema.gen.models.dart`.
+All files in the `<schema_directory>` that end with '.schema' will be parsed and used to generate a datastore definition with the corresponding name. For example, `/data/users.schema` will generate a datastore definition `UsersData` in the file `/data/users.schema.gen.models.dart`.
 
 ## Schema file format
 The schema file is simply a list of models and their attribute. It is intentionally very simple and limited.

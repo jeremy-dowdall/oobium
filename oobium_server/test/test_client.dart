@@ -30,12 +30,12 @@ class TestClient {
     });
   }
 
-  Future<void> get ready => _events['ready'].future;
+  Future<void> get ready => _events['ready']!.future;
 
   Future close() => _send('close');
-  Future dbGet(String dbPath, String id) => _send('$dbPath:/db/get:$id');
-  Future dbGetAll(String dbPath) => _send('$dbPath:/db/getAll');
-  Future dbCount(String dbPath) => _send('$dbPath:/db/count');
+  Future dsGet(String dsPath, String id) => _send('$dsPath:/ds/get:$id');
+  Future dsGetAll(String dsPath) => _send('$dsPath:/ds/getAll');
+  Future dsCount(String dsPath) => _send('$dsPath:/ds/count');
 
   Future _send(String path) async {
     channel.sink.add(path);

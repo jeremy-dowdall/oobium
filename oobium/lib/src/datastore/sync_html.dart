@@ -1,25 +1,25 @@
 import 'dart:convert';
 import 'dart:indexed_db';
 
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/data/executor.dart';
-import 'package:oobium/src/data/models.dart';
-import 'package:oobium/src/data/repo.dart';
-import 'package:oobium/src/database.dart' show DataRecord;
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore/executor.dart';
+import 'package:oobium/src/datastore/models.dart';
+import 'package:oobium/src/datastore/repo.dart';
+import 'package:oobium/src/datastore.dart' show DataRecord;
 
 import 'sync_base.dart' as base;
 export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 
-  Sync(Data db, Repo repo, [Models? models]) : super(db, repo, models);
+  Sync(Data ds, Repo repo, [Models? models]) : super(ds, repo, models);
 
   late Database idb;
   final executor = Executor();
 
   @override
   Future<Sync> open() async {
-    idb = db.connect(this);
+    idb = ds.connect(this);
     final tx = idb.transaction('sync', 'readonly').objectStore('sync');
     final json = await tx.getObject('sync');
     if(json is String && json.isNotEmpty) {
@@ -27,7 +27,7 @@ class Sync extends base.Sync {
       if(data is List && data.isNotEmpty) {
         id = data.first.toString();
         for(var id in data.skip(1)) {
-          replicants.add(await Replicant(db, id.toString()).open());
+          replicants.add(await Replicant(ds, id.toString()).open());
         }
       }
     }
@@ -44,13 +44,13 @@ class Sync extends base.Sync {
 
 class Replicant extends base.Replicant {
 
-  Replicant(Data db, String id) : super(db, id);
+  Replicant(Data ds, String id) : super(ds, id);
 
   late Database idb;
 
   @override
   Replicant open() {
-    idb = db.connect(this);
+    idb = ds.connect(this);
     return this;
   }
 

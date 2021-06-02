@@ -1,18 +1,18 @@
 import 'dart:async';
 
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import 'database_sync_test.dart';
+import 'datastore_sync_test.dart';
 import 'utils/test_websocket_server.dart';
 
 Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
   if(message[0] == 'clean') {
-    await Database.clean(message[1]);
+    await DataStore.clean(message[1]);
   }
   if(message[0] == 'serve') {
-    final server = DbTestServer();
+    final server = DsTestServer();
     await server.start(message[1], message[2], message[3]);
     server.listen(channel);
   }
@@ -20,17 +20,17 @@ Future<void> hybridMain(StreamChannel channel, dynamic message) async {
   channel.sink.add('ready');
 }
 
-class DbTestServer {
+class DsTestServer {
 
-  late Database db;
+  late DataStore ds;
 
   Future<void> start(String path, int port, List<String> databases) async {
-    db = Database(path, [(data) => TestType1.fromJson(data)]);
-    await db.reset();
+    ds = DataStore(path, [(data) => TestType1.fromJson(data)]);
+    await ds.reset();
 
     await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
       for(var name in databases) {
-        await db.bind(socket, name: name, wait: false);
+        await ds.bind(socket, name: name, wait: false);
       }
     });
   }
@@ -44,19 +44,19 @@ class DbTestServer {
 
   FutureOr onMessage(String path, [dynamic data]) async {
     switch(path) {
-      case '/db/destroy':
-        await db.destroy();
+      case '/ds/destroy':
+        await ds.destroy();
         return 200;
-      case '/db/get':
+      case '/ds/get':
         final id = data as String;
-        return db.get(id)?.toJson();
-      case '/db/put':
+        return ds.get(id)?.toJson();
+      case '/ds/put':
         final model = TestType1.fromJson(data);
-        final result = db.put(model).toJson();
-        await db.flush();
+        final result = ds.put(model).toJson();
+        await ds.flush();
         return result;
-      case '/db/count/models':
-        return db.getAll().length;
+      case '/ds/count/models':
+        return ds.getAll().length;
       default:
         return 404;
     }

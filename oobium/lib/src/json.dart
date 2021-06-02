@@ -9,10 +9,10 @@ abstract class Json implements JsonString {
   const Json();
 
   Map<String, dynamic> toJson();
-  
+
   @override
   String toJsonString() => jsonEncode(toJson());
-  
+
 
   static List<T> convertToList<T>(data, T builder(key, value)) {
     if(data is Map) {
@@ -96,9 +96,9 @@ abstract class Json implements JsonString {
 
   static List<String> toStrings(data, String field) => toList(data, field, (e) => e.toString());
 
-  static from(field, {bool full=true}) {
+  static from(field, {bool full=false}) {
     if(field == null) return null;
-    if(field is JsonModel) return field.id;
+    if(field is JsonModel && !full) return field.id;
     if(field is Json) return field.toJson();
     if(field is Map)  return fromMap(field);
     if(field is Iterable) return fromIterable(field, full: full);
@@ -112,7 +112,7 @@ abstract class Json implements JsonString {
     throw "don't know how to convert $field to JSON";
   }
 
-  static List<dynamic> fromIterable(Iterable? iter, {bool full=true}) => iter?.map((e) => from(e, full: full)).toList() ?? [];
+  static List<dynamic> fromIterable(Iterable? iter, {bool full=false}) => iter?.map((e) => from(e, full: full)).toList() ?? [];
   static List<dynamic> fromList(List? list) => list?.map((e) => from(e)).toList() ?? [];
 
   static Map<String, dynamic> fromMap(Map items) {

@@ -1,19 +1,19 @@
 import 'dart:io';
 
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore.dart';
 
 import 'repo_base.dart' as base;
 
 class Repo extends base.Repo {
 
-  Repo(Data db) : super(db);
+  Repo(Data ds) : super(ds);
 
   late File file;
 
   @override
   Future<Repo> open() async {
-    file = File('${db.connect(this)}/repo');
+    file = File('${ds.connect(this)}/repo');
     await file.create();
     return this;
   }

@@ -1,6 +1,6 @@
 import 'package:oobium/oobium.dart';
 
-class AuthClientData extends Database {
+class AuthClientData extends DataStore {
   AuthClientData(String path)
       : super('$path/auth_client', [(data) => Account.fromJson(data)]);
 }

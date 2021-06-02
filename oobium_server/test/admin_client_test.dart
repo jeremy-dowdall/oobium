@@ -23,7 +23,7 @@ Future<void> main() async {
 }
 
 String root = 'test-data';
-int dbCount = 0;
+int dsCount = 0;
 int serverCount = 0;
-String nextPath() => '$root/admin_client_test-${dbCount++}';
+String nextPath() => '$root/admin_client_test-${dsCount++}';
 int nextPort() => 8000 + (serverCount++);

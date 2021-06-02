@@ -1,19 +1,19 @@
 import 'dart:indexed_db';
 
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/database.dart' show DataRecord;
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore.dart' show DataRecord;
 
 import 'repo_base.dart' as base;
 
 class Repo extends base.Repo {
 
-  Repo(Data db) : super(db);
+  Repo(Data ds) : super(ds);
 
   late Database idb;
 
   @override
   Future<Repo> open() {
-    idb = db.connect(this);
+    idb = ds.connect(this);
     return Future.value(this);
   }
 

@@ -5,7 +5,7 @@
 import 'dart:async' as _i6;
 
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:oobium/src/data/models.dart' as _i5;
+import 'package:oobium/src/datastore/models.dart' as _i5;
 import 'package:oobium_server/src/server.dart' as _i7;
 import 'package:oobium_server/src/service.dart' as _i2;
 import 'package:oobium_server/src/services/auth_service.dart' as _i4;

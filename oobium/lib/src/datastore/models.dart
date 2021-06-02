@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/json.dart';
 
 class Models {
@@ -52,10 +52,10 @@ class Models {
   T? get<T extends DataModel>(String? id, {T Function()? orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
   Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? (_models.values as Iterable<T>) : _models.values.whereType<T>();
 
-  Stream<T> stream<T extends DataModel>(String id) {
+  Stream<T?> stream<T extends DataModel>(String id) {
     return _stream
-      .where((batch) => batch.updates.any((model) => (model.runtimeType == T) && (model.id == id)))
-      .map((_) => _models[id] as T);
+      .where((batch) => batch.updates.any((model) => (model is T) && (model.id == id)))
+      .map((_) => (_models[id] is T) ? (_models[id] as T) : null);
   }
 
   Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) {

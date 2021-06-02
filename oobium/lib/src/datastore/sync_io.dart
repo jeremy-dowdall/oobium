@@ -1,28 +1,28 @@
 import 'dart:io' hide WebSocket;
 
-import 'package:oobium/src/data/data.dart';
-import 'package:oobium/src/data/models.dart';
-import 'package:oobium/src/data/repo.dart';
-import 'package:oobium/src/database.dart';
+import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore/models.dart';
+import 'package:oobium/src/datastore/repo.dart';
+import 'package:oobium/src/datastore.dart';
 
 import 'sync_base.dart' as base;
 export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 
-  Sync(Data db, Repo repo, [Models? models]) : super(db, repo, models);
+  Sync(Data ds, Repo repo, [Models? models]) : super(ds, repo, models);
 
   late File file;
 
   @override
   Future<Sync> open() async {
-    file = File('${db.connect(this)}/sync');
+    file = File('${ds.connect(this)}/sync');
     if(await file.exists()) {
       final lines = await file.readAsLines();
       if(lines.isNotEmpty) {
         id = lines.first;
         for(var id in lines.skip(1)) {
-          replicants.add(await Replicant(db, id).open());
+          replicants.add(await Replicant(ds, id).open());
         }
       }
     } else {
@@ -45,13 +45,13 @@ class Sync extends base.Sync {
 
 class Replicant extends base.Replicant {
 
-  Replicant(Data db, String id) : super(db, id);
+  Replicant(Data ds, String id) : super(ds, id);
 
   late File file;
 
   @override
   Replicant open() {
-    file = File('${db.connect(this)}/sync.$id');
+    file = File('${ds.connect(this)}/sync.$id');
     return this;
   }
 

@@ -26,7 +26,7 @@ void main() {
     print('get installCode');
     final installCode = await clientA.newInstallToken();
     print('got installCode: $installCode');
-    expect(installCode.length, 6);
+    expect(installCode?.length, 6);
 
     await Future.delayed(Duration(seconds: 2));
     clientA.onApprove = () async {

@@ -9,7 +9,7 @@ class UserClient {
 
   Account? get account => _account;
   String? get uid => _account?.uid;
-  User? get user => _data!.get<User>(uid!);
+  User get user => _data!.get<User>(uid!)!;
   Iterable<Group> get groups => _data!.getAll<Membership>().where((m) => m.user.id == uid).map((m) => m.group);
 
   User? getUser(String id) => _data!.get<User>(id);
@@ -50,7 +50,7 @@ class UserClient {
     }
   }
   
-  Future<void> setSocket(WebSocket socket) async {
+  Future<void> setSocket(WebSocket? socket) async {
     if(socket != _socket) {
       if(_socket != null) {
         _data?.unbind(_socket!, name: '__users__');

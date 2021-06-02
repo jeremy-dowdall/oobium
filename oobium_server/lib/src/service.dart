@@ -12,9 +12,9 @@ class ServiceRegistry {
     _services.add(service);
   }
 
-  T get<T>() => _services.firstWhere((s) => s.runtimeType == T, orElse: () => throw Exception('service not found: $T')) as T;
+  T get<T extends Service>() => _services.firstWhere((s) => s.runtimeType == T, orElse: () => throw Exception('service not found: $T')) as T;
  
-  T? find<T>() => _services.firstWhereOrNull((s) => s.runtimeType == T) as T?;
+  T? find<T extends Service>() => _services.firstWhereOrNull((s) => s.runtimeType == T) as T?;
  
   Iterable<Service> _consumers(data) => _services.where((s) => s.consumes == data.runtimeType);
   
@@ -31,7 +31,7 @@ class Services<P> {
   Future<void> attach(P data) => _registry._attach(data);
   Future<void> detach(P data) => _registry._detach(data);
 
-  T get<T>() => _registry.get<T>();
+  T get<T extends Service>() => _registry.get<T>();
 }
 
 abstract class Service<C, P> {
