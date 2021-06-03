@@ -1,5 +1,5 @@
 import 'package:oobium_gen/src/schema_parser.dart';
-import 'package:string_x/string_x.dart';
+import 'package:xstring/xstring.dart';
 
 enum LibraryType { builders, models, scaffolding }
 
