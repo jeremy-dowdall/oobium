@@ -1,0 +1,18 @@
+name: oobium_gen
+description: Generators for Oobium
+version: 0.1.0+1
+repository: https://github.com/jeremy-dowdall/oobium
+
+publish_to: 'none'
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+
+dependencies:
+  build: ^2.0.2
+  dart_style: ^2.0.1
+  string_x:
+    path: ../../string_x
+
+dev_dependencies:
+  build_runner: ^2.0.4

@@ -13,6 +13,12 @@
       <excludeFolder url="file://$MODULE_DIR$/oobium/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/builders/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/builders/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/builders/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/gen/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/gen/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/gen/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_client/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_client/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_gen/.dart_tool" />
@@ -24,11 +30,17 @@
       <excludeFolder url="file://$MODULE_DIR$/oobium_routing/example/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_routing/example/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_routing/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/gen/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/gen/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium_routing/gen/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_server/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_server/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_server/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_test/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_test/build" />
+      <excludeFolder url="file://$MODULE_DIR$/string_x/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/string_x/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/string_x/build" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
