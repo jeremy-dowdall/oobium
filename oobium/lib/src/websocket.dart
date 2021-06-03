@@ -107,7 +107,7 @@ class WebSocket {
         return result;
       }
     }
-    return WsResult(404, null);
+    return WsResult(404);
   }
 
   Future<WsResult> _sendMessage(WsMessage message) {
@@ -137,7 +137,7 @@ class WebSocket {
       if(isNotClosed) {
         _ws!.add(message);
       }
-      return Future.value(null);
+      return Future.value(WsResult(200));
     }
   }
 
@@ -179,7 +179,7 @@ class WebSocket {
 
   bool _complete(int code, data) {
     final result = WsResult(code, data);
-    _completer!.complete(result);
+    _completer?.complete(result);
     _completer = null;
     return result.isSuccess;
   }
@@ -311,7 +311,7 @@ class WsResponse {
 class WsResult {
   final int code;
   final dynamic data;
-  WsResult(this.code, this.data);
+  WsResult(this.code, [this.data]);
   bool get isSuccess => (code >= 200) && (code < 300);
   bool get isNotSuccess => !isSuccess;
 

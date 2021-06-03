@@ -142,7 +142,6 @@ class Binder {
   final _subscriptions = <WsSubscription>[];
   platform.Replicant? _replicant;
   Binder(this._sync, this._socket, this._name) {
-    _socket.ready.then((_) => sendConnect());
     _subscriptions.addAll([
       _socket.on.get(replicantPath(_name), onGetReplicant),
       _socket.on.get(dataPath(_name), onGetData),
@@ -150,6 +149,7 @@ class Binder {
       _socket.on.put(dataPath(_name), (req, res) => onData(req.data)),
       _socket.on.put(syncPath(_name), (req, res) => onSync(req.data)),
     ]);
+    _socket.ready.then((_) => sendConnect());
     _socket.done.then((_) => cancel());
   }
 

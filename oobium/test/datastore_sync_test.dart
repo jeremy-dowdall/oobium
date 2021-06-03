@@ -10,8 +10,8 @@ import 'package:test/test.dart';
 
 Future<void> main() async {
 
-  setUpAll(() => cleanHybrid('test-data'));
-  tearDownAll(() => cleanHybrid('test-data'));
+  setUpAll(() async => await cleanHybrid('test-data'));
+  tearDownAll(() async => await cleanHybrid('test-data'));
 
   group('sync lifecycle', () {
     test('test no id first open', () async {
@@ -212,7 +212,7 @@ Future<void> main() async {
 }
 
 DataStore datastore(String path) => DataStore(path, [(data) => TestType1.fromJson(data)]);
-Future<DsTestServerClient> serverHybrid(String path, int port, [List<String?>? databases]) => DsTestServerClient.start(path, port, databases);
+Future<DsTestServerClient> serverHybrid(String path, int port, [List<String> databases=const[]]) => DsTestServerClient.start(path, port);
 Future<void> cleanHybrid(String path) => DsTestServerClient.clean(path);
 
 int dsCount = 0;
@@ -222,8 +222,8 @@ int nextPort() => 8000 + (serverCount++);
 
 class DsTestServerClient {
 
-  static Future<DsTestServerClient> start(String path, int port, [List<String?>? databases]) async {
-    final server = DsTestServerClient(spawnHybridUri('datastore_sync_test_server.dart', message: ['serve', path, port, databases ?? ['']]));
+  static Future<DsTestServerClient> start(String path, int port, [List<String> databases=const[]]) async {
+    final server = DsTestServerClient(spawnHybridUri('datastore_sync_test_server.dart', message: ['serve', path, port, databases]));
     await server.ready;
     return server;
   }
@@ -233,7 +233,7 @@ class DsTestServerClient {
   }
 
   final _ready = Completer();
-  final StreamChannel channel;
+  final StreamChannel<Object?> channel;
   DsTestServerClient(this.channel) {
     channel.stream.listen((msg) {
       if(msg == 'ready') {
@@ -250,6 +250,10 @@ class DsTestServerClient {
           this.completer = null;
         }
       }
+    }, onDone: () {
+      print('done');
+    }, onError: (e,s) {
+      print('wtf? $e\n$s');
     });
   }
 

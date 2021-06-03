@@ -29,8 +29,12 @@ class DsTestServer {
     await ds.reset();
 
     await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {
-      for(var name in databases) {
-        await ds.bind(socket, name: name, wait: false);
+      if(databases.isEmpty) {
+        await ds.bind(socket, wait: false);
+      } else {
+        for(var name in databases) {
+          await ds.bind(socket, name: name, wait: false);
+        }
       }
     });
   }
