@@ -1,5 +1,5 @@
 import 'dart:convert' show jsonDecode, jsonEncode;
-import 'package:oobium/src/string.extensions.dart';
+import 'package:xstring/xstring.dart';
 
 abstract class Json implements JsonString {
 

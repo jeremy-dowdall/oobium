@@ -32,6 +32,7 @@ class SchemaParser {
             metadata: f.options,
             type: f.type,
             name: f.name,
+            nullable: f.nullable,
             isModel: elements.hasModel(f.type)
         )).toList())
     ).toList();
@@ -64,12 +65,13 @@ class SchemaElements {
       }
       if(line.startsWith(RegExp(r'\s+'))) {
         if(element != null) {
-          final matches = RegExp(r'\s+(\w+)\s+([<\w, >]+)(\(([^\)]+)\))?').firstMatch(line);
+          final matches = RegExp(r'\s+(\w+)\s+([<\w, >]+)(\?)?(\(([^\)]+)\))?').firstMatch(line);
           if(matches != null) {
             final name = matches.group(1)!;
             final type = matches.group(2)!;
-            final options = (matches.group(4) ?? '').split(RegExp(r',\s*'));
-            element._fields.add(SchemaField(name, type, options));
+            final nullable = matches.group(3) == '?';
+            final options = (matches.group(5) ?? '').split(RegExp(r',\s*'));
+            element._fields.add(SchemaField(name, type, nullable, options));
           }
         }
       } else {
@@ -124,8 +126,9 @@ class SchemaElement {
 class SchemaField {
   final String name;
   final String type;
+  final bool nullable;
   final List<String> options;
-  SchemaField(this.name, this.type, this.options);
+  SchemaField(this.name, this.type, this.nullable, this.options);
 
   bool get isImportedType => importPackage != null;
   bool get isNotImportedType => !isImportedType;

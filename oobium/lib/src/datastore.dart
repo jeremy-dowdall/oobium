@@ -6,7 +6,7 @@ import 'package:oobium/src/datastore/repo.dart';
 import 'package:oobium/src/datastore/sync.dart';
 import 'package:oobium/src/json.dart';
 import 'package:oobium/src/websocket.dart';
-import 'package:oobium/src/string.extensions.dart';
+import 'package:xstring/xstring.dart';
 
 export 'package:oobium/src/datastore/models.dart' show DataModel, DataModelEvent;
 

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import 'model_gen_test.schema.gen.models.dart';
+import 'model_gen_test.schema.g.dart';
 
 Future<void> main() async {
 

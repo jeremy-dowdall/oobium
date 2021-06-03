@@ -12,7 +12,6 @@ export 'package:oobium/src/datastore.dart' show DataStore, DataModel, DataModelE
 export 'package:oobium/src/file_cache.dart';
 export 'package:oobium/src/json.dart' show Json, JsonModel, JsonString;
 export 'package:oobium/src/router.extensions.dart';
-export 'package:oobium/src/string.extensions.dart';
 export 'package:oobium/src/websocket.dart';
 
 export 'package:meta/meta.dart';

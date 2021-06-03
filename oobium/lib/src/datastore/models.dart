@@ -207,10 +207,10 @@ class DataModel extends JsonModel implements DataId {
 }
 
 class DataId implements JsonString {
-  final String id;
+  final String? id;
   DataId(this.id);
   @override
-  String toJsonString() => id;
+  String toJsonString() => '$id';
 }
 
 class DataFields {

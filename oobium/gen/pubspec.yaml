@@ -11,8 +11,7 @@ environment:
 dependencies:
   build: ^2.0.2
   dart_style: ^2.0.1
-  xstring:
-    path: ../../xstring
+  xstring: ^1.0.2
 
 dev_dependencies:
   build_runner: ^2.0.4

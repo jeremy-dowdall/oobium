@@ -20,7 +20,8 @@ class Model {
     _fields = base.fields.map((f) => ModelField(
       metadata: f.metadata.toList(),
       type: f.isGeneric ? '${f.rawType}<${typeArgument}>' : f.type,
-      name: f.name
+      name: f.name,
+      nullable: f.isNullable
     )).toList(),
     _expanded = null,
     _concrete = true {
@@ -77,17 +78,17 @@ class Model {
   String compile() => '''
     class $type extends DataModel {
       
-      ${fields.map((f) => "${f.type} get ${f.name} => this['${f.name}'];").join('\n')}
+      ${fields.map((f) => "${f.type}${f.isNullable ? '?' : ''} get ${f.name} => this['${f.name}'];").join('\n')}
       
-      $name({${fields.map((f) => '${f.isRequired ? '@required ' : ''}${f.type} ${f.name}').join(',\n')}}) : super(
+      $name({${fields.map((f) => '${f.isRequired ? 'required ${f.type}' : '${f.type}?'} ${f.name}').join(',\n')}}) : super(
         {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
       );
       
-      $name.copyNew($type original, {${fields.map((f) => '${f.type} ${f.name}').join(',\n')}}) : super.copyNew(original,
+      $name.copyNew($type original, {${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}) : super.copyNew(original,
         {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
       );
       
-      $name.copyWith($type original, {${fields.map((f) => '${f.type} ${f.name}').join(',\n')}}) : super.copyWith(original,
+      $name.copyWith($type original, {${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}) : super.copyWith(original,
         {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
       );
       
@@ -98,13 +99,13 @@ class Model {
       );
       
       $type copyNew({
-        ${fields.map((f) => '${f.type} ${f.name}').join(',\n')}
+        ${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}
       }) => $type.copyNew(this,
         ${fields.map((f) => '${f.name}: ${f.name}').join(',\n')}
       );
       
       $type copyWith({
-        ${fields.map((f) => '${f.type} ${f.name}').join(',\n')}
+        ${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}
       }) => $type.copyWith(this,
         ${fields.map((f) => '${f.name}: ${f.name}').join(',\n')}
       );
@@ -117,12 +118,14 @@ class ModelField {
   final List<String> metadata;
   final String _type;
   final String name;
+  final bool _nullable;
   final bool _isModel;
 
-  ModelField({List<String>? metadata, required String type, required String name, bool? isModel}) :
+  ModelField({List<String>? metadata, required String type, required String name, required bool nullable, bool? isModel}) :
     metadata = metadata ?? [],
     _type = type,
     name = name,
+    _nullable = nullable,
     _isModel = isModel ?? false
   ;
 
@@ -130,7 +133,7 @@ class ModelField {
 
   bool get isDateTime => _type == 'DateTime';
   bool get isNotDateTime => !isDateTime;
-  bool get isNullable => isDateTime; // there may be more... but right now this is it
+  bool get isNullable => _nullable;
   bool get isNotNullable => !isNullable;
   bool get isString => _type == 'String';
   bool get isNotString => !isString;
@@ -151,7 +154,8 @@ class ModelField {
 
   bool get isResolve => metadata.contains('resolve');
   bool get isNotResolve => !isResolve;
-  bool get isRequired => metadata.contains('required');
+
+  bool get isRequired => isNotNullable || metadata.contains('required');
   bool get isNotRequired => !isRequired;
 
   bool get isGeneric => model.isGeneric && rawTypeArgument == model.typeParameter;

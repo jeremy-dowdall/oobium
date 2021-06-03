@@ -368,10 +368,10 @@ packages:
   xstring:
     dependency: "direct main"
     description:
-      path: "../../xstring"
-      relative: true
-    source: path
-    version: "1.0.0"
+      name: xstring
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "1.0.2"
   yaml:
     dependency: transitive
     description:

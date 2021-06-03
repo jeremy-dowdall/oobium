@@ -1,7 +1,7 @@
 User
-  name String
+  name String?
 
 Message
-  from User
-  to User
-  message String
+  from User?
+  to User?
+  message String?

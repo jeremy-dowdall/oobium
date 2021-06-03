@@ -24,7 +24,7 @@ Future<void> main(List<String> args) async {
     if(schema != null) {
       final gen = SchemaGenerator.generate(name, schema);
       final outputs = <File>[
-        await File('$path.schema.g.dart').writeAsString(gen.library)
+        await File('${file.path}.g.dart').writeAsString(gen.library)
       ];
       print('  $path processed.');
 
