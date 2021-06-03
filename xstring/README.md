@@ -1,4 +1,4 @@
-# oobium_routing
+# xstring
 [![pub package](https://img.shields.io/pub/v/xstring.svg)](https://pub.dev/packages/xstring)
 
 String extensions to make working with String? variables more convenient.
