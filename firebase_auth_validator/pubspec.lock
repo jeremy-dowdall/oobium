@@ -305,7 +305,7 @@ packages:
   oobium_server:
     dependency: "direct main"
     description:
-      path: "../oobium_server"
+      path: "../server"
       relative: true
     source: path
     version: "0.0.0"
@@ -519,6 +519,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.0.0"
+  xstring:
+    dependency: transitive
+    description:
+      name: xstring
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "1.0.2"
   yaml:
     dependency: transitive
     description:
