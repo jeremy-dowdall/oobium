@@ -1,8 +1,22 @@
+import 'dart:math';
+
 extension XString on String? {
-  static final _digitPattern = RegExp(r'^[0-9]+$');
-  static final _letterPattern = RegExp(r'^[a-zA-Z]+$');
-  static final _letterOrDigitPattern = RegExp(r'^[0-9a-zA-Z]+$');
-  static final _upperCasePattern = RegExp(r'^[A-Z]+$');
+
+  String substr(int start, [int? end]) {
+    if(this == null) {
+      return '';
+    }
+    if(end != null && end <= 0) {
+      end = size + end;
+    }
+    return this!.substring(start, max(start, end ?? size));
+  }
+
+  String last(int count) => substr(size-count);
+  String skip(int count) => substr(min(size, count));
+  String take(int count) => substr(0, min(0, -(size-count)));
+
+  int get size => (this == null) ? 0 : this!.length;
 
   /// true if this is null (including the string 'null'), empty or consists of only whitespace characters
   bool get isBlank => isEmptyOrNull || this!.trim().isEmpty;
@@ -96,4 +110,10 @@ extension XString on String? {
           : '${this![0].toLowerCase()}${camelCase.substring(1)}';
 
   String get idField => varName;
+
 }
+
+final _digitPattern = RegExp(r'^[0-9]+$');
+final _letterPattern = RegExp(r'^[a-zA-Z]+$');
+final _letterOrDigitPattern = RegExp(r'^[0-9a-zA-Z]+$');
+final _upperCasePattern = RegExp(r'^[A-Z]+$');

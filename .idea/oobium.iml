@@ -41,6 +41,9 @@
       <excludeFolder url="file://$MODULE_DIR$/string_x/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/string_x/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/string_x/build" />
+      <excludeFolder url="file://$MODULE_DIR$/xstring/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/xstring/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/xstring/build" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
