@@ -49,7 +49,7 @@ class Models {
   bool get isEmpty => _models.isEmpty;
   bool get isNotEmpty => _models.isNotEmpty;
 
-  T? get<T extends DataModel>(String? id, {T Function()? orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
+  T? get<T extends DataModel>(String? id, {T? Function()? orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
   Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? (_models.values as Iterable<T>) : _models.values.whereType<T>();
 
   Stream<T?> stream<T extends DataModel>(String id) {

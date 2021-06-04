@@ -75,14 +75,20 @@ class Model {
   @override
   String toString() => type;
 
-  String compile() => '''
-    class $type extends DataModel {
+  String get constructorFields => fields.isEmpty ? '' : '{${fields.map((f) => '${f.isRequired ? 'required ${f.type}' : '${f.type}?'} ${f.name}').join(',\n')}}';
+  String get constructorParams => fields.isEmpty ? '' : '${fields.map((f) => "${f.name}: ${f.name}").join(',')}';
+  String get constructorMap => fields.isEmpty ? '' : '{${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}';
+
+  String finderFields(String m) => fields.isEmpty ? 'false' :
+    '${fields.map((f) => '($m.${f.name} == null || $m.${f.name} == ${f.name})').join(' && ')}'
+  ;
+
+  String compile(String dsType) => '''
+    class $type extends $dsType {
       
       ${fields.map((f) => "${f.type}${f.isNullable ? '?' : ''} get ${f.name} => this['${f.name}'];").join('\n')}
       
-      $name({${fields.map((f) => '${f.isRequired ? 'required ${f.type}' : '${f.type}?'} ${f.name}').join(',\n')}}) : super(
-        {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
-      );
+      $name($constructorFields) : super($constructorMap);
       
       $name.copyNew($type original, {${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}) : super.copyNew(original,
         {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}

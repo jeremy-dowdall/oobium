@@ -1,12 +1,52 @@
 import 'package:oobium/oobium.dart';
 
-class ModelGenTestData extends DataStore {
+class ModelGenTestData {
+  final DataStore _ds;
   ModelGenTestData(String path)
-      : super('$path/model_gen_test',
+      : _ds = DataStore('$path/model_gen_test',
             [(data) => User.fromJson(data), (data) => Message.fromJson(data)]);
+  Future<ModelGenTestData> open(
+          {int version = 1,
+          Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
+      _ds.open(version: version, onUpgrade: onUpgrade).then((_) => this);
+  Future<void> close() => _ds.close();
+  Future<void> destroy() => _ds.destroy();
+  User? getUser(String? id, {User? Function()? orElse}) =>
+      _ds.get<User>(id, orElse: orElse);
+  Message? getMessage(String? id, {Message? Function()? orElse}) =>
+      _ds.get<Message>(id, orElse: orElse);
+  Iterable<User> getUsers() => _ds.getAll<User>();
+  Iterable<Message> getMessages() => _ds.getAll<Message>();
+  Iterable<User> findUsers({String? name}) =>
+      _ds.getAll<User>().where((m) => (m.name == null || m.name == name));
+  Iterable<Message> findMessages({User? from, User? to, String? message}) =>
+      _ds.getAll<Message>().where((m) =>
+          (m.from == null || m.from == from) &&
+          (m.to == null || m.to == to) &&
+          (m.message == null || m.message == message));
+  T put<T extends ModelGenTestModel>(T model) => _ds.put<T>(model);
+  User putUser({String? name}) => _ds.put(User(name: name));
+  Message putMessage({User? from, User? to, String? message}) =>
+      _ds.put(Message(from: from, to: to, message: message));
+  T? remove<T extends ModelGenTestModel>(T? model) => _ds.remove<T>(model?.id);
+  User? removeUser(String? id) => _ds.remove<User>(id);
+  Message? removeMessage(String? id) => _ds.remove<Message>(id);
 }
 
-class User extends DataModel {
+abstract class ModelGenTestModel extends DataModel {
+  ModelGenTestModel([Map<String, dynamic>? fields]) : super(fields);
+  ModelGenTestModel.copyNew(
+      ModelGenTestModel original, Map<String, dynamic>? fields)
+      : super.copyNew(original, fields);
+  ModelGenTestModel.copyWith(
+      ModelGenTestModel original, Map<String, dynamic>? fields)
+      : super.copyWith(original, fields);
+  ModelGenTestModel.fromJson(
+      data, Set<String> fields, Set<String> modelFields, bool newId)
+      : super.fromJson(data, fields, modelFields, newId);
+}
+
+class User extends ModelGenTestModel {
   String? get name => this['name'];
 
   User({String? name}) : super({'name': name});
@@ -25,7 +65,7 @@ class User extends DataModel {
   User copyWith({String? name}) => User.copyWith(this, name: name);
 }
 
-class Message extends DataModel {
+class Message extends ModelGenTestModel {
   User? get from => this['from'];
   User? get to => this['to'];
   String? get message => this['message'];

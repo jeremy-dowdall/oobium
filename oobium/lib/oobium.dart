@@ -8,7 +8,7 @@ export 'package:oobium/src/clients/user_client.dart';
 export 'package:oobium/src/clients/user_client.schema.gen.models.dart';
 
 export 'package:oobium/src/api_client.dart';
-export 'package:oobium/src/datastore.dart' show DataStore, DataModel, DataModelEvent;
+export 'package:oobium/src/datastore.dart' show DataStore, DataModel, DataModelEvent, DataRecord, UpgradeEvent;
 export 'package:oobium/src/file_cache.dart';
 export 'package:oobium/src/json.dart' show Json, JsonModel, JsonString;
 export 'package:oobium/src/router.extensions.dart';

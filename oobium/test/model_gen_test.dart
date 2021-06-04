@@ -16,39 +16,37 @@ Future<void> main() async {
   tearDown(() async => await directory.delete(recursive: true));
 
   test('test simple model', () async {
-    final models = ModelGenTestData('$path/test1.ds');
-    await models.open();
+    final models = await ModelGenTestData('$path/test1.ds').open();
 
     final id = models.put(Message(message: 'test-01')).id;
     await models.close();
     await models.open();
 
-    expect(models.get<Message>(id)?.message, 'test-01');
+    expect(models.getMessage(id)?.message, 'test-01');
   });
 
   test('test nested model', () async {
-    final models = ModelGenTestData('$path/test1.ds');
-    await models.open();
+    final models = await ModelGenTestData('$path/test1.ds').open();
 
     final id = models.put(Message(from: User(name: 'joe'), message: 'test-01')).id;
     await models.close();
     await models.open();
 
-    expect(models.get<Message>(id), isNotNull);
-    expect(models.get<Message>(id)?.from, isNotNull);
+    expect(models.getMessage(id), isNotNull);
+    expect(models.getMessage(id)?.from, isNotNull);
   });
 
   test('test delete nested model', () async {
-    final models = ModelGenTestData('$path/test1.ds');
-    await models.open();
+    final models = await ModelGenTestData('$path/test1.ds').open();
 
-    final message = models.put(Message(from: User(name: 'joe'), message: 'test-01'));
+    final message = models.putMessage(from: User(name: 'joe'), message: 'test-01');
     final user = message.from;
-    models.remove(message.id);
+    models.remove(message);
     await models.close();
     await models.open();
 
-    expect(models.get<Message>(message.id), isNull);
-    expect(models.get<User>(user?.id), isNotNull);
+    expect(models.getMessage(message.id), isNull);
+    expect(models.getUser(user?.id), isNotNull);
+    expect(models.findUsers(name: 'joe').length, 1);
   });
 }
