@@ -1,14 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore/models.dart';
 import 'package:oobium/src/datastore/repo.dart';
 import 'package:oobium/src/datastore/sync.dart';
-import 'package:oobium/src/json.dart';
 import 'package:oobium/src/websocket.dart';
 import 'package:xstring/xstring.dart';
 
-export 'package:oobium/src/datastore/models.dart' show DataModel, DataModelEvent;
+export 'package:oobium/src/datastore/models.dart' show DataModel, DataModelEvent, DataIndex;
 
 class UpgradeEvent {
   final int oldVersion;
@@ -22,8 +23,9 @@ class DataStore {
   static Future<void> clean(String path) => Data(path).destroy();
 
   final String path;
-  final List<Function(Map data)>? _builders;
-  DataStore(this.path, [this._builders]) {
+  final List<Function(Map data)> _builders;
+  final List<DataIndex> _indexes;
+  DataStore(this.path, [this._builders=const[], this._indexes=const[]]) {
     assert(path.isNotBlank, 'datastore path cannot be blank');
   }
 
@@ -59,7 +61,7 @@ class DataStore {
         return true;
       });
       _repo = await Repo(_data!).open();
-      _models = await Models(_builders).load(_repo!.get());
+      _models = await Models(_builders, _indexes).load(_repo!.get());
       _sync = await Sync(_data!, _repo!, _models).open();
     }
     return this;
@@ -107,21 +109,21 @@ class DataStore {
     await open();
   }
 
-  bool any(String? id) => _models?.any(id) == true;
-  bool none(String? id) => _models?.none(id) == true;
+  bool any(ObjectId? id) => _models?.any(id) == true;
+  bool none(ObjectId? id) => _models?.none(id) == true;
 
-  List<T?> batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) => _batch(put: put, remove: remove);
+  List<T> batch<T extends DataModel>({Iterable<T>? put, Iterable<T>? remove}) => _batch(put: put, remove: remove);
 
-  T? get<T extends DataModel>(String? id, {T? Function()? orElse}) => _models!.get<T>(id, orElse: orElse);
+  T? get<T extends DataModel>(Object? id, {T? Function()? orElse}) => _models!.get<T>(id, orElse: orElse);
   Iterable<T> getAll<T extends DataModel>() => _models!.getAll<T>();
 
-  T put<T extends DataModel>(T model) => batch(put: [model])[0]!;
+  T put<T extends DataModel>(T model) => batch(put: [model])[0];
   List<T> putAll<T extends DataModel>(Iterable<T> models) => _batch(put: models).whereType<T>().toList();
 
-  T? remove<T extends DataModel>(String? id) => batch(remove: [id])[0] as T?;
-  List<T?> removeAll<T extends DataModel>(Iterable<String> ids) => batch(remove: ids);
+  T remove<T extends DataModel>(T model) => batch(remove: [model])[0];
+  List<T> removeAll<T extends DataModel>(Iterable<T> models) => batch(remove: models);
 
-  Stream<T?> stream<T extends DataModel>(String id) => _models!.stream<T>(id);
+  Stream<T?> stream<T extends DataModel>(ObjectId id) => _models!.stream<T>(id);
   Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) => _models!.streamAll<T>(where: where);
 
   bool get isBound => _sync!.isBound;
@@ -130,7 +132,7 @@ class DataStore {
   Future<void> bind(WebSocket socket, {String? name, bool wait = true}) => _sync!.bind(socket, name: name, wait: wait);
   void unbind(WebSocket socket, {String? name}) => _sync?.unbind(socket, name: name);
 
-  List<T?> _batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) {
+  List<T> _batch<T extends DataModel>({Iterable<T>? put, Iterable<T>? remove}) {
     final batch = _models!.batch(put: put, remove: remove);
 
     if(batch.isNotEmpty) {
@@ -141,46 +143,40 @@ class DataStore {
   }
 }
 
-class DataRecord implements JsonString {
+class DataRecord {
 
-  final String id;
-  final String? type;
-  final int timestamp;
+  final String modelId;
+  final String updateId;
+  final String type;
   final Map<String, dynamic>? _data;
-  DataRecord(this.id, this.timestamp, [this.type, this._data]);
+  DataRecord(this.modelId, this.updateId, this.type, [this._data]);
 
-  factory DataRecord.delete(String id) {
-    return DataRecord(id, DateTime.now().millisecondsSinceEpoch); // ~time of deletion
-  }
+  factory DataRecord.delete(DataModel model) => model.toDataRecord(delete: true);
   factory DataRecord.fromLine(String line) {
-    // deleted: <id>:<timestamp>
-    // full: <id>:<timestamp>:<type>{jsonData}
-    final i1 = line.indexOf(':');
-    final i2 = line.indexOf(':', i1 + 1);
-    final id = line.substring(0, i1);
-    final timestamp = int.parse(line.substring(i1 + 1, (i2 != -1) ? i2 : null));
-    if(i2 != -1) {
-      final i3 = line.indexOf('{', i2 + 1);
-      final type = line.substring(i2 + 1, i3);
-      final data = Json.decode(line.substring(i3));
-      return DataRecord(id, timestamp, type, data);
+    // delete: <modelId>:<updateId>:<type>
+    // full: <modelId>:<updateId>:<type>{jsonData}
+    final modelId = line.substring(0, 24);
+    final updateId = line.substring(25, 49);
+    int ix = line.indexOf('{', 50);
+    if(ix == -1) {
+      return DataRecord(modelId, updateId, line.substring(50));
+    } else {
+      final type = line.substring(50, ix);
+      final data = jsonDecode(line.substring(ix));
+      return DataRecord(modelId, updateId, type, data);
     }
-    return DataRecord(id, timestamp);
   }
-  factory DataRecord.fromModel(DataModel model) {
-    final data = model.toJson()
-      ..removeWhere((k,v) => (k == 'id') || (k == 'timestamp') || (v == null) || (v is String && v.isEmpty) || (v is Iterable && v.isEmpty) || (v is Map && v.isEmpty));
-    return DataRecord(model.id, model.timestamp, model.runtimeType.toString(), data);
-  }
+  factory DataRecord.fromModel(DataModel model) => model.toDataRecord();
 
-  Map<String, dynamic> get data => {...?_data, 'id': id, 'timestamp': timestamp};
+  Map<String, dynamic> get data => {...?_data, '_modelId': modelId, '_updateId': updateId};
 
-  bool get isDelete => (type == null);
+  bool get isDelete => (_data == null);
   bool get isNotDelete => !isDelete;
 
-  @override
-  String toJsonString() => toString();
+  String toJson() => toString();
 
   @override
-  toString() => isDelete ? '$id:$timestamp' : '$id:$timestamp:$type${Json.encode(_data)}';
+  toString() => isDelete
+    ? '$modelId:$updateId:$type'
+    : '$modelId:$updateId:$type${jsonEncode(_data)}';
 }

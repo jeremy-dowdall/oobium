@@ -169,7 +169,7 @@ class Binder {
   }
 
   Future<void> onGetData(WsRequest req, WsResponse res) async {
-    res.send(data: _sync.repo.get().map((r) => r.toJsonString()).transform(utf8.encoder));
+    res.send(data: _sync.repo.get().map((r) => r.toJson()).transform(utf8.encoder));
   }
 
   Future<void> sendConnect() async {
@@ -319,8 +319,8 @@ class DataEvent extends Json {
 
   DataEvent(String srcId, this.records) : history = {srcId};
   DataEvent.fromJson(data) :
-        history = Json.toSet(data, 'history'),
-        records = Json.toList(data, 'records', (e) => DataRecord.fromLine(e))
+    history = Json.toSet(data, 'history'),
+    records = Json.toList(data, 'records', (e) => DataRecord.fromLine(e))
   ;
 
   bool visitedBy(String id) => history.contains(id);
@@ -337,8 +337,8 @@ class DataEvent extends Json {
 
   @override
   Map<String, dynamic> toJson() => {
-    'history':   Json.from(history),
-    'records':   Json.from(records),
+    'history': Json.from(history),
+    'records': Json.from(records),
   };
 
   @override

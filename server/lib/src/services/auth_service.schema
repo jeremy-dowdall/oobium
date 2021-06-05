@@ -1,17 +1,17 @@
 User
   name String
-  avatar String
-  token Token
-  referredBy User
+  avatar String?
+  token Token?
+  referredBy User?
 
 Token
   user User
 
 Link // used to link external accounts (like Firebase Auth) to a User
-  user User(required)
-  type String(required)
-  code String(required) // eg firebase auth id
-  data Map<String, String> // extra data from the linked account, stuff like name, email, photoUrl, etc
+  user User
+  type String
+  code String // eg firebase auth id
+  data Map<String, String>? // extra data from the linked account, stuff like name, email, photoUrl, etc
 
 Group
   name String

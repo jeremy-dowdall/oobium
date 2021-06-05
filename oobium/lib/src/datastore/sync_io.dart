@@ -64,7 +64,7 @@ class Replicant extends base.Replicant {
       }
     } else {
       final lastSync = int.parse(lines[0]);
-      for(var model in models.getAll().where((model) => model.timestamp > lastSync)) {
+      for(var model in models.getAll().where((model) => model.updatedAt.millisecondsSinceEpoch > lastSync)) {
         yield(DataRecord.fromModel(model));
       }
       for(var record in lines.skip(1).map((l) => DataRecord.fromLine(l))) {

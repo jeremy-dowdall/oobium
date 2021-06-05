@@ -4,9 +4,11 @@ import 'package:oobium/src/datastore.dart';
 
 class Repo implements Connection {
 
-  final Data ds;
+  final Data data;
   final executor = Executor();
-  Repo(this.ds);
+  Repo(this.data);
+
+  int get length => throw UnsupportedError('platform not supported');
 
   Future<Repo> open() => throw UnsupportedError('platform not supported');
   Future<void> flush() => executor.flush();
@@ -15,4 +17,6 @@ class Repo implements Connection {
   Stream<DataRecord> get([int? timestamp]) => throw UnsupportedError('platform not supported');
   Future<void> put(Stream<DataRecord> records) => throw UnsupportedError('platform not supported');
   Future<void> putAll(Iterable<DataRecord> records) => throw UnsupportedError('platform not supported');
+
+  Future<void> reset(Iterable<DataRecord> records) => throw UnsupportedError('platform not supported');
 }

@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:oobium/oobium.dart' hide User, Group, Membership;
 import 'package:oobium_server/src/services/auth/validators.dart';
-import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
+import 'package:oobium_server/src/services/auth_service.schema.g.dart';
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/service.dart';
 

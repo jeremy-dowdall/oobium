@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
+import 'package:oobium/src/clients/auth_client.schema.g.dart';
 import 'package:oobium/src/clients/auth_socket.dart';
 import 'package:oobium/src/websocket.dart';
 
@@ -16,7 +16,7 @@ class AuthClient {
   AuthSocket? _socket;
 
   Account? get account => _account;
-  Iterable<Account> get accounts => _ds?.getAll<Account>() ?? <Account>[];
+  Iterable<Account> get accounts => _ds?.getAccounts() ?? <Account>[];
   WebSocket? get socket => _socket;
 
   bool get isConnected => _socket?.isConnected == true;
@@ -30,7 +30,7 @@ class AuthClient {
 
   Future<AuthClient> open() async {
     if(isNotOpen) {
-      _ds = await AuthClientData('$root/auth').open() as AuthClientData;
+      _ds = await AuthClientData('$root/auth').open();
       if(_ds!.isNotEmpty) {
         _account = (accounts.toList()..sort((a,b) => a.lastOpenedAt - b.lastOpenedAt)).first;
         await _setAccount(account!);
@@ -71,7 +71,7 @@ class AuthClient {
 
   Future<void> signOut() async {
     if(isSignedIn) {
-      _ds?.remove(_account!.id);
+      _ds?.remove(_account!);
       await _ds?.flush();
       await _setAccount(null);
     }

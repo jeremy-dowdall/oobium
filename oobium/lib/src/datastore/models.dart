@@ -2,19 +2,35 @@ import 'dart:async';
 
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore.dart';
-import 'package:oobium/src/json.dart';
+
+import 'utils.dart' as utils;
+
+class DataIndex<T extends DataModel> {
+  final Function(T model) toKey;
+  final _references = <dynamic, ObjectId>{};
+  DataIndex({required this.toKey});
+  void clear() => _references.clear();
+  ObjectId? getId(Object? key) => _references[key];
+  void remove(T model) => _references.remove(toKey(model));
+  void put(T model) => _references[toKey(model)] = model._modelId;
+  Type get type => T;
+}
 
 class Models {
-  Models([List<Function(Map data)>? builders]) {
+  Models(List<Function(Map data)> builders, List<DataIndex> indexes) {
     _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.map((k) => '$k').toSet(), {}, false);
-    if(builders != null) for(var builder in builders) {
+    for(var builder in builders) {
       final type = builder.runtimeType.toString().split(' => ')[1];
       _builders[type] = builder;
+    }
+    for(final index in indexes) {
+      _indexes[index.type] = index;
     }
   }
   
   final _builders = <String, Function(Map data)>{};
-  final _models = <String, DataModel>{};
+  final _models = <ObjectId, DataModel>{};
+  final _indexes = <Type, DataIndex>{};
   StreamController<Batch>? _controller;
   Stream<Batch> get _stream {
     _controller ??= StreamController<Batch>.broadcast(onCancel: () => _controller = null);
@@ -23,10 +39,11 @@ class Models {
 
   Future<Models> load(Stream<DataRecord> records) async {
     await for(var record in records) {
+      final model = _build(record);
       if(record.isDelete) {
-        _models.remove(record.id);
+        _remove(model);
       } else {
-        _models[record.id] = _build(record);
+        _put(model);
       }
     }
     return this;
@@ -34,27 +51,35 @@ class Models {
 
   void loadAll(Iterable<DataRecord> records) => batch(
     put: records.where((r) => r.isNotDelete).map((r) => _build(r)),
-    remove: records.where((r) => r.isDelete).map((r) => r.id),
+    remove: records.where((r) => r.isDelete).map((r) => _build(r)),
   );
 
   Future<void> close() {
     _models.clear();
+    _indexes.values.forEach((i) => i.clear());
     return _controller?.close() ?? Future.value();
   }
 
-  bool any(String? id) => _models.containsKey(id);
-  bool none(String? id) => !any(id);
+  bool any(ObjectId? id) => _models.containsKey(id);
+  bool none(ObjectId? id) => !any(id);
 
   int get length => _models.length;
   bool get isEmpty => _models.isEmpty;
   bool get isNotEmpty => _models.isNotEmpty;
 
-  T? get<T extends DataModel>(String? id, {T? Function()? orElse}) => (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
+  Object? _resolve<T>(Object? o) => (o is DataModel) ? o._modelId : (o is ObjectId) ? o : _indexes[T]?.getId(o);
+
+  T? get<T extends DataModel>(Object? id, {T? Function()? orElse}) {
+    id = _resolve<T>(id);
+    return (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
+  }
+
   Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? (_models.values as Iterable<T>) : _models.values.whereType<T>();
 
-  Stream<T?> stream<T extends DataModel>(String id) {
+  Stream<T?> stream<T extends DataModel>(Object? id) {
+    id = _resolve<T>(id);
     return _stream
-      .where((batch) => batch.updates.any((model) => (model is T) && (model.id == id)))
+      .where((batch) => batch.updates.any((model) => (model is T) && (model._modelId == id)))
       .map((_) => (_models[id] is T) ? (_models[id] as T) : null);
   }
 
@@ -64,30 +89,33 @@ class Models {
       .map((batch) => DataModelEvent<T>._(this, batch, where));
   }
 
-  Batch<T> batch<T extends DataModel>({Iterable<T>? put, Iterable<String?>? remove}) {
+  Batch<T> batch<T extends DataModel>({Iterable<T>? put, Iterable<T>? remove}) {
     final batch = Batch<T>();
 
     if(put != null) for(var model in put) {
-      if(model.isSameAs(_models[model.id])) {
-        batch.results.add(model);
+      final current = _models[model._modelId];
+      if(current is T && current.isSameAs(model)) {
+        batch.results.add(current);
       } else {
-        _models[model.id] = model;
+        _put(model);
         batch.results.add(model);
         batch.puts.add(model);
       }
       for(var member in model._fields.models) {
-        if(member.isNotSameAs(_models[member.id])) {
-          _models[member.id] = member;
+        if(member.isNotSameAs(_models[member._modelId])) {
+          _put(member);
           batch.puts.add(member);
         }
       }
     }
 
-    if(remove != null) for(var id in remove) {
-      final model = _models.remove(id);
-      batch.results.add((model is T) ? model : null);
-      if(model != null) {
-        batch.removes.add(model);
+    if(remove != null) for(var model in remove) {
+      final removed = _remove(model);
+      if(removed != null) {
+        batch.removes.add(removed);
+        batch.results.add(removed);
+      } else {
+        batch.results.add(model);
       }
     }
 
@@ -109,15 +137,34 @@ class Models {
     assert(value is DataModel, 'builder did not return a DataModel: $value');
     return (value as DataModel).._fields._context = this;
   }
+
+  T _put<T extends DataModel>(T model) {
+    _models[model._modelId] = model;
+    if(_indexes.containsKey(model.runtimeType)) {
+      _indexes[model.runtimeType]!.put(model);
+    }
+    return model;
+  }
+
+  T? _remove<T extends DataModel>(T model) {
+    final current = _models.remove(model._modelId);
+    if(current != null) {
+      if(_indexes.containsKey(current.runtimeType)) {
+        _indexes[current.runtimeType]!.remove(current);
+      }
+      return current as T;
+    }
+    return null;
+  }
 }
 
 class Batch<T extends DataModel> {
-  final results = <T?>[];
+  final results = <T>[];
   final puts = <DataModel>[];
   final removes = <DataModel>[];
   bool get isEmpty => puts.isEmpty && removes.isEmpty;
   bool get isNotEmpty => !isEmpty;
-  Iterable<DataRecord> get records => [...puts.map((m) => DataRecord.fromModel(m)), ...removes.map((m) => DataRecord.delete(m.id))];
+  Iterable<DataRecord> get records => [...puts.map((m) => m.toDataRecord()), ...removes.map((m) => m.toDataRecord(delete: true))];
   Iterable<DataModel> get updates => [...puts, ...removes];
 }
 
@@ -152,65 +199,90 @@ class DataModelEvent<T extends DataModel> {
   }
 }
 
-class DataModel extends JsonModel implements DataId {
-  final int timestamp;
+///
+/// remove JsonModel
+/// implement == and hashCode
+///   models are equal if same: id, modCount(?)
+///     this would be locally unique, how to do global sync?
+///     modCount could be another ObjectId... it would be a globally unique updateId... hmmm...
+/// isSame/isNotSame are used during a put: if they have the same id and same data, don't bother
+///   they won't be equal, but will be the same
+///   the existing object should be returned from the put
+class DataModel {
+  ObjectId _modelId;
+  late ObjectId _updateId;
   final DataFields _fields;
 
   DataModel([Map<String, dynamic>? fields]) :
-        timestamp = DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields(fields ?? {}),
-        super(ObjectId().hexString);
+    _modelId = ObjectId(),
+    _updateId = ObjectId(),
+    _fields = DataFields(fields ?? {});
 
   DataModel.copyNew(DataModel original, Map<String, dynamic>? fields) :
-        timestamp = DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))),
-        super(ObjectId().hexString);
+    _modelId = ObjectId(),
+    _updateId = ObjectId(),
+    _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null)));
 
   DataModel.copyWith(DataModel original, Map<String, dynamic>? fields) :
-        timestamp = DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))),
-        super(original.id);
+    _modelId = original._modelId,
+    _updateId = ObjectId(),
+    _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null)));
 
   DataModel.fromJson(data, Set<String> fields, Set<String> modelFields, bool newId) :
-        timestamp = Json.field<int?, int?>(data, 'timestamp') ?? DateTime.now().millisecondsSinceEpoch,
-        _fields = DataFields({
-          for(var k in fields.where((k) => k != 'id' && k != 'timestamp')) k: Json.field(data, k),
-          for(var k in modelFields) k: DataId(Json.field(data, k))
-        }),
-        super(newId ? ObjectId().hexString : ObjectId.fromHexString(Json.field(data, 'id')).hexString);
+    _modelId = newId ? ObjectId() : ObjectId.fromHexString(data['_modelId']),
+    _updateId = newId ? ObjectId() : ObjectId.fromHexString(data['_updateId']),
+    _fields = DataFields({
+      for(final k in fields.where((k) => k != '_modelId' && k != '_updateId'))
+        k: data[k],
+      for(final k in modelFields)
+        k: DataId.fromJson(data[k])
+    });
 
-  dynamic operator [](String key) => _fields[key];
+  dynamic operator [](String key) {
+    switch(key) {
+      case '_modelId': return _modelId;
+      case '_updateId': return _updateId;
+      default: return _fields[key];
+    }
+  }
 
-  DateTime get createdAt => ObjectId.fromHexString(id).timestamp;
-  DateTime get updatedAt => DateTime.fromMillisecondsSinceEpoch(timestamp);
+  DateTime get createdAt => _modelId.timestamp;
+  DateTime get updatedAt => _updateId.timestamp;
 
   @override
-  bool isSameAs(other) =>
-      (runtimeType == other?.runtimeType) &&
-      (id == other.id) && (timestamp == other.timestamp) &&
-      _fields == other._fields;
+  bool operator ==(Object other) => identical(this, other)
+    || (other is DataModel && _modelId == other._modelId && _updateId == other._updateId);
 
   @override
+  int get hashCode => _hashCode ??= utils.finish(utils.combine(_modelId.hashCode, _updateId));
+  int? _hashCode;
+
+  bool isSameAs(other) => identical(this, other)
+    || ((other is DataModel) && (_modelId == other._modelId) && _fields == other._fields);
+
   bool isNotSameAs(other) => !isSameAs(other);
 
-  DataRecord toDataRecord() => DataRecord.fromModel(this);
+  DataRecord toDataRecord({bool delete=false}) {
+    final data = delete ? null : toJson();
+    data?.removeWhere((k,v) => (k == '_modelId') || (k == '_updateId') || (v == null) || (v is String && v.isEmpty) || (v is Iterable && v.isEmpty) || (v is Map && v.isEmpty));
+    return DataRecord('$_modelId', '$_updateId', '$runtimeType', data);
+  }
 
-  @override
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'timestamp': timestamp,
-    for(var e in _fields._map.entries) e.key: Json.from(e.value)
+    '_modelId': '$_modelId',
+    '_updateId': '$_updateId',
+    for(var e in _fields._map.entries) e.key: e.value
   };
 
   @override
-  String toString() => '${runtimeType.toString()}($id)';
+  String toString() => '$runtimeType($_modelId)';
 }
 
-class DataId implements JsonString {
-  final String? id;
+class DataId {
+  final ObjectId? id;
   DataId(this.id);
-  @override
-  String toJsonString() => '$id';
+  DataId.fromJson(String? id) : id = (id != null) ? ObjectId.fromHexString(id) : null;
+  String toJson() => '$id';
 }
 
 class DataFields {

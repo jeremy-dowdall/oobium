@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:oobium/src/datastore.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import 'datastore_sync_test.dart';
+import 'utils/test_models.dart';
 import 'utils/test_websocket_server.dart';
 
 Future<void> hybridMain(StreamChannel channel, dynamic message) async {

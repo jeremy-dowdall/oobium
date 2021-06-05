@@ -35,10 +35,10 @@ class FirebaseAuthValidator extends AuthValidator {
         final link = getLink((l) => l.type == 'firebase' && l.data == fireToken);
         if(link == null) {
           final link = putLink(type: 'firebase', code: fireToken!.uid!, data: fireToken.data.map((e,v) => MapEntry(e.toString(), v.toString())));
-          req['uid'] = link.user.id;
+          req['uid'] = '${link.user.id}';
         } else {
-          updateUserToken(link.user.id);
-          req['uid'] = link.user.id;
+          updateUserToken('${link.user.id}');
+          req['uid'] = '${link.user.id}';
         }
         return true;
       } else {

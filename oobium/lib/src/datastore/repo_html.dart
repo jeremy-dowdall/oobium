@@ -7,13 +7,13 @@ import 'repo_base.dart' as base;
 
 class Repo extends base.Repo {
 
-  Repo(Data ds) : super(ds);
+  Repo(Data data) : super(data);
 
   late Database idb;
 
   @override
   Future<Repo> open() {
-    idb = ds.connect(this);
+    idb = data.connect(this);
     return Future.value(this);
   }
 
@@ -30,9 +30,9 @@ class Repo extends base.Repo {
     final futures = <Future>[];
     await for(var record in records) {
       if(record.isDelete) {
-        futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').delete(record.id)));
+        futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').delete(record.modelId)));
       } else {
-        futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.id)));
+        futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.modelId)));
       }
     }
     await Future.wait(futures);
@@ -44,11 +44,14 @@ class Repo extends base.Repo {
       final tx = idb.transaction('repo', 'readwrite').objectStore('repo');
       for(var record in records) {
         if(record.isDelete) {
-          await tx.delete(record.id);
+          await tx.delete(record.modelId);
         } else {
-          await tx.put(record.toString(), record.id);
+          await tx.put(record.toString(), record.modelId);
         }
       }
     });
   }
+
+  @override
+  Future<void> reset(Iterable<DataRecord> records) => Future.value();
 }

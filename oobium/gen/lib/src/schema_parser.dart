@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'package:collection/collection.dart';
 import 'package:oobium_gen/src/model.dart';
+import 'package:xstring/xstring.dart';
 
 class SchemaParser {
   Iterable<String> lines;
@@ -33,6 +32,7 @@ class SchemaParser {
             type: f.type,
             name: f.name,
             nullable: f.nullable,
+            initializer: f.initializer,
             isModel: elements.hasModel(f.type)
         )).toList())
     ).toList();
@@ -59,19 +59,20 @@ class SchemaElements {
     final library = SchemaElements();
 
     SchemaElement? element;
-    for(var line in lines) {
-      if(line.trim().isEmpty) {
+    for(final line in lines.filtered) {
+      if(line.isBlank) {
         continue;
       }
       if(line.startsWith(RegExp(r'\s+'))) {
         if(element != null) {
-          final matches = RegExp(r'\s+(\w+)\s+([<\w, >]+)(\?)?(\(([^\)]+)\))?').firstMatch(line);
+          final matches = RegExp(r"\s+(\w+)\s+([<\w, >]+)(\?)?(=[\w\[\]\{\}']+)?(\(([^\)]+)\))?").firstMatch(line);
           if(matches != null) {
             final name = matches.group(1)!;
             final type = matches.group(2)!;
             final nullable = matches.group(3) == '?';
-            final options = (matches.group(5) ?? '').split(RegExp(r',\s*'));
-            element._fields.add(SchemaField(name, type, nullable, options));
+            final initializer = matches.group(4);
+            final options = (matches.group(6) ?? '').split(RegExp(r',\s*'));
+            element._fields.add(SchemaField(name, type, nullable, initializer, options));
           }
         }
       } else {
@@ -120,15 +121,16 @@ class SchemaElement {
   bool get isNotScaffold => !isScaffold;
 
   @override
-  String toString() => '$type(${options.join(', ')})\n  ${fields.join('\n  ')}';
+  String toString() => '$type(${options.join(', ')})${fields.isNotEmpty ? '\n  ${fields.join('\n ')}' : ''}';
 }
 
 class SchemaField {
   final String name;
   final String type;
   final bool nullable;
+  final String? initializer;
   final List<String> options;
-  SchemaField(this.name, this.type, this.nullable, this.options);
+  SchemaField(this.name, this.type, this.nullable, this.initializer, this.options);
 
   bool get isImportedType => importPackage != null;
   bool get isNotImportedType => !isImportedType;
@@ -145,4 +147,8 @@ class SchemaField {
 
   @override
   String toString() => '$name $type(${options.join(', ')})';
+}
+
+extension XStringIterable on Iterable<String> {
+  Iterable<String> get filtered => this.map((line) => line.split('//')[0].trimRight());
 }

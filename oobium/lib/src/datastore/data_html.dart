@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:indexed_db';
 
-class Data  {
+class Data {
 
   final String path;
   final _connections = <Connection>[];

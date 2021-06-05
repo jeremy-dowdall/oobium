@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
-import 'package:oobium/src/clients/data_client.schema.gen.models.dart';
+import 'package:objectid/objectid.dart';
+import 'package:oobium/src/clients/auth_client.schema.g.dart';
+import 'package:oobium/src/clients/data_client.schema.g.dart';
 import 'package:oobium/src/datastore/executor.dart';
 import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/websocket.dart';
@@ -14,7 +15,7 @@ class DefinedDataStore {
   final DataStore datastore;
   DefinedDataStore(this.definition, this.datastore);
 
-  String get id => definition.id;
+  ObjectId get id => definition.id;
   String get name => definition.name;
   String? get access => definition.access;
 }
@@ -41,17 +42,17 @@ class DataClient {
   DataClientData? _schema;
   WebSocket? _socket;
   Executor? _executor;
-  final _datastores = <String, DefinedDataStore>{};
-  final _updates = <String, Completer>{};
+  final _datastores = <ObjectId, DefinedDataStore>{};
+  final _updates = <ObjectId, Completer>{};
   final _controller = StreamController<SchemaEvent>.broadcast();
 
-  T? ds<T extends DefinedDataStore>(String id) => _datastores[id]?.datastore as T?;
+  T? ds<T extends DefinedDataStore>(ObjectId id) => _datastores[id]?.datastore as T?;
 
   Future<void> add(Definition def) => _update(def.id, () => _schema!.put(def));
 
-  Future<void> remove(String id) => _datastores.containsKey(id) ? _update(id, () => _schema!.remove(id)) : Future.value();
+  Future<void> remove(Definition def) => _datastores.containsKey(def.id) ? _update(def.id, () => _schema!.remove(def)) : Future.value();
 
-  List<Definition> get schema => _schema?.getAll<Definition>().toList() ?? <Definition>[];
+  List<Definition> get schema => _schema?.getDefinitions().toList() ?? <Definition>[];
 
   Stream<SchemaEvent> get events => _controller.stream;
 
@@ -74,10 +75,11 @@ class DataClient {
           for(var def in _create()) {
             yield(def.toDataRecord());
           }
-        }) as DataClientData;
-        await _addAll(_schema!.getAll<Definition>());
-        _schema!.streamAll<Definition>().listen((event) => _onDataModelEvent(event));
-        await _bind(_schema!, SchemaName);
+        });
+        await _addAll(_schema!.getDefinitions());
+        _schema!.streamDefinitions().listen((event) => _onDataModelEvent(event));
+        // TODO binding
+        // await _bind(_schema!, SchemaName);
       }
     }
   }
@@ -88,18 +90,20 @@ class DataClient {
       _executor = null;
 
       if(_socket != null) {
-        _schema?.unbind(_socket!, name: SchemaName);
+        // TODO binding
+        // _schema?.unbind(_socket!, name: SchemaName);
         for(var ds in _datastores.values) {
-          ds.datastore.unbind(_socket!, name: ds.id);
+          ds.datastore.unbind(_socket!, name: ds.id.hexString);
         }
       }
 
       _socket = socket;
 
       if(_socket != null) {
-        _bind(_schema, SchemaName);
+        // TODO binding
+        // _bind(_schema, SchemaName);
         for(var ds in _datastores.values) {
-          _bind(ds.datastore, ds.id);
+          _bind(ds.datastore, ds.id.hexString);
         }
       }
     }
@@ -119,7 +123,7 @@ class DataClient {
       final ds = await _builder(_path, def);
       if(ds != null) {
         _datastores[def.id] = DefinedDataStore(def, await ds.open());
-        _bind(ds, def.id);
+        _bind(ds, def.id.hexString);
       }
     }
     _complete(def.id);
@@ -128,26 +132,26 @@ class DataClient {
 
   Future<void> _addAll(Iterable<Definition> defs) => Future.forEach<Definition>(defs, (def) => _add(def));
 
-  void _remove(String id) {
-    final ds = _datastores.remove(id);
-    ds?.datastore.unbind(_socket!, name: id);
-    _complete(id);
+  void _remove(Definition def) {
+    final ds = _datastores.remove(def.id);
+    ds?.datastore.unbind(_socket!, name: def.id.hexString);
+    _complete(def.id);
     if(ds != null) {
       _controller.add(SchemaEvent._(null, ds.definition));
     }
   }
 
   void _removeAll(Iterable<Definition> defs) {
-    for(var def in defs) {
-      _remove(def.id);
+    for(final def in defs) {
+      _remove(def);
     }
   }
 
-  void _complete(String id) {
+  void _complete(ObjectId id) {
     _updates.remove(id)?.complete();
   }
 
-  Future<void> _update(String id, Function() op) async {
+  Future<void> _update(ObjectId id, Function() op) async {
     await _updates[id]?.future;
     _updates[id] = Completer();
     op();

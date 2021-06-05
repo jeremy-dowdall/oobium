@@ -25,10 +25,21 @@ Future<void> main() async {
     expect(models.getMessage(id)?.message, 'test-01');
   });
 
+  test('test simple model with external id', () async {
+    final models = await ModelGenTestData('$path/test1.ds').open();
+
+    final id = models.putUser(id: 123, name: 'bob').id;
+    await models.close();
+    await models.open();
+
+    expect(id, 123);
+    expect(models.getUser(123)?.name, 'bob');
+  });
+
   test('test nested model', () async {
     final models = await ModelGenTestData('$path/test1.ds').open();
 
-    final id = models.put(Message(from: User(name: 'joe'), message: 'test-01')).id;
+    final id = models.put(Message(from: User(id: 1, name: 'joe'), message: 'test-01')).id;
     await models.close();
     await models.open();
 
@@ -39,7 +50,7 @@ Future<void> main() async {
   test('test delete nested model', () async {
     final models = await ModelGenTestData('$path/test1.ds').open();
 
-    final message = models.putMessage(from: User(name: 'joe'), message: 'test-01');
+    final message = models.putMessage(from: User(id: 1, name: 'joe'), message: 'test-01');
     final user = message.from;
     models.remove(message);
     await models.close();

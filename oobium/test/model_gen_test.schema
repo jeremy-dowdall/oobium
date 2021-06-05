@@ -1,4 +1,5 @@
 User
+  id int
   name String?
 
 Message

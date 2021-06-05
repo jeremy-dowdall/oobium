@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:oobium_server/src/services/auth_service.dart';
 import 'package:oobium_server/src/service.dart';
 import 'package:oobium_server/src/server.dart';
-import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
+import 'package:oobium_server/src/services/auth_service.schema.g.dart';
 
 class AdminService extends Service<Host, Object> {
 

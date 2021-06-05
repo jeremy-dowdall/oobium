@@ -1,5 +1,5 @@
+import 'package:objectid/objectid.dart';
 import 'package:oobium/oobium.dart';
-import 'package:oobium/src/clients/auth_client.schema.gen.models.dart';
 import 'package:oobium/src/websocket.dart';
 
 class UserClient {
@@ -8,24 +8,27 @@ class UserClient {
   UserClient({required this.root});
 
   Account? get account => _account;
-  String? get uid => _account?.uid;
-  User get user => _data!.get<User>(uid!)!;
-  Iterable<Group> get groups => _data!.getAll<Membership>().where((m) => m.user.id == uid).map((m) => m.group);
+  ObjectId? get uid => (_account != null) ? ObjectId.fromHexString(_account!.uid) : null;
+  User? get user => _data!.getUser(uid);
+  Iterable<Group> get groups => _data!.getMemberships().where((m) => m.user.id == uid).map((m) => m.group);
 
-  User? getUser(String id) => _data!.get<User>(id);
-  Iterable<User> getUsers() => _data!.getAll<User>();
+  User? getUser(ObjectId id) => _data!.getUser(id);
+  Iterable<User> getUsers() => _data!.getUsers();
   User putUser(User user) => _data!.put(user);
-  Stream<DataModelEvent<User>> streamUsers({bool Function(User model)? where}) => _data!.streamAll<User>(where: where);
+  Stream<User?> streamUser(ObjectId id) => _data!.streamUser(id);
+  Stream<DataModelEvent<User>> streamUsers({bool Function(User model)? where}) => _data!.streamUsers(where: where);
 
-  Group? getGroup(String id) => _data!.get<Group>(id);
-  Iterable<Group> getGroups() => _data!.getAll<Group>();
+  Group? getGroup(ObjectId id) => _data!.getGroup(id);
+  Iterable<Group> getGroups() => _data!.getGroups();
   Group putGroup(Group group) => _data!.put(group);
-  Stream<DataModelEvent<Group>> streamGroups({bool Function(Group model)? where}) => _data!.streamAll<Group>(where: where);
+  Stream<Group?> streamGroup(ObjectId id) => _data!.streamGroup(id);
+  Stream<DataModelEvent<Group>> streamGroups({bool Function(Group model)? where}) => _data!.streamGroups(where: where);
 
-  Membership? getMembership(String id) => _data!.get<Membership>(id);
-  Iterable<Membership> getMemberships() => _data!.getAll<Membership>();
+  Membership? getMembership(ObjectId id) => _data!.getMembership(id);
+  Iterable<Membership> getMemberships() => _data!.getMemberships();
   Membership putMembership(Membership membership) => _data!.put(membership);
-  Stream<DataModelEvent<Membership>> streamMemberships({bool Function(Membership model)? where}) => _data!.streamAll<Membership>(where: where);
+  Stream<Membership?> streamMembership(ObjectId id) => _data!.streamMembership(id);
+  Stream<DataModelEvent<Membership>> streamMemberships({bool Function(Membership model)? where}) => _data!.streamMemberships(where: where);
 
 
   Account? _account;
@@ -42,9 +45,10 @@ class UserClient {
       _account = account;
 
       if(_account != null) {
-        _data = await UserClientData('$root/${_account!.uid}').open() as UserClientData;
+        _data = await UserClientData('$root/${_account!.uid}').open();
         if(_socket != null) {
-          await _data!.bind(_socket!, name: '__users__');
+          // TODO binding
+          // await _data!.bind(_socket!, name: '__users__');
         }
       }
     }
@@ -53,13 +57,15 @@ class UserClient {
   Future<void> setSocket(WebSocket? socket) async {
     if(socket != _socket) {
       if(_socket != null) {
-        _data?.unbind(_socket!, name: '__users__');
+        // TODO binding
+        // _data?.unbind(_socket!, name: '__users__');
       }
 
       _socket = socket;
 
       if(_socket != null) {
-        await _data?.bind(_socket!, name: '__users__');
+        // TODO binding
+        // await _data?.bind(_socket!, name: '__users__');
       }
     }
   }

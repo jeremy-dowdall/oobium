@@ -1,3 +1,5 @@
+import 'package:collection/collection.dart';
+
 class Model {
 
   final bool _scaffold;
@@ -21,7 +23,8 @@ class Model {
       metadata: f.metadata.toList(),
       type: f.isGeneric ? '${f.rawType}<${typeArgument}>' : f.type,
       name: f.name,
-      nullable: f.isNullable
+      nullable: f.isNullable,
+      initializer: f._initializer
     )).toList(),
     _expanded = null,
     _concrete = true {
@@ -42,10 +45,16 @@ class Model {
   bool get isDeclarable => isNotConcrete;
   bool get isNotDeclarable => !isDeclarable;
 
+  bool get isIndexed => _fields.any((f) => f.name == 'id');
+  bool get isNotIndexed => !isIndexed;
+
   bool get scaffold => isDeclarable ? _scaffold : throw UnsupportedError('tried calling scaffold getter of virtual model, $type');
   String get type => _type;
   String get name => _type.split('<')[0];
   List<ModelField> get fields => _fields;
+
+  ModelField? get idField => _fields.firstWhereOrNull((f) => f.name == 'id');
+  String get idType => idField?.type ?? 'ObjectId';
 
   List<Model>? _expanded;
   List<Model> get expanded => _expanded ?? (isGeneric ? [] : [this]);
@@ -75,26 +84,30 @@ class Model {
   @override
   String toString() => type;
 
-  String get constructorFields => fields.isEmpty ? '' : '{${fields.map((f) => '${f.isRequired ? 'required ${f.type}' : '${f.type}?'} ${f.name}').join(',\n')}}';
+  String get constructorFields => fields.isEmpty ? '' :
+    '{${fields.map((f) => '${f.isRequired ? 'required ${f.type}' : f.isNullable ? '${f.type}?' : f.type} ${f.name}${f._initializer??''}').join(',\n')}}';
+
   String get constructorParams => fields.isEmpty ? '' : '${fields.map((f) => "${f.name}: ${f.name}").join(',')}';
   String get constructorMap => fields.isEmpty ? '' : '{${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}';
+  String get copyFields => '{${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}';
 
   String finderFields(String m) => fields.isEmpty ? 'false' :
-    '${fields.map((f) => '($m.${f.name} == null || $m.${f.name} == ${f.name})').join(' && ')}'
+    '${fields.map((f) => '(${f.name} == null || ${f.name} == $m.${f.name})').join(' && ')}'
   ;
 
   String compile(String dsType) => '''
     class $type extends $dsType {
       
+      ${isNotIndexed ? 'ObjectId get id => this[\'_modelId\'];' : ''}
       ${fields.map((f) => "${f.type}${f.isNullable ? '?' : ''} get ${f.name} => this['${f.name}'];").join('\n')}
       
       $name($constructorFields) : super($constructorMap);
       
-      $name.copyNew($type original, {${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}) : super.copyNew(original,
+      $name.copyNew($type original, $copyFields) : super.copyNew(original,
         {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
       );
       
-      $name.copyWith($type original, {${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}) : super.copyWith(original,
+      $name.copyWith($type original, $copyFields) : super.copyWith(original,
         {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
       );
       
@@ -125,13 +138,15 @@ class ModelField {
   final String _type;
   final String name;
   final bool _nullable;
+  final String? _initializer;
   final bool _isModel;
 
-  ModelField({List<String>? metadata, required String type, required String name, required bool nullable, bool? isModel}) :
+  ModelField({List<String>? metadata, required String type, required String name, required bool nullable, required String? initializer, bool? isModel}) :
     metadata = metadata ?? [],
     _type = type,
     name = name,
     _nullable = nullable,
+    _initializer = initializer,
     _isModel = isModel ?? false
   ;
 
@@ -161,8 +176,11 @@ class ModelField {
   bool get isResolve => metadata.contains('resolve');
   bool get isNotResolve => !isResolve;
 
-  bool get isRequired => isNotNullable || metadata.contains('required');
+  bool get isRequired => metadata.contains('required') || (isNotNullable && isNotInitialized);
   bool get isNotRequired => !isRequired;
+
+  bool get isInitialized => _initializer != null;
+  bool get isNotInitialized => !isInitialized;
 
   bool get isGeneric => model.isGeneric && rawTypeArgument == model.typeParameter;
   bool get isNotGeneric => !isGeneric;

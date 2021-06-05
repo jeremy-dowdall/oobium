@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore/repo.dart';
 import 'package:oobium/src/datastore/sync.dart';
@@ -7,6 +8,8 @@ import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/websocket.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
+
+import 'utils/test_models.dart';
 
 Future<void> main() async {
 
@@ -259,7 +262,7 @@ class DsTestServerClient {
 
   Future<void> get ready => _ready.future;
 
-  Future<TestType1?> dsGet(String id) => _send<TestType1>('/ds/get', id);
+  Future<TestType1?> dsGet(ObjectId id) => _send<TestType1>('/ds/get', '$id');
   Future<TestType1> dsPut(DataModel model) => _send<TestType1>('/ds/put', model.toJson());
 
   Future<int> get dsModelCount => _send<int>('/ds/count/models');
@@ -271,14 +274,4 @@ class DsTestServerClient {
     channel.sink.add([path, data]);
     return completer!.future as Future<T>;
   }
-}
-
-class TestType1 extends DataModel {
-  String get name => this['name'];
-  TestType1({String? name}) : super({'name': name});
-  TestType1.copyNew(TestType1 original, {String? name}) : super.copyNew(original, {'name': name});
-  TestType1.copyWith(TestType1 original, {String? name}) : super.copyWith(original, {'name': name});
-  TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
-  TestType1 copyNew({String? name}) => TestType1.copyNew(this, name: name);
-  TestType1 copyWith({String? name}) => TestType1.copyWith(this, name: name);
 }

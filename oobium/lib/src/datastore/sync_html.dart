@@ -57,8 +57,8 @@ class Replicant extends base.Replicant {
   @override
   Stream<DataRecord> getSyncRecords(Models models) async* {
     final tx = idb.transaction('sync', 'readonly').objectStore('sync');
-    final lastSync = (await tx.getObject('$id-lastSync'));
-    for(var model in models.getAll().where((model) => model.timestamp > lastSync)) {
+    final lastSync = (await tx.getObject('$id-lastSync')) as int;
+    for(var model in models.getAll().where((model) => model.updatedAt.millisecondsSinceEpoch > lastSync)) {
       yield(DataRecord.fromModel(model));
     }
     final records = await tx.openCursor(autoAdvance: true).where((c) => (c.key as String).startsWith('$id:')).map((c) {
@@ -79,7 +79,7 @@ class Replicant extends base.Replicant {
   Future<void> saveRecords(Iterable<DataRecord> records) async {
     final tx = idb.transaction('sync', 'readwrite').objectStore('sync');
     for(var record in records) {
-      tx.put(record.toString(), '$id:${record.id}');
+      tx.put(record.toString(), '$id:${record.modelId}');
     }
     await tx.transaction?.completed;
   }

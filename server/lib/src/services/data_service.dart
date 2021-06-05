@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:oobium/oobium.dart' hide Group, Membership;
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/services/auth_service.dart';
-import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
+import 'package:oobium_server/src/services/auth_service.schema.g.dart';
 import 'package:oobium_server/src/service.dart';
 
 const _verbose = false;

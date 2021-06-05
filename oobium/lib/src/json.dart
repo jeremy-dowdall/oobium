@@ -109,7 +109,11 @@ abstract class Json implements JsonString {
     if(field is Type) return field.toString();
     final value = _fromEnum(field);
     if(value != null) return value;
-    throw "don't know how to convert $field to JSON";
+    try {
+      return field.toJson();
+    } catch(e) {
+      throw "don't know how to convert $field to JSON";
+    }
   }
 
   static List<dynamic> fromIterable(Iterable? iter, {bool full=false}) => iter?.map((e) => from(e, full: full)).toList() ?? [];

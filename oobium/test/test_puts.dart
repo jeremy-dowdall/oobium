@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:oobium/src/datastore.dart';
 
+import 'utils/test_models.dart';
+
 Future<void> main() async {
   final count = 10000;
   print('testPut($count)');
@@ -19,14 +21,4 @@ Future<void> main() async {
   await ds.close();
   final flush = DateTime.now().millisecondsSinceEpoch;
   print('  ${ds.size} records\n  ${(await File(ds.path).stat()).size}bytes\n  time: ${flush-start}ms (open: ${open-start}ms, find: ${find-open}ms, put: ${put-find}ms, flush: ${flush-put}ms)');
-}
-
-class TestType1 extends DataModel {
-  String get name => this['name'];
-  TestType1({required String name}) : super({'name': name});
-  TestType1.copyNew(TestType1 original, {required String name}) : super.copyNew(original, {'name': name});
-  TestType1.copyWith(TestType1 original, {required String name}) : super.copyWith(original, {'name': name});
-  TestType1.fromJson(data, {bool newId=false}) : super.fromJson(data, {'name'}, {}, newId);
-  TestType1 copyNew({required String name}) => TestType1.copyNew(this, name: name);
-  TestType1 copyWith({required String name}) => TestType1.copyWith(this, name: name);
 }
