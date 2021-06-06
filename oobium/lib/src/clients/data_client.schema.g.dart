@@ -23,7 +23,7 @@ class DataClientData {
           (name == null || name == m.name) &&
           (access == null || access == m.access));
   T put<T extends DataClientModel>(T model) => _ds.put<T>(model);
-  Definition putDefinition({required String name, required String access}) =>
+  Definition putDefinition({required String name, String? access}) =>
       _ds.put(Definition(name: name, access: access));
   T remove<T extends DataClientModel>(T model) => _ds.remove<T>(model);
   Stream<Definition?> streamDefinition(ObjectId id) =>
@@ -49,9 +49,9 @@ abstract class DataClientModel extends DataModel {
 class Definition extends DataClientModel {
   ObjectId get id => this['_modelId'];
   String get name => this['name'];
-  String get access => this['access'];
+  String? get access => this['access'];
 
-  Definition({required String name, required String access})
+  Definition({required String name, String? access})
       : super({'name': name, 'access': access});
 
   Definition.copyNew(Definition original, {String? name, String? access})

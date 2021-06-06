@@ -54,7 +54,7 @@ Future<void> main() async {
     final client1 = await createUserClient(path: '$path/1', port: port);
     final client2 = await createUserClient(path: '$path/2', port: port);
 
-    final group = client2.putGroup(Group(name: 'test-group-1', owner: client2.user));
+    final group = client2.putGroup(Group(name: 'test-group-1', owner: client2.user!));
     await Future.delayed(Duration(milliseconds: 100));
 
     expect(client1.getMemberships(), isEmpty);
@@ -62,7 +62,7 @@ Future<void> main() async {
     expect(client1.getGroups(), isEmpty);
     expect(client2.getGroups().length, 1);
 
-    client2.putMembership(Membership(group: group, user: client1.user));
+    client2.putMembership(Membership(group: group, user: client1.user!));
     await Future.delayed(Duration(milliseconds: 100));
 
     expect(client1.getMemberships().length, 1);
@@ -78,8 +78,8 @@ Future<void> main() async {
     final client1 = await createUserClient(path: '$path/user-1', port: port);
     final client2 = await createUserClient(path: '$path/user-2', port: port);
 
-    client1.putGroup(Group(name: 'test-group-1', owner: client1.user));
-    client1.putGroup(Group(name: 'test-group-2', owner: client2.user));
+    client1.putGroup(Group(name: 'test-group-1', owner: client1.user!));
+    client1.putGroup(Group(name: 'test-group-2', owner: client2.user!));
     await Future.delayed(Duration(milliseconds: 100));
 
     final data = await server.dsGetAll('/auth_service') as List;

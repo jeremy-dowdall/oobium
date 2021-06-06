@@ -7,7 +7,7 @@ import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/service.dart';
 import 'package:oobium_server/src/services/auth/validators.dart';
 import 'package:oobium_server/src/services/auth_service.dart';
-import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart';
+import 'package:oobium_server/src/services/auth_service.schema.g.dart';
 import 'package:test/test.dart';
 
 import 'auth_service_test.mocks.dart';
@@ -71,7 +71,7 @@ void main() {
       test('valid', () async {
         final code = 'single_use_code';
 
-        final existingUser = User();
+        final existingUser = User(name: 'joe');
         final service = MockAuthService();
         when(service.consume(code)).thenReturn(Token(user: existingUser));
 
@@ -80,7 +80,7 @@ void main() {
 
         final host = MockHost();
         final proxy = MockWsProxy();
-        when(host.socket(existingUser.id)).thenReturn(proxy);
+        when(host.socket('${existingUser.id}')).thenReturn(proxy);
         when(proxy.getAny('/installs/approval')).thenAnswer((_) => Future.value(WsResult(200, true)));
 
         final req = Request.values(

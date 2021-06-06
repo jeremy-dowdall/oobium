@@ -11,8 +11,7 @@ import 'package:oobium_server/src/server.dart' as _i6;
 import 'package:oobium_server/src/server_settings.dart' as _i5;
 import 'package:oobium_server/src/service.dart' as _i2;
 import 'package:oobium_server/src/services/auth_service.dart' as _i7;
-import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart'
-    as _i3;
+import 'package:oobium_server/src/services/auth_service.schema.g.dart' as _i3;
 
 import 'auth_service_test.dart' as _i10;
 
