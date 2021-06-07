@@ -3,16 +3,14 @@ import 'dart:indexed_db';
 
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore/executor.dart';
-import 'package:oobium/src/datastore/models.dart';
-import 'package:oobium/src/datastore/repo.dart';
-import 'package:oobium/src/datastore.dart' show DataRecord;
+import 'package:oobium/src/datastore.dart' show DataModel, DataRecord;
 
 import 'sync_base.dart' as base;
 export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 
-  Sync(Data ds, Repo repo, [Models? models]) : super(ds, repo, models);
+  Sync(Data ds, Function(base.DataEvent event) onDataEvent, Iterable<DataModel> Function() onGetSyncRecords) : super(ds, onDataEvent, onGetSyncRecords);
 
   late Database idb;
   final executor = Executor();
@@ -55,10 +53,10 @@ class Replicant extends base.Replicant {
   }
 
   @override
-  Stream<DataRecord> getSyncRecords(Models models) async* {
+  Stream<DataRecord> getSyncRecords(Iterable<DataModel> models) async* {
     final tx = idb.transaction('sync', 'readonly').objectStore('sync');
     final lastSync = (await tx.getObject('$id-lastSync')) as int;
-    for(var model in models.getAll().where((model) => model.updatedAt.millisecondsSinceEpoch > lastSync)) {
+    for(var model in models.where((model) => model.updatedAt.millisecondsSinceEpoch > lastSync)) {
       yield(DataRecord.fromModel(model));
     }
     final records = await tx.openCursor(autoAdvance: true).where((c) => (c.key as String).startsWith('$id:')).map((c) {

@@ -18,10 +18,17 @@ void main() {
     final m = TestType1();
 
     ds.putAll([
-      ...List.generate(6, (i) => TestType1(name: 'test-1-$i')),
-      ...List.generate(6, (i) => m.copyWith(name: 'test-2-$i'))
+      ...List.generate(60000, (i) => TestType1(name: 'test-1-$i')),
+      ...List.generate(10000, (i) => m.copyWith(name: 'test-2-$i')),
     ]);
+    // for(var j = 0; j < 1000; j++) {
+    //   ds.putAll(List.generate(6, (i) => TestType1(name: 'test-1-$j')));
+    //   ds.putAll(List.generate(6, (i) => m.copyWith(name: 'test-2-$i')));
+    // }
+    // ds.compact();
+    print('flushing');
     await ds.flush();
+    print('flushed');
 
     final lines = await file.readAsLines();
 

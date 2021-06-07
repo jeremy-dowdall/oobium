@@ -1,8 +1,6 @@
 import 'dart:io' hide WebSocket;
 
 import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/datastore/models.dart';
-import 'package:oobium/src/datastore/repo.dart';
 import 'package:oobium/src/datastore.dart';
 
 import 'sync_base.dart' as base;
@@ -10,7 +8,7 @@ export 'sync_base.dart' show DataEvent;
 
 class Sync extends base.Sync {
 
-  Sync(Data ds, Repo repo, [Models? models]) : super(ds, repo, models);
+  Sync(Data ds, Function(base.DataEvent event) onDataEvent, Iterable<DataModel> Function() onGetSyncRecords) : super(ds, onDataEvent, onGetSyncRecords);
 
   late File file;
 
@@ -56,15 +54,15 @@ class Replicant extends base.Replicant {
   }
 
   @override
-  Stream<DataRecord> getSyncRecords(Models models) async* {
+  Stream<DataRecord> getSyncRecords(Iterable<DataModel> models) async* {
     final lines = await _readFile();
     if(lines.isEmpty) {
-      for(var model in models.getAll()) {
+      for(var model in models) {
         yield(DataRecord.fromModel(model));
       }
     } else {
       final lastSync = int.parse(lines[0]);
-      for(var model in models.getAll().where((model) => model.updatedAt.millisecondsSinceEpoch > lastSync)) {
+      for(var model in models.where((model) => model.updatedAt.millisecondsSinceEpoch > lastSync)) {
         yield(DataRecord.fromModel(model));
       }
       for(var record in lines.skip(1).map((l) => DataRecord.fromLine(l))) {

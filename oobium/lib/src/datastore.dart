@@ -11,13 +11,6 @@ import 'package:xstring/xstring.dart';
 
 export 'package:oobium/src/datastore/models.dart' show DataModel, DataModelEvent, DataIndex;
 
-class UpgradeEvent {
-  final int oldVersion;
-  final int newVersion;
-  final Stream<DataRecord> oldData;
-  UpgradeEvent._(this.oldVersion, this.newVersion, this.oldData);
-}
-
 class DataStore {
 
   static Future<void> clean(String path) => Data(path).destroy();
@@ -25,9 +18,17 @@ class DataStore {
   final String path;
   final List<Function(Map data)> _builders;
   final List<DataIndex> _indexes;
-  DataStore(this.path, [this._builders=const[], this._indexes=const[]]) {
-    assert(path.isNotBlank, 'datastore path cannot be blank');
-  }
+  final CompactionStrategy _compactionStrategy;
+  DataStore(this.path, {
+    List<Function(Map data)> builders = const[],
+    List<DataIndex> indexes = const[],
+    CompactionStrategy compactionStrategy = const DefaultCompactionStrategy()
+  }) :
+    assert(path.isNotBlank, 'datastore path cannot be blank'),
+    _builders = builders,
+    _indexes = indexes,
+    _compactionStrategy = compactionStrategy
+  ;
 
   int _version = 0;
   Models? _models;
@@ -37,7 +38,7 @@ class DataStore {
 
   int get version => _version;
 
-  int get size => _models?.length ?? 0;
+  int get size => _models?.modelCount ?? 0;
   bool get isEmpty => size == 0;
   bool get isNotEmpty => !isEmpty;
   
@@ -62,7 +63,8 @@ class DataStore {
       });
       _repo = await Repo(_data!).open();
       _models = await Models(_builders, _indexes).load(_repo!.get());
-      _sync = await Sync(_data!, _repo!, _models).open();
+      // TODO _sync disabled for now... (reworking)
+      // _sync = await Sync(_data!, _onDataEvent, _onGetSyncRecords).open(); //, _repo!, _models).open();
     }
     return this;
   }
@@ -101,10 +103,11 @@ class DataStore {
   Future<void> reset({WebSocket? socket}) async {
     await destroy();
     if(socket != null) {
-      final data = await Data(path).open();
-      final repo = await Repo(data).open();
-      final sync = await Sync(data, repo).open();
-      await sync.replicate(socket);
+      throw 'not implemented';
+      // final data = await Data(path).open();
+      // final repo = await Repo(data).open();
+      // final sync = await Sync(data, repo).open();
+      // await sync.replicate(socket);
     }
     await open();
   }
@@ -123,7 +126,7 @@ class DataStore {
   T remove<T extends DataModel>(T model) => batch(remove: [model])[0];
   List<T> removeAll<T extends DataModel>(Iterable<T> models) => batch(remove: models);
 
-  Stream<T?> stream<T extends DataModel>(ObjectId id) => _models!.stream<T>(id);
+  Stream<T?> stream<T extends DataModel>(Object id) => _models!.stream<T>(id);
   Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) => _models!.streamAll<T>(where: where);
 
   bool get isBound => _sync!.isBound;
@@ -132,14 +135,48 @@ class DataStore {
   Future<void> bind(WebSocket socket, {String? name, bool wait = true}) => _sync!.bind(socket, name: name, wait: wait);
   void unbind(WebSocket socket, {String? name}) => _sync?.unbind(socket, name: name);
 
+  Future<void> compact() {
+    final models = _models, repo = _repo;
+    if(models != null && repo != null) {
+      models.resetRecordCount();
+      final records = models.getAll().map((m) => m.toDataRecord()).toList();
+      return repo.reset(records);
+    } else {
+      return Future.value();
+    }
+  }
+
   List<T> _batch<T extends DataModel>({Iterable<T>? put, Iterable<T>? remove}) {
-    final batch = _models!.batch(put: put, remove: remove);
+    final start = DateTime.now();
+    final models = _models!;
+    final batch = models.batch(put: put, remove: remove);
 
     if(batch.isNotEmpty) {
-      _sync?.put(batch.records);
+      if(_shouldCompact()) {
+        compact().then((_) => _sync?.putAll(batch.records));
+        print('batch w/compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
+      } else {
+        _repo?.putAll(batch.records).then((_) => _sync?.putAll(batch.records));
+        print('batch w/out compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
+      }
     }
 
     return batch.results;
+  }
+
+  void _onDataEvent(DataEvent event) {
+    _models!.loadAll(event.records);
+    _repo!.putAll(event.records);
+  }
+
+  Iterable<DataModel> _onGetSyncRecords() => _models!.getAll();
+
+  bool _shouldCompact() {
+    final models = _models;
+    if(models != null && models.modelCount > 0 && models.recordCount > 0) {
+      return _compactionStrategy.shouldCompact(models.modelCount, models.recordCount);
+    }
+    return false;
   }
 }
 
@@ -179,4 +216,32 @@ class DataRecord {
   toString() => isDelete
     ? '$modelId:$updateId:$type'
     : '$modelId:$updateId:$type${jsonEncode(_data)}';
+}
+
+class UpgradeEvent {
+  final int oldVersion;
+  final int newVersion;
+  final Stream<DataRecord> oldData;
+  UpgradeEvent._(this.oldVersion, this.newVersion, this.oldData);
+}
+
+abstract class CompactionStrategy {
+
+  const CompactionStrategy();
+
+  bool shouldCompact(int modelCount, int recordCount);
+}
+
+class DefaultCompactionStrategy extends CompactionStrategy {
+
+  const DefaultCompactionStrategy();
+
+  @override
+  bool shouldCompact(int modelCount, int recordCount) {
+    if(recordCount <= 0) return false;
+    final diff = recordCount - modelCount;
+    final ratio = modelCount / recordCount;
+    // print('compactCheck(diff: $diff, ratio: $ratio, models: ${modelCount}, records: ${recordCount})');
+    return (diff > 4 && ratio < .75);
+  }
 }

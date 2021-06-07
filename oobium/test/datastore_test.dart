@@ -15,7 +15,8 @@ final testFile = 'datastore_test';
 
 Future<void> main() async {
 
-  tearDownAll(() async => await destroy(testFile));
+  setUpAll(() async => await destroyData(testFile));
+  tearDownAll(() async => await destroyData(testFile));
 
   test('test data create / destroy', () async {
     final data = Data('test-ds');
@@ -164,7 +165,7 @@ Future<void> main() async {
     final model = ds.put(TestType1(name: 'test01'));
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     expect(ds2.get(model.id), isNotNull);
     expect((ds2.get<TestType1>(model.id))?.name, model.name);
@@ -178,7 +179,7 @@ Future<void> main() async {
     final model = ds.put(TestType1());
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     expect(ds2.get(model.id), isNotNull);
     expect(ds2.get<TestType1>(model.id), isNotNull);
@@ -193,7 +194,7 @@ Future<void> main() async {
     ds.put(m1.copyWith(name: 'test02'));
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     final data = ds2.getAll<TestType1>().toList();
     expect(data.length, 1);
@@ -209,7 +210,7 @@ Future<void> main() async {
     ]);
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     final models = ds2.getAll().toList();
     expect(models.length, 2);
@@ -234,7 +235,7 @@ Future<void> main() async {
     expect(ds.size, 2);
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     final models = ds2.getAll().toList();
     expect(models.length, 2);
@@ -249,7 +250,7 @@ Future<void> main() async {
     final model = ds.put(TestType1(name: 'test01'));
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     expect(ds2.getAll().length, 1);
     expect(ds2.get(model.id)?.isSameAs(model), isTrue);
@@ -270,7 +271,7 @@ Future<void> main() async {
     final model2 = ds.put(TestType1(name: 'test02'));
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     expect(ds2.getAll().length, 2);
     expect(ds2.get(model1.id)?.isSameAs(model1), isTrue);
@@ -279,7 +280,7 @@ Future<void> main() async {
     ds2.remove(model1);
     await ds2.close();
 
-    final ds3 = createDatastore(testFile, ds);
+    final ds3 = createDatastore(testFile, clone: ds);
     await ds3.open();
     expect(ds3.getAll().length, 1);
     expect(ds3.get(model1.id), isNull);
@@ -296,7 +297,7 @@ Future<void> main() async {
     expect(ds.getAll<TestType1>().where((m) => m.name == 'test-02').length, 2);
     await ds.close();
 
-    final ds2 = createDatastore(testFile, ds);
+    final ds2 = createDatastore(testFile, clone: ds);
     await ds2.open();
     expect(ds2.getAll<TestType1>().length, 3);
     expect(ds2.getAll<TestType1>().where((m) => m.name == 'test-02').length, 2);
@@ -382,7 +383,7 @@ Future<void> main() async {
   });
 
   test('test indexes', () async {
-    final ds = DataStore('test-data/test-${datastores.length}', [], [
+    final ds = DataStore('test-data/test-${datastores.length}', indexes: [
       DataIndex<TestType1>(toKey: (model) => model.name)
     ]);
     await ds.reset();

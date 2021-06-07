@@ -8,12 +8,20 @@ final datastores = <DataStore>[];
 final data = <Data>[];
 final repo = <Repo>[];
 
-DataStore createDatastore(String testFile, [DataStore? clone]) {
+DataStore createDatastore(String testFile, {
+  DataStore? clone,
+  List<DataIndex> indexes = const[],
+  CompactionStrategy compactionStrategy = const DefaultCompactionStrategy()
+}) {
   final path = clone?.path ?? 'test-data/$testFile/test-ds-${datastores.length}';
-  final ds = DataStore(path, [
-    (data) => TestType1.fromJson(data),
-    (data) => TestType2.fromJson(data),
-  ]);
+  final ds = DataStore(path,
+    builders: [
+      (data) => TestType1.fromJson(data),
+      (data) => TestType2.fromJson(data),
+    ],
+    indexes: indexes,
+    compactionStrategy: compactionStrategy
+  );
   datastores.add(ds);
   return ds;
 }

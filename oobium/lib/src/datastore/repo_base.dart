@@ -5,10 +5,8 @@ import 'package:oobium/src/datastore.dart';
 class Repo implements Connection {
 
   final Data data;
-  final executor = Executor();
+  var executor = Executor();
   Repo(this.data);
-
-  int get length => throw UnsupportedError('platform not supported');
 
   Future<Repo> open() => throw UnsupportedError('platform not supported');
   Future<void> flush() => executor.flush();

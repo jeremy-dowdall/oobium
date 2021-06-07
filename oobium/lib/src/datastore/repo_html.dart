@@ -30,9 +30,9 @@ class Repo extends base.Repo {
     final futures = <Future>[];
     await for(var record in records) {
       if(record.isDelete) {
-        futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').delete(record.modelId)));
+        futures.add(executor.add((_) => idb.transaction('repo', 'readwrite').objectStore('repo').delete(record.modelId)));
       } else {
-        futures.add(executor.add(() => idb.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.modelId)));
+        futures.add(executor.add((_) => idb.transaction('repo', 'readwrite').objectStore('repo').put(record.toString(), record.modelId)));
       }
     }
     await Future.wait(futures);
@@ -40,7 +40,7 @@ class Repo extends base.Repo {
 
   @override
   Future<void> putAll(Iterable<DataRecord> records) {
-    return executor.add(() async {
+    return executor.add((_) async {
       final tx = idb.transaction('repo', 'readwrite').objectStore('repo');
       for(var record in records) {
         if(record.isDelete) {

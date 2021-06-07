@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore.dart';
+import 'package:oobium/src/datastore/executor.dart';
 
 import 'repo_base.dart' as base;
 
@@ -10,8 +11,6 @@ class Repo extends base.Repo {
   Repo(Data data) : super(data);
 
   late File file;
-  int _length = 0;
-  int get length => _length;
 
   @override
   Future<Repo> open() async {
@@ -24,51 +23,59 @@ class Repo extends base.Repo {
   Stream<DataRecord> get([int? timestamp]) async* {
     // TODO timestamp unused
     for(var line in await file.readAsLines()) {
-      _length++;
       yield(DataRecord.fromLine(line));
     }
   }
 
   @override
   Future<void> put(Stream<DataRecord> records) {
-    return executor.add(() async {
+    return executor.add((e) async {
       final sink = file.openWrite(mode: FileMode.append);
       await for(var record in records) {
-        _length++;
+        if(e.isCanceled) break;
         sink.writeln(record);
       }
-      await sink.flush();
+      if(e.isNotCanceled) await sink.flush();
       await sink.close();
     });
   }
 
   @override
   Future<void> putAll(Iterable<DataRecord> records) {
-    return executor.add(() async {
+    return executor.add((e) async {
       final sink = file.openWrite(mode: FileMode.append);
       for(var record in records) {
-        _length++;
+        if(e.isCanceled) break;
         sink.writeln(record);
       }
-      await sink.flush();
+      if(e.isNotCanceled) await sink.flush();
       await sink.close();
     });
   }
 
   @override
   Future<void> reset(Iterable<DataRecord> records) async {
-    return executor.add(() async {
-      var count = 0;
+    executor.cancel();
+    executor = Executor();
+    return executor.add((e) async {
+      await Future.delayed(Duration());
+      if(e.isCanceled) {
+        return;
+      }
+      print('resetting');
+      final start = DateTime.now();
       final reset = File('${file.path}.reset');
       final sink = reset.openWrite(mode: FileMode.write);
       for(final record in records) {
-        count++;
+        if(e.isCanceled) {
+          break;
+        }
         sink.writeln(record);
       }
-      await sink.flush();
+      if(e.isNotCanceled) await sink.flush();
       await sink.close();
-      _length = count;
-      await reset.rename(file.path);
+      if(e.isNotCanceled) await reset.rename(file.path);
+      print('reset(${e.isNotCanceled}) in ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
     });
   }
 }

@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore/executor.dart';
-import 'package:oobium/src/datastore/models.dart';
-import 'package:oobium/src/datastore/repo.dart';
 import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/json.dart';
 import 'package:oobium/src/websocket.dart';
@@ -23,9 +20,11 @@ String dataPath([String? name]) => (name != null) ? '/ds/$name/data' : '/ds/data
 class Sync implements Connection {
 
   final Data ds;
-  final Models? models;
-  final Repo repo;
-  Sync(this.ds, this.repo, [this.models]);
+  final void Function(DataEvent event) onDataEvent;
+  final Iterable<DataModel> Function() onGetSyncRecords;
+  // final Models? models;
+  // final Repo repo;
+  Sync(this.ds, this.onDataEvent, this.onGetSyncRecords); //, this.repo, [this.models]);
 
   String? id;
   final binders = <String, Binder>{};
@@ -37,7 +36,7 @@ class Sync implements Connection {
     for(var replicant in replicants) {
       await replicant.flush();
     }
-    await repo.flush();
+    // await repo.flush();
   }
   
   Future<void> close() async {
@@ -54,8 +53,8 @@ class Sync implements Connection {
 
   Future<void> save() => throw UnsupportedError('platform not supported');
 
-  void put(Iterable<DataRecord> records) {
-    repo.putAll(records);
+  void putAll(Iterable<DataRecord> records) {
+    // repo.putAll(records);
     for(var replicant in replicants) {
       replicant.putAll(records);
     }
@@ -113,7 +112,8 @@ class Sync implements Connection {
   Future<void> _getReplicantData(WebSocket socket) async {
     final result = await socket.get(dataPath(), retry: true);
     if(result.isSuccess && result is WsStreamResult) {
-      await repo.put(result.data.transform(utf8.decoder).map((s) => DataRecord.fromLine(s)));
+      throw 'what is this for?';
+      // await repo.put(result.data.transform(utf8.decoder).map((s) => DataRecord.fromLine(s)));
     }
   }
 
@@ -168,8 +168,10 @@ class Binder {
     res.send(data: await _sync.createReplicant());
   }
 
+  // TODO only used by _getReplicantData... obsolete?
   Future<void> onGetData(WsRequest req, WsResponse res) async {
-    res.send(data: _sync.repo.get().map((r) => r.toJson()).transform(utf8.encoder));
+    throw 'not implemented';
+    // res.send(data: _sync.onGetData().map((r) => r.toJson()).transform(utf8.encoder)); // TODO was: repo.get()
   }
 
   Future<void> sendConnect() async {
@@ -202,7 +204,7 @@ class Binder {
     if(isFinished) return;
     if(isConnected && isPeerConnected && !isPeerSynced && !isPeerSyncing) {
       isPeerSyncing = true;
-      final records = await _replicant!.getSyncRecords(_sync.models!);
+      final records = await _replicant!.getSyncRecords(_sync.onGetSyncRecords()); // TODO was _sync.models!
       final data = await records.toList();
       // print('sendSync($_name: ${_sync.id}) $data');
       // final data = records.map((r) => r.toJsonString()).transform(utf8.encoder);
@@ -241,8 +243,7 @@ class Binder {
   Future<void> onData(data) async {
     final event = (data is DataEvent) ? data : (data is WsData) ? DataEvent.fromJson(data.value) : null;
     if(event != null && event.isNotEmpty && event.visit(localId)) {
-      _sync.models!.loadAll(event.records);
-      _sync.repo.putAll(event.records);
+      _sync.onDataEvent(event);
       for(var binder in _sync.binders.values) {
         if(event.notVisitedBy(binder.remoteId!)) {
           await binder.sendData(event);
@@ -291,7 +292,7 @@ class Replicant implements Connection {
   Future<void> flush() => _executor.flush();
   Future<void> close() => _executor.cancel();
 
-  Stream<DataRecord> getSyncRecords(Models models) => throw UnsupportedError('platform not supported');
+  Stream<DataRecord> getSyncRecords(Iterable<DataModel> models) => throw UnsupportedError('platform not supported');
 
   Future<void> save() => throw UnsupportedError('platform not supported');
   Future<void> saveRecords(Iterable<DataRecord> records) => throw UnsupportedError('platform not supported');
@@ -304,9 +305,9 @@ class Replicant implements Connection {
   void putAll(Iterable<DataRecord> records) async {
     if(records.isNotEmpty) {
       if(isConnected) {
-        _executor.add(() => _binder!.sendData(records).then((_) => save()));
+        _executor.add((_) => _binder!.sendData(records).then((_) => save()));
       } else {
-        _executor.add(() => saveRecords(records.where((r) => r.isDelete)));
+        _executor.add((_) => saveRecords(records.where((r) => r.isDelete)));
       }
     }
   }

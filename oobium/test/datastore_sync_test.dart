@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/datastore/repo.dart';
 import 'package:oobium/src/datastore/sync.dart';
 import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/websocket.dart';
@@ -20,7 +19,7 @@ Future<void> main() async {
     test('test no id first open', () async {
       final path = nextPath();
       final data = await Data(path).open();
-      final sync = Sync(data, Repo(data));
+      final sync = Sync(data, (_) => null, () => []);
       await sync.open();
       expect(sync.id, isNull);
     });
@@ -28,7 +27,7 @@ Future<void> main() async {
     test('test id auto-generated on replicate and maintained on open', () async {
       final path = nextPath();
       final data = await Data(path).open();
-      final sync = Sync(data, Repo(data));
+      final sync = Sync(data, (_) => null, () => []);
       await sync.open();
       await sync.createReplicant();
       expect(sync.id, isNotNull);
@@ -214,7 +213,7 @@ Future<void> main() async {
   });
 }
 
-DataStore datastore(String path) => DataStore(path, [(data) => TestType1.fromJson(data)]);
+DataStore datastore(String path) => DataStore(path, builders: [(data) => TestType1.fromJson(data)]);
 Future<DsTestServerClient> serverHybrid(String path, int port, [List<String> databases=const[]]) => DsTestServerClient.start(path, port);
 Future<void> cleanHybrid(String path) => DsTestServerClient.clean(path);
 

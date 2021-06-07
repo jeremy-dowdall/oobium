@@ -8,7 +8,7 @@ Future<void> main() async {
   final count = 10000;
   print('testPut($count)');
   final start = DateTime.now().millisecondsSinceEpoch;
-  final ds = await DataStore('test.ds', [(data) => TestType1.fromJson(data)]);
+  final ds = await DataStore('test.ds', builders: [(data) => TestType1.fromJson(data)]);
   await ds.open();
   final open = DateTime.now().millisecondsSinceEpoch;
   final models = ds.getAll<TestType1>().where((m) => m.name == 'test-999').toList();

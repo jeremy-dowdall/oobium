@@ -4,8 +4,8 @@ import 'package:oobium/oobium.dart';
 class AuthClientData {
   final DataStore _ds;
   AuthClientData(String path)
-      : _ds = DataStore(
-            '$path/auth_client', [(data) => Account.fromJson(data)], []);
+      : _ds = DataStore('$path/auth_client',
+            builders: [(data) => Account.fromJson(data)], indexes: []);
   Future<AuthClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>

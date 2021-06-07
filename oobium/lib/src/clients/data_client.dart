@@ -112,7 +112,7 @@ class DataClient {
   Future<void> _bind(DataStore? ds, String id) {
     if(_socket != null && ds != null) {
       _executor ??= Executor();
-      return _executor!.add(() {if(_socket != null) ds.bind(_socket!, name: id);});
+      return _executor!.add((_) {if(_socket != null) ds.bind(_socket!, name: id);});
     } else {
       return Future.value();
     }

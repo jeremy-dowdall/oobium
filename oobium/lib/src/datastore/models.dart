@@ -10,13 +10,20 @@ class DataIndex<T extends DataModel> {
   final _references = <dynamic, ObjectId>{};
   DataIndex({required this.toKey});
   void clear() => _references.clear();
-  ObjectId? getId(Object? key) => _references[key];
+  ObjectId? getModelId(Object? key) => _references[key];
   void remove(T model) => _references.remove(toKey(model));
   void put(T model) => _references[toKey(model)] = model._modelId;
   Type get type => T;
 }
 
 class Models {
+
+  final _builders = <String, Function(Map data)>{};
+  final _models = <ObjectId, DataModel>{};
+  final _indexes = <Type, DataIndex>{};
+  StreamController<Batch>? _controller;
+  var _recordCount = 0;
+
   Models(List<Function(Map data)> builders, List<DataIndex> indexes) {
     _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.map((k) => '$k').toSet(), {}, false);
     for(var builder in builders) {
@@ -27,11 +34,7 @@ class Models {
       _indexes[index.type] = index;
     }
   }
-  
-  final _builders = <String, Function(Map data)>{};
-  final _models = <ObjectId, DataModel>{};
-  final _indexes = <Type, DataIndex>{};
-  StreamController<Batch>? _controller;
+
   Stream<Batch> get _stream {
     _controller ??= StreamController<Batch>.broadcast(onCancel: () => _controller = null);
     return _controller!.stream;
@@ -60,14 +63,17 @@ class Models {
     return _controller?.close() ?? Future.value();
   }
 
-  bool any(ObjectId? id) => _models.containsKey(id);
-  bool none(ObjectId? id) => !any(id);
+  bool any(Object? id) => _models.containsKey(_resolve(id));
+  bool none(Object? id) => !any(id);
 
-  int get length => _models.length;
+  int get modelCount => _models.length;
   bool get isEmpty => _models.isEmpty;
   bool get isNotEmpty => _models.isNotEmpty;
 
-  Object? _resolve<T>(Object? o) => (o is DataModel) ? o._modelId : (o is ObjectId) ? o : _indexes[T]?.getId(o);
+  int get recordCount => _recordCount;
+  void resetRecordCount() => _recordCount = modelCount;
+
+  Object? _resolve<T>(Object? o) => (o is ObjectId) ? o : (o is DataModel) ? o._modelId : _indexes[T]?.getModelId(o);
 
   T? get<T extends DataModel>(Object? id, {T? Function()? orElse}) {
     id = _resolve<T>(id);
@@ -102,6 +108,7 @@ class Models {
         batch.puts.add(model);
       }
       for(var member in model._fields.models) {
+        // TODO deep child search; this only handles 1 layer
         if(member.isNotSameAs(_models[member._modelId])) {
           _put(member);
           batch.puts.add(member);
@@ -139,6 +146,7 @@ class Models {
   }
 
   T _put<T extends DataModel>(T model) {
+    _recordCount++;
     _models[model._modelId] = model;
     if(_indexes.containsKey(model.runtimeType)) {
       _indexes[model.runtimeType]!.put(model);
@@ -149,6 +157,7 @@ class Models {
   T? _remove<T extends DataModel>(T model) {
     final current = _models.remove(model._modelId);
     if(current != null) {
+      _recordCount++;
       if(_indexes.containsKey(current.runtimeType)) {
         _indexes[current.runtimeType]!.remove(current);
       }

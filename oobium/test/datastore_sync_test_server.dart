@@ -25,7 +25,7 @@ class DsTestServer {
   late DataStore ds;
 
   Future<void> start(String path, int port, List<String> databases) async {
-    ds = DataStore(path, [(data) => TestType1.fromJson(data)]);
+    ds = DataStore(path, builders: [(data) => TestType1.fromJson(data)]);
     await ds.reset();
 
     await TestWebsocketServer.start(port: port, onUpgrade: (socket) async {

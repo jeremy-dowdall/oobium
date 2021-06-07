@@ -4,16 +4,21 @@ import 'package:oobium/oobium.dart';
 class ModelGenTestData {
   final DataStore _ds;
   ModelGenTestData(String path)
-      : _ds = DataStore(
-            '$path/model_gen_test',
-            [(data) => User.fromJson(data), (data) => Message.fromJson(data)],
-            [DataIndex<User>(toKey: (m) => m.id)]);
+      : _ds = DataStore('$path/model_gen_test', builders: [
+          (data) => User.fromJson(data),
+          (data) => Message.fromJson(data)
+        ], indexes: [
+          DataIndex<User>(toKey: (m) => m.id)
+        ]);
   Future<ModelGenTestData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
       _ds.open(version: version, onUpgrade: onUpgrade).then((_) => this);
+  Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  bool get isEmpty => _ds.isEmpty;
+  bool get isNotEmpty => _ds.isNotEmpty;
   User? getUser(int? id, {User? Function()? orElse}) =>
       _ds.get<User>(id, orElse: orElse);
   Message? getMessage(ObjectId? id, {Message? Function()? orElse}) =>
@@ -33,6 +38,14 @@ class ModelGenTestData {
   Message putMessage({User? from, User? to, String? message}) =>
       _ds.put(Message(from: from, to: to, message: message));
   T remove<T extends ModelGenTestModel>(T model) => _ds.remove<T>(model);
+  Stream<User?> streamUser(int id) => _ds.stream<User>(id);
+  Stream<Message?> streamMessage(ObjectId id) => _ds.stream<Message>(id);
+  Stream<DataModelEvent<User>> streamUsers(
+          {bool Function(User model)? where}) =>
+      _ds.streamAll<User>(where: where);
+  Stream<DataModelEvent<Message>> streamMessages(
+          {bool Function(Message model)? where}) =>
+      _ds.streamAll<Message>(where: where);
 }
 
 abstract class ModelGenTestModel extends DataModel {

@@ -4,8 +4,8 @@ import 'package:oobium/oobium.dart';
 class DataClientData {
   final DataStore _ds;
   DataClientData(String path)
-      : _ds = DataStore(
-            '$path/data_client', [(data) => Definition.fromJson(data)], []);
+      : _ds = DataStore('$path/data_client',
+            builders: [(data) => Definition.fromJson(data)], indexes: []);
   Future<DataClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
