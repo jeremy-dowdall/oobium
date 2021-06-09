@@ -7,8 +7,8 @@ class Executor {
   bool get isCanceled => _canceled;
   bool get isNotCanceled => !isCanceled;
 
-  Future<void> add(FutureOr Function(Executor e) op) => _add(op);
-  
+  Future<T> add<T>(FutureOr<T> Function(Executor e) op) => _add(op).then((result) => result as T);
+
   Future<void> flush() => _last ?? Future.value();
 
   Future<void> cancel()  {
@@ -16,7 +16,7 @@ class Executor {
     return _last ?? Future.value();
   }
 
-  Future<void> _add(FutureOr Function(Executor e) op) async {
+  Future _add(FutureOr Function(Executor e) op) async {
     if(isCanceled) {
       return;
     }
@@ -28,13 +28,15 @@ class Executor {
       await prev;
     }
 
-    if(isNotCanceled) {
-      await op(this);
+    try {
+      if(isNotCanceled) {
+        return await op(this);
+      }
+    } finally {
+      if(identical(_last, completer.future)) {
+        _last = null;
+      }
+      completer.complete();
     }
-
-    if(identical(_last, completer.future)) {
-      _last = null;
-    }
-    completer.complete();
   }
 }

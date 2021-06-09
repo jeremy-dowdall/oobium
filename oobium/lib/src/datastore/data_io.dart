@@ -21,7 +21,7 @@ class Data {
       final oldData = (oldVersion > 0) ? (await Data(path).open(version: oldVersion)) : null;
       final upgraded = (await onUpgrade?.call(DataUpgradeEvent(oldVersion, oldData, newVersion, this))) ?? true;
       if(upgraded) {
-        await vf.writeAsString(newVersion.toString());
+        await vf.writeAsString('$newVersion');
         await oldData?.destroy();
       }
     }

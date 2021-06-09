@@ -3,9 +3,8 @@ import 'dart:convert';
 
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
+import 'package:oobium/src/datastore/workers.dart';
 import 'package:oobium/src/datastore/models.dart';
-import 'package:oobium/src/datastore/repo.dart';
-import 'package:oobium/src/datastore/sync.dart';
 import 'package:oobium/src/websocket.dart';
 import 'package:xstring/xstring.dart';
 
@@ -30,13 +29,10 @@ class DataStore {
     _compactionStrategy = compactionStrategy
   ;
 
-  int _version = 0;
   Models? _models;
-  Data? _data;
-  Repo? _repo;
-  Sync? _sync;
+  DataWorker? _worker;
 
-  int get version => _version;
+  int get version => _worker?.version ?? -1;
 
   int get size => _models?.modelCount ?? 0;
   bool get isEmpty => size == 0;
@@ -46,58 +42,33 @@ class DataStore {
   bool get isOpen => _open;
   bool get isNotOpen => !isOpen;
 
-  Future<DataStore> open({int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
+  Future<DataStore> open({String? isolate, int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
     if(isNotOpen) {
       _open = true;
-      _version = version;
-      _data = await Data(path).open(version: version, onUpgrade: (event) async {
-        if(onUpgrade != null) {
-          final oldRepo = (event.oldData != null) ? (await Repo(event.oldData!).open()) : null;
-          final stream = onUpgrade(UpgradeEvent._(event.oldVersion, event.newVersion, oldRepo?.get() ?? Stream<DataRecord>.empty()));
-          final newRepo = await Repo(event.newData).open();
-          newRepo.put(stream);
-          await newRepo.close();
-          await oldRepo?.close();
-        }
-        return true;
-      });
-      _repo = await Repo(_data!).open();
-      _models = await Models(_builders, _indexes).load(_repo!.get());
-      // TODO _sync disabled for now... (reworking)
-      // _sync = await Sync(_data!, _onDataEvent, _onGetSyncRecords).open(); //, _repo!, _models).open();
+      _worker = await DataWorker(path, isolate: isolate).open(version: version, onUpgrade: onUpgrade);
+      _models = await Models(_builders, _indexes).load(_worker!.getData());
     }
     return this;
   }
 
   Future<void> flush() async {
-    await _sync?.flush();
-    await _repo?.flush();
+    await _worker?.flush();
   }
 
   Future<void> close() async {
     _open = false;
-    await _sync?.flush();
-    await _sync?.close();
-    await _repo?.flush();
-    await _repo?.close();
-    await _data?.close();
+    await _worker?.close();
     await _models?.close();
+    _worker = null;
     _models = null;
-    _data = null;
-    _repo = null;
-    _sync = null;
   }
 
   Future<void> destroy() async {
     _open = false;
-    await _sync?.close();
-    await _repo?.close();
-    await _data?.destroy();
+    await _worker?.destroy();
     await _models?.close();
+    _worker = null;
     _models = null;
-    _data = null;
-    _repo = null;
-    _sync = null;
   }
 
   Future<void> reset({WebSocket? socket}) async {
@@ -129,18 +100,18 @@ class DataStore {
   Stream<T?> stream<T extends DataModel>(Object id) => _models!.stream<T>(id);
   Stream<DataModelEvent<T>> streamAll<T extends DataModel>({bool Function(T model)? where}) => _models!.streamAll<T>(where: where);
 
-  bool get isBound => _sync!.isBound;
-  bool get isNotBound => _sync!.isNotBound;
+  bool get isBound => false; // TODO _sync!.isBound;
+  bool get isNotBound => !isBound;
 
-  Future<void> bind(WebSocket socket, {String? name, bool wait = true}) => _sync!.bind(socket, name: name, wait: wait);
-  void unbind(WebSocket socket, {String? name}) => _sync?.unbind(socket, name: name);
+  Future<void> bind(WebSocket socket, {String? name, bool wait = true}) => Future.value(); // TODO _sync!.bind(socket, name: name, wait: wait);
+  void unbind(WebSocket socket, {String? name}) => null; // TODO _sync?.unbind(socket, name: name);
 
   Future<void> compact() {
-    final models = _models, repo = _repo;
-    if(models != null && repo != null) {
+    final models = _models, worker = _worker;
+    if(models != null && worker != null) {
       models.resetRecordCount();
       final records = models.getAll().map((m) => m.toDataRecord()).toList();
-      return repo.reset(records);
+      return worker.putData(reset: records);
     } else {
       return Future.value();
     }
@@ -153,23 +124,16 @@ class DataStore {
 
     if(batch.isNotEmpty) {
       if(_shouldCompact()) {
-        compact().then((_) => _sync?.putAll(batch.records));
+        compact();
         print('batch w/compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       } else {
-        _repo?.putAll(batch.records).then((_) => _sync?.putAll(batch.records));
+        _worker?.putData(update: batch.records);
         print('batch w/out compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       }
     }
 
     return batch.results;
   }
-
-  void _onDataEvent(DataEvent event) {
-    _models!.loadAll(event.records);
-    _repo!.putAll(event.records);
-  }
-
-  Iterable<DataModel> _onGetSyncRecords() => _models!.getAll();
 
   bool _shouldCompact() {
     final models = _models;
@@ -178,6 +142,13 @@ class DataStore {
     }
     return false;
   }
+
+  // TODO void _onDataEvent(DataEvent event) {
+  //   _models!.loadAll(event.records);
+  //   _repo!.putAll(event.records);
+  // }
+
+  // TODO Iterable<DataModel> _onGetSyncRecords() => _models!.getAll();
 }
 
 class DataRecord {
@@ -222,7 +193,7 @@ class UpgradeEvent {
   final int oldVersion;
   final int newVersion;
   final Stream<DataRecord> oldData;
-  UpgradeEvent._(this.oldVersion, this.newVersion, this.oldData);
+  UpgradeEvent(this.oldVersion, this.newVersion, this.oldData);
 }
 
 abstract class CompactionStrategy {
