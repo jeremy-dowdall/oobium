@@ -12,7 +12,7 @@ extension XString on String? {
     return this!.substring(start, max(start, end ?? size));
   }
 
-  String last(int count) => substr(size-count);
+  String last([int count=1]) => substr(size-count);
   String skip(int count) => substr(min(size, count));
   String take(int count) => substr(0, min(0, -(size-count)));
 

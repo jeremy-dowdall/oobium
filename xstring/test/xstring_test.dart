@@ -83,6 +83,7 @@ void main() {
     test('null.last(1)', () => expect(null.last(1), ''));
     test('asdf.last(1)', () => expect('asdf'.last(1), 'f'));
     test('asdf.last(2)', () => expect('asdf'.last(2), 'df'));
+    test('asdf.last()', () => expect('asdf'.last(), 'f'));
   });
 
   group('test take', () {

@@ -1,6 +1,6 @@
 name: xstring
 description: String extensions to make working with String? variables more convenient.
-version: 1.0.2
+version: 1.1.0
 repository: https://github.com/jeremy-dowdall/oobium
 
 environment:
