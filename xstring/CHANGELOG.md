@@ -1,3 +1,7 @@
+## 1.1.1
+
+* Display utils added (prefix and suffix).
+
 ## 1.1.0
 
 * Parsing and collection-like conveniences added (last, skip, take).

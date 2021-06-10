@@ -2,6 +2,9 @@ import 'dart:math';
 
 extension XString on String? {
 
+  String? prefix(String? prefix) => (this != null) ? ((prefix != null) ? '${prefix}${this}' : this) : null;
+  String? suffix(String? suffix) => (this != null) ? ((suffix != null) ? '${this}${suffix}' : this) : null;
+
   String substr(int start, [int? end]) {
     if(this == null) {
       return '';

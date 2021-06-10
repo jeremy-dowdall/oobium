@@ -105,4 +105,18 @@ void main() {
     test('asdf.skip(4)', () => expect('asdf'.skip(4), ''));
     test('asdf.skip(5)', () => expect('asdf'.skip(5), ''));
   });
+
+  group('test prefix', () {
+    test('null.prefix(null)', () => expect(null.prefix(null), null));
+    test('null.prefix("p")', () => expect(null.prefix('p'), null));
+    test('"s".prefix(null)', () => expect('s'.prefix(null), 's'));
+    test('"s".prefix("p")', () => expect('s'.prefix('p'), 'ps'));
+  });
+
+  group('test suffix', () {
+    test('null.suffix(null)', () => expect(null.suffix(null), null));
+    test('null.suffix("p")', () => expect(null.suffix('p'), null));
+    test('"s".suffix(null)', () => expect('s'.suffix(null), 's'));
+    test('"s".suffix("p")', () => expect('s'.suffix('p'), 'sp'));
+  });
 }
