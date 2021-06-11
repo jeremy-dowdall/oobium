@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/clients/auth_client.schema.g.dart';
 import 'package:oobium/src/clients/data_client.schema.g.dart';
-import 'package:oobium/src/datastore/executor.dart';
-import 'package:oobium/src/datastore.dart';
+import 'package:oobium/src/executor.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 import 'package:oobium/src/websocket.dart';
 
 const SchemaName = '__schema__';
@@ -92,9 +92,9 @@ class DataClient {
       if(_socket != null) {
         // TODO binding
         // _schema?.unbind(_socket!, name: SchemaName);
-        for(var ds in _datastores.values) {
-          ds.datastore.unbind(_socket!, name: ds.id.hexString);
-        }
+        // for(var ds in _datastores.values) {
+        //   ds.datastore.unbind(_socket!, name: ds.id.hexString);
+        // }
       }
 
       _socket = socket;
@@ -102,28 +102,28 @@ class DataClient {
       if(_socket != null) {
         // TODO binding
         // _bind(_schema, SchemaName);
-        for(var ds in _datastores.values) {
-          _bind(ds.datastore, ds.id.hexString);
-        }
+        // for(var ds in _datastores.values) {
+        //   _bind(ds.datastore, ds.id.hexString);
+        // }
       }
     }
   }
 
-  Future<void> _bind(DataStore? ds, String id) {
-    if(_socket != null && ds != null) {
-      _executor ??= Executor();
-      return _executor!.add((_) {if(_socket != null) ds.bind(_socket!, name: id);});
-    } else {
-      return Future.value();
-    }
-  }
+  // Future<void> _bind(DataStore? ds, String id) {
+  //   if(_socket != null && ds != null) {
+  //     _executor ??= Executor();
+  //     return _executor!.add((_) {if(_socket != null) ds.bind(_socket!, name: id);});
+  //   } else {
+  //     return Future.value();
+  //   }
+  // }
 
   Future<void> _add(Definition def) async {
     if(!_datastores.containsKey(def.id)) {
       final ds = await _builder(_path, def);
       if(ds != null) {
         _datastores[def.id] = DefinedDataStore(def, await ds.open());
-        _bind(ds, def.id.hexString);
+        // _bind(ds, def.id.hexString);
       }
     }
     _complete(def.id);
@@ -134,7 +134,7 @@ class DataClient {
 
   void _remove(Definition def) {
     final ds = _datastores.remove(def.id);
-    ds?.datastore.unbind(_socket!, name: def.id.hexString);
+    // ds?.datastore.unbind(_socket!, name: def.id.hexString);
     _complete(def.id);
     if(ds != null) {
       _controller.add(SchemaEvent._(null, ds.definition));

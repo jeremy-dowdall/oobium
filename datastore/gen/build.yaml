@@ -1,7 +1,7 @@
 builders:
 
   routesBuilder:
-    import: "package:oobium_gen/builders.dart"
+    import: "package:oobium_datastore_gen/builders.dart"
     builder_factories: ["schemaBuilder"]
     build_extensions: {".schema": [".schema.g.dart"]}
     build_to: source

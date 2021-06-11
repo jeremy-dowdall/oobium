@@ -1,11 +1,12 @@
-import 'package:objectid/objectid.dart';
-import 'package:oobium/oobium.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 
 class AuthClientData {
   final DataStore _ds;
-  AuthClientData(String path)
+  AuthClientData(String path, {String? isolate})
       : _ds = DataStore('$path/auth_client',
-            builders: [(data) => Account.fromJson(data)], indexes: []);
+            isolate: isolate,
+            builders: [(data) => Account.fromJson(data)],
+            indexes: []);
   Future<AuthClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -33,6 +34,8 @@ class AuthClientData {
           (lastConnectedAt == null || lastConnectedAt == m.lastConnectedAt) &&
           (lastOpenedAt == null || lastOpenedAt == m.lastOpenedAt));
   T put<T extends AuthClientModel>(T model) => _ds.put<T>(model);
+  List<T> putAll<T extends AuthClientModel>(Iterable<T> models) =>
+      _ds.putAll<T>(models);
   Account putAccount(
           {required String uid,
           String? token,
@@ -48,6 +51,8 @@ class AuthClientData {
           lastConnectedAt: lastConnectedAt,
           lastOpenedAt: lastOpenedAt));
   T remove<T extends AuthClientModel>(T model) => _ds.remove<T>(model);
+  List<T> removeAll<T extends AuthClientModel>(Iterable<T> models) =>
+      _ds.removeAll<T>(models);
   Stream<Account?> streamAccount(ObjectId id) => _ds.stream<Account>(id);
   Stream<DataModelEvent<Account>> streamAccounts(
           {bool Function(Account model)? where}) =>

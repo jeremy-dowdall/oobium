@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:build/build.dart';
 import 'package:dart_style/dart_style.dart';
-import 'package:oobium_gen/src/schema_generator.dart';
-import 'package:oobium_gen/src/schema_parser.dart';
+import 'package:oobium_datastore_gen/src/schema_generator.dart';
+import 'package:oobium_datastore_gen/src/schema_parser.dart';
 
 class SchemaBuilder implements Builder {
   @override

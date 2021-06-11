@@ -2,10 +2,9 @@ import 'dart:convert';
 import 'dart:core';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/datastore/models.dart';
-import 'package:oobium/src/datastore/sync.dart';
-import 'package:oobium/src/datastore.dart';
+import 'package:oobium_datastore/src/datastore/data.dart';
+import 'package:oobium_datastore/src/datastore/models.dart';
+import 'package:oobium_datastore/src/datastore.dart';
 import 'package:test/test.dart';
 
 import 'utils/test_utils.dart';
@@ -135,19 +134,6 @@ Future<void> main() async {
 
     expect(ds.get(model.id), isNotNull);
     expect(ds.get(model.id)?.isSameAs(model), isTrue); // runtimeType is different, but id and contents are the same
-  });
-
-  test('test data event serialization', () {
-    final record = DataRecord.fromModel(TestType1(name: 'test-model-01'));
-    final event = DataEvent('test-id-01', [record]);
-    final json = event.toJson();
-    expect(json['history'], ['test-id-01']);
-    expect(json['records'], [record.toJson()]);
-
-    final restored = DataEvent.fromJson(json);
-    expect(restored.history, {'test-id-01'});
-    expect(restored.records, isNotEmpty);
-    expect(restored.records.first.toJson(), record.toJson());
   });
 
   test('test data stored in memory', () async {

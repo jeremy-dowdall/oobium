@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:isolate';
 
-import 'package:oobium/src/datastore.dart';
-import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/executor.dart';
-import 'package:oobium/src/datastore/repo.dart';
+import 'package:oobium_datastore/src/datastore.dart';
+import 'package:oobium_datastore/src/datastore/data.dart';
+import 'package:oobium_datastore/src/datastore/executor.dart';
+import 'package:oobium_datastore/src/datastore/repo.dart';
 import 'package:stream_channel/isolate_channel.dart';
 import 'package:stream_channel/stream_channel.dart';
 

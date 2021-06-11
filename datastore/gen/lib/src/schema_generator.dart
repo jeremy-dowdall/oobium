@@ -1,4 +1,4 @@
-import 'package:oobium_gen/src/schema_parser.dart';
+import 'package:oobium_datastore_gen/src/schema_parser.dart';
 import 'package:xstring/xstring.dart';
 
 enum LibraryType { builders, models, scaffolding }
@@ -11,8 +11,7 @@ class SchemaGenerator {
   factory SchemaGenerator.generate(String name, Schema schema) {
     final imports = <String>[
       ...schema.imports,
-      "import 'package:objectid/objectid.dart';",
-      "import 'package:oobium/oobium.dart';",
+      "import 'package:oobium_datastore/oobium_datastore.dart';",
     ].toSet().toList()..sort();
 
     final dsName = '${name.camelCase}Data';

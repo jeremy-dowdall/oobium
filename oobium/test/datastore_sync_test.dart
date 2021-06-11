@@ -15,6 +15,21 @@ Future<void> main() async {
   setUpAll(() async => await cleanHybrid('test-data'));
   tearDownAll(() async => await cleanHybrid('test-data'));
 
+  group('sync events', () {
+    test('test data event serialization', () {
+      final record = DataRecord.fromModel(TestType1(name: 'test-model-01'));
+      final event = DataEvent('test-id-01', [record]);
+      final json = event.toJson();
+      expect(json['history'], ['test-id-01']);
+      expect(json['records'], [record.toJson()]);
+
+      final restored = DataEvent.fromJson(json);
+      expect(restored.history, {'test-id-01'});
+      expect(restored.records, isNotEmpty);
+      expect(restored.records.first.toJson(), record.toJson());
+    });
+  });
+
   group('sync lifecycle', () {
     test('test no id first open', () async {
       final path = nextPath();

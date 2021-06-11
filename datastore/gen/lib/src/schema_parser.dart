@@ -1,5 +1,5 @@
 import 'package:collection/collection.dart';
-import 'package:oobium_gen/src/model.dart';
+import 'package:oobium_datastore_gen/src/model.dart';
 import 'package:xstring/xstring.dart';
 
 class SchemaParser {

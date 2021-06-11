@@ -1,4 +1,4 @@
-name: oobium_gen
+name: oobium_datastore_gen
 description: Generators for Oobium
 version: 0.1.0+1
 repository: https://github.com/jeremy-dowdall/oobium
@@ -11,7 +11,10 @@ environment:
 dependencies:
   build: ^2.0.2
   dart_style: ^2.0.1
-  xstring: ^1.0.2
+  xstring: ^1.1.1
 
 dev_dependencies:
+  test: ^1.15.3
   build_runner: ^2.0.4
+  oobium_datastore:
+    path: ../

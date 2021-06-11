@@ -1,16 +1,15 @@
-import 'package:objectid/objectid.dart';
-import 'package:oobium/oobium.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 
 class AuthServiceData {
   final DataStore _ds;
-  AuthServiceData(String path)
-      : _ds = DataStore('$path/auth_service', [
+  AuthServiceData(String path, {String? isolate})
+      : _ds = DataStore('$path/auth_service', isolate: isolate, builders: [
           (data) => User.fromJson(data),
           (data) => Token.fromJson(data),
           (data) => Link.fromJson(data),
           (data) => Group.fromJson(data),
           (data) => Membership.fromJson(data)
-        ], []);
+        ], indexes: []);
   Future<AuthServiceData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -65,6 +64,8 @@ class AuthServiceData {
           (group == null || group == m.group) &&
           (invitedBy == null || invitedBy == m.invitedBy));
   T put<T extends AuthServiceModel>(T model) => _ds.put<T>(model);
+  List<T> putAll<T extends AuthServiceModel>(Iterable<T> models) =>
+      _ds.putAll<T>(models);
   User putUser(
           {required String name,
           String? avatar,
@@ -87,6 +88,8 @@ class AuthServiceData {
           required User invitedBy}) =>
       _ds.put(Membership(user: user, group: group, invitedBy: invitedBy));
   T remove<T extends AuthServiceModel>(T model) => _ds.remove<T>(model);
+  List<T> removeAll<T extends AuthServiceModel>(Iterable<T> models) =>
+      _ds.removeAll<T>(models);
   Stream<User?> streamUser(ObjectId id) => _ds.stream<User>(id);
   Stream<Token?> streamToken(ObjectId id) => _ds.stream<Token>(id);
   Stream<Link?> streamLink(ObjectId id) => _ds.stream<Link>(id);

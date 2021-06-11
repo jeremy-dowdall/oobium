@@ -221,13 +221,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.0"
-  http:
-    dependency: transitive
-    description:
-      name: http
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.13.3"
   http_multi_server:
     dependency: transitive
     description:
@@ -298,14 +291,14 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.0"
-  oobium:
+  oobium_datastore:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.0.0"
-  oobium_gen:
+    version: "1.0.0"
+  oobium_datastore_gen:
     dependency: "direct dev"
     description:
       path: "../gen"

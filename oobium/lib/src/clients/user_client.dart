@@ -1,6 +1,7 @@
 import 'package:objectid/objectid.dart';
 import 'package:oobium/oobium.dart';
 import 'package:oobium/src/websocket.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 
 class UserClient {
 

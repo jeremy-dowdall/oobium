@@ -3,6 +3,7 @@
 // Do not manually edit this file.
 
 import 'dart:async' as _i9;
+import 'dart:io' as _i3;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:oobium/src/datastore/models.dart' as _i8;
@@ -11,7 +12,6 @@ import 'package:oobium_server/src/server.dart' as _i6;
 import 'package:oobium_server/src/server_settings.dart' as _i5;
 import 'package:oobium_server/src/service.dart' as _i2;
 import 'package:oobium_server/src/services/auth_service.dart' as _i7;
-import 'package:oobium_server/src/services/auth_service.schema.g.dart' as _i3;
 
 import 'auth_service_test.dart' as _i10;
 
@@ -25,15 +25,7 @@ class _FakeServices<P> extends _i1.Fake implements _i2.Services<P> {}
 
 class _FakeType extends _i1.Fake implements Type {}
 
-class _FakeGroup extends _i1.Fake implements _i3.Group {}
-
-class _FakeMembership extends _i1.Fake implements _i3.Membership {}
-
-class _FakeUser extends _i1.Fake implements _i3.User {}
-
 class _FakeLink extends _i1.Fake implements _i3.Link {}
-
-class _FakeToken extends _i1.Fake implements _i3.Token {}
 
 class _FakeWsResult extends _i1.Fake implements _i4.WsResult {}
 
@@ -80,49 +72,35 @@ class MockAuthService extends _i1.Mock implements _i7.AuthService {
           Invocation.method(#batch, [], {#put: put, #remove: remove}),
           returnValue: <T?>[]) as List<T?>);
   @override
-  _i3.Group? getGroup(String? id) =>
-      (super.noSuchMethod(Invocation.method(#getGroup, [id])) as _i3.Group?);
+  dynamic getGroup(String? id) =>
+      super.noSuchMethod(Invocation.method(#getGroup, [id]));
   @override
-  Iterable<_i3.Group> getGroups() =>
+  Iterable<dynamic> getGroups() =>
       (super.noSuchMethod(Invocation.method(#getGroups, []), returnValue: [])
-          as Iterable<_i3.Group>);
+          as Iterable<dynamic>);
   @override
-  _i3.Group putGroup(_i3.Group? group) =>
-      (super.noSuchMethod(Invocation.method(#putGroup, [group]),
-          returnValue: _FakeGroup()) as _i3.Group);
+  dynamic removeGroup(String? id) =>
+      super.noSuchMethod(Invocation.method(#removeGroup, [id]));
   @override
-  _i3.Group? removeGroup(String? id) =>
-      (super.noSuchMethod(Invocation.method(#removeGroup, [id])) as _i3.Group?);
+  dynamic getMembership(String? id) =>
+      super.noSuchMethod(Invocation.method(#getMembership, [id]));
   @override
-  _i3.Membership? getMembership(String? id) =>
-      (super.noSuchMethod(Invocation.method(#getMembership, [id]))
-          as _i3.Membership?);
-  @override
-  Iterable<_i3.Membership> getMemberships() => (super
+  Iterable<dynamic> getMemberships() => (super
           .noSuchMethod(Invocation.method(#getMemberships, []), returnValue: [])
-      as Iterable<_i3.Membership>);
+      as Iterable<dynamic>);
   @override
-  _i3.Membership putMembership(_i3.Membership? membership) =>
-      (super.noSuchMethod(Invocation.method(#putMembership, [membership]),
-          returnValue: _FakeMembership()) as _i3.Membership);
+  dynamic removeMembership(String? id) =>
+      super.noSuchMethod(Invocation.method(#removeMembership, [id]));
   @override
-  _i3.Membership? removeMembership(String? id) =>
-      (super.noSuchMethod(Invocation.method(#removeMembership, [id]))
-          as _i3.Membership?);
+  dynamic getUser(String? id) =>
+      super.noSuchMethod(Invocation.method(#getUser, [id]));
   @override
-  _i3.User? getUser(String? id) =>
-      (super.noSuchMethod(Invocation.method(#getUser, [id])) as _i3.User?);
-  @override
-  Iterable<_i3.User> getUsers() =>
+  Iterable<dynamic> getUsers() =>
       (super.noSuchMethod(Invocation.method(#getUsers, []), returnValue: [])
-          as Iterable<_i3.User>);
+          as Iterable<dynamic>);
   @override
-  _i3.User putUser(_i3.User? user) =>
-      (super.noSuchMethod(Invocation.method(#putUser, [user]),
-          returnValue: _FakeUser()) as _i3.User);
-  @override
-  _i3.User? removeUser(String? id) =>
-      (super.noSuchMethod(Invocation.method(#removeUser, [id])) as _i3.User?);
+  dynamic removeUser(String? id) =>
+      super.noSuchMethod(Invocation.method(#removeUser, [id]));
   @override
   _i3.Link? getLink(String? id) =>
       (super.noSuchMethod(Invocation.method(#getLink, [id])) as _i3.Link?);
@@ -138,52 +116,47 @@ class MockAuthService extends _i1.Mock implements _i7.AuthService {
   _i3.Link? removeLink(String? id) =>
       (super.noSuchMethod(Invocation.method(#removeLink, [id])) as _i3.Link?);
   @override
-  _i3.Token? getToken(String? id) =>
-      (super.noSuchMethod(Invocation.method(#getToken, [id])) as _i3.Token?);
+  dynamic getToken(String? id) =>
+      super.noSuchMethod(Invocation.method(#getToken, [id]));
   @override
-  Iterable<_i3.Token> getTokens() =>
+  Iterable<dynamic> getTokens() =>
       (super.noSuchMethod(Invocation.method(#getTokens, []), returnValue: [])
-          as Iterable<_i3.Token>);
-  @override
-  _i3.Token putToken(_i3.Token? token) =>
-      (super.noSuchMethod(Invocation.method(#putToken, [token]),
-          returnValue: _FakeToken()) as _i3.Token);
+          as Iterable<dynamic>);
   @override
   _i9.Stream<_i8.DataModelEvent<_i8.DataModel>> streamAll() =>
       (super.noSuchMethod(Invocation.method(#streamAll, []),
               returnValue: Stream<_i8.DataModelEvent<_i8.DataModel>>.empty())
           as _i9.Stream<_i8.DataModelEvent<_i8.DataModel>>);
   @override
-  _i9.Stream<_i8.DataModelEvent<_i3.Group>> streamGroups(
-          {bool Function(_i3.Group)? where}) =>
+  _i9.Stream<_i8.DataModelEvent<dynamic>> streamGroups(
+          {bool Function(dynamic)? where}) =>
       (super.noSuchMethod(Invocation.method(#streamGroups, [], {#where: where}),
-              returnValue: Stream<_i8.DataModelEvent<_i3.Group>>.empty())
-          as _i9.Stream<_i8.DataModelEvent<_i3.Group>>);
+              returnValue: Stream<_i8.DataModelEvent<dynamic>>.empty())
+          as _i9.Stream<_i8.DataModelEvent<dynamic>>);
   @override
-  _i9.Stream<_i8.DataModelEvent<_i3.Membership>> streamMemberships(
-          {bool Function(_i3.Membership)? where}) =>
+  _i9.Stream<_i8.DataModelEvent<dynamic>> streamMemberships(
+          {bool Function(dynamic)? where}) =>
       (super.noSuchMethod(
               Invocation.method(#streamMemberships, [], {#where: where}),
-              returnValue: Stream<_i8.DataModelEvent<_i3.Membership>>.empty())
-          as _i9.Stream<_i8.DataModelEvent<_i3.Membership>>);
+              returnValue: Stream<_i8.DataModelEvent<dynamic>>.empty())
+          as _i9.Stream<_i8.DataModelEvent<dynamic>>);
   @override
-  _i9.Stream<_i8.DataModelEvent<_i3.User>> streamUsers(
-          {bool Function(_i3.User)? where}) =>
+  _i9.Stream<_i8.DataModelEvent<dynamic>> streamUsers(
+          {bool Function(dynamic)? where}) =>
       (super.noSuchMethod(Invocation.method(#streamUsers, [], {#where: where}),
-              returnValue: Stream<_i8.DataModelEvent<_i3.User>>.empty())
-          as _i9.Stream<_i8.DataModelEvent<_i3.User>>);
+              returnValue: Stream<_i8.DataModelEvent<dynamic>>.empty())
+          as _i9.Stream<_i8.DataModelEvent<dynamic>>);
   @override
-  _i3.Token? consume(String? code) =>
-      (super.noSuchMethod(Invocation.method(#consume, [code])) as _i3.Token?);
+  dynamic consume(String? code) =>
+      super.noSuchMethod(Invocation.method(#consume, [code]));
   @override
   String? getUserToken(String? uid, {bool? forceNew = false}) =>
       (super.noSuchMethod(
               Invocation.method(#getUserToken, [uid], {#forceNew: forceNew}))
           as String?);
   @override
-  _i3.User? updateUserToken(String? uid) =>
-      (super.noSuchMethod(Invocation.method(#updateUserToken, [uid]))
-          as _i3.User?);
+  dynamic updateUserToken(String? uid) =>
+      super.noSuchMethod(Invocation.method(#updateUserToken, [uid]));
   @override
   void onAttach(_i6.Host? host) =>
       super.noSuchMethod(Invocation.method(#onAttach, [host]),

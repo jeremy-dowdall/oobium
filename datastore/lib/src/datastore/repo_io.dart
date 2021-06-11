@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/datastore.dart';
-import 'package:oobium/src/executor.dart';
+import 'package:oobium_datastore/src/datastore/data.dart';
+import 'package:oobium_datastore/src/datastore.dart';
+import 'package:oobium_datastore/src/datastore/executor.dart';
 
 import 'repo_base.dart' as base;
 

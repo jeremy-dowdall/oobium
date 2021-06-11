@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:oobium_gen/src/schema_generator.dart';
-import 'package:oobium_gen/src/schema_parser.dart';
+import 'package:oobium_datastore_gen/src/schema_generator.dart';
+import 'package:oobium_datastore_gen/src/schema_parser.dart';
 
 Future<void> main(List<String> args) async {
   final params = _params(args);

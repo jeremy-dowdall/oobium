@@ -1,10 +1,9 @@
-import 'package:objectid/objectid.dart';
-import 'package:oobium/oobium.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 
 class UserClientData {
   final DataStore _ds;
-  UserClientData(String path)
-      : _ds = DataStore('$path/user_client', builders: [
+  UserClientData(String path, {String? isolate})
+      : _ds = DataStore('$path/user_client', isolate: isolate, builders: [
           (data) => User.fromJson(data),
           (data) => Group.fromJson(data),
           (data) => Membership.fromJson(data)
@@ -40,6 +39,8 @@ class UserClientData {
           (user == null || user == m.user) &&
           (group == null || group == m.group));
   T put<T extends UserClientModel>(T model) => _ds.put<T>(model);
+  List<T> putAll<T extends UserClientModel>(Iterable<T> models) =>
+      _ds.putAll<T>(models);
   User putUser({required String name, required String avatar}) =>
       _ds.put(User(name: name, avatar: avatar));
   Group putGroup({required String name, required User owner}) =>
@@ -47,6 +48,8 @@ class UserClientData {
   Membership putMembership({required User user, required Group group}) =>
       _ds.put(Membership(user: user, group: group));
   T remove<T extends UserClientModel>(T model) => _ds.remove<T>(model);
+  List<T> removeAll<T extends UserClientModel>(Iterable<T> models) =>
+      _ds.removeAll<T>(models);
   Stream<User?> streamUser(ObjectId id) => _ds.stream<User>(id);
   Stream<Group?> streamGroup(ObjectId id) => _ds.stream<Group>(id);
   Stream<Membership?> streamMembership(ObjectId id) =>

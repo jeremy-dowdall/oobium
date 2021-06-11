@@ -1,11 +1,12 @@
-import 'package:objectid/objectid.dart';
-import 'package:oobium/oobium.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 
 class DataClientData {
   final DataStore _ds;
-  DataClientData(String path)
+  DataClientData(String path, {String? isolate})
       : _ds = DataStore('$path/data_client',
-            builders: [(data) => Definition.fromJson(data)], indexes: []);
+            isolate: isolate,
+            builders: [(data) => Definition.fromJson(data)],
+            indexes: []);
   Future<DataClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -23,9 +24,13 @@ class DataClientData {
           (name == null || name == m.name) &&
           (access == null || access == m.access));
   T put<T extends DataClientModel>(T model) => _ds.put<T>(model);
+  List<T> putAll<T extends DataClientModel>(Iterable<T> models) =>
+      _ds.putAll<T>(models);
   Definition putDefinition({required String name, String? access}) =>
       _ds.put(Definition(name: name, access: access));
   T remove<T extends DataClientModel>(T model) => _ds.remove<T>(model);
+  List<T> removeAll<T extends DataClientModel>(Iterable<T> models) =>
+      _ds.removeAll<T>(models);
   Stream<Definition?> streamDefinition(ObjectId id) =>
       _ds.stream<Definition>(id);
   Stream<DataModelEvent<Definition>> streamDefinitions(

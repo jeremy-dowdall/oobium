@@ -10,7 +10,7 @@ void main() async {
   final dir = await getApplicationDocumentsDirectory();
   final path = '${dir.path}/demo-data';
   runApp(MyApp(
-    ds: await MainData(path, isolate: 'demo').open(),
+    ds: await MainData(path, isolate: 'll').open(),
   ));
 }
 
@@ -49,6 +49,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   late final AnimationController controller;
   late final Animation<double> angleAnimation;
 
+  var streamNew = false;
+  var streamDup = false;
+  void stream() async {
+    if(streamNew) {
+      final author = widget.ds.getAuthors().first;
+      widget.ds.putAll(List.generate(100, (i) => Book(title: 'test-1-$i', author: author)));
+    }
+    if(streamDup) {
+      final book = widget.ds.getBooks().first;
+      widget.ds.putAll(List.generate(100, (i) => book.copyWith(title: 'test-1-$i')));
+    }
+    await Future.delayed(Duration(milliseconds: 1));
+    stream();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +73,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       setState(() {});
     });
     controller.repeat();
+    stream();
   }
 
   @override
@@ -105,18 +121,20 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Text('Authors'),
+                  Container(width: 16,),
                   ElevatedButton(
-                    child: Text('Add Items'),
+                    child: Text('Add New'),
                     onPressed: () {
-                      widget.ds.putAll(List.generate(50, (i) => Author(name: 'test-1-$i')));
+                      widget.ds.putAll(List.generate(100, (i) => Author(name: 'test-1-$i')));
                     },
                   ),
                   Container(width: 16,),
                   ElevatedButton(
-                    child: Text('Add Dups'),
+                    child: Text('Add Dup'),
                     onPressed: () {
                       final model = widget.ds.getAuthors().first;
-                      widget.ds.putAll(List.generate(50, (i) => model.copyWith(name: '${model.name}/test-1-$i')));
+                      widget.ds.putAll(List.generate(100, (i) => model.copyWith(name: '${model.name}/test-1-$i')));
                     },
                   ),
                   Container(width: 16,),
@@ -128,7 +146,47 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   ),
                 ],
               ),
-            )
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text('New Books'),
+                  Container(width: 16,),
+                  ElevatedButton(
+                    child: Text('Start'),
+                    onPressed: () => streamNew = true,
+                  ),
+                  Container(width: 16,),
+                  ElevatedButton(
+                    child: Text('Stop'),
+                    onPressed: () => streamNew = false,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text('Dup Books'),
+                  Container(width: 16,),
+                  ElevatedButton(
+                    child: Text('Start'),
+                    onPressed: () => streamDup = true,
+                  ),
+                  Container(width: 16,),
+                  ElevatedButton(
+                    child: Text('Stop'),
+                    onPressed: () => streamDup = false,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
