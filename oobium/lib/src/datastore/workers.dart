@@ -86,7 +86,7 @@ class DataWorkerServer {
       final cmd = event as List;
       final op = cmd[0];
       final worker = (cmd.length > 1) ? workers[cmd[1]] : null;
-      print('received: ${cmd.take(2)}');
+      print('received: [${cmd.take(2).join(', ')}${cmd.length>2?', ${cmd[2]?.length}':''}]');
       switch(op) {
         case 'open':
           final port = count++;

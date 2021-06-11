@@ -16,6 +16,9 @@
       <excludeFolder url="file://$MODULE_DIR$/oobium/builders/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/builders/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/builders/build" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/oobium/example/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/gen/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/gen/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/gen/build" />

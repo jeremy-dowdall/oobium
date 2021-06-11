@@ -15,10 +15,12 @@ class DataStore {
   static Future<void> clean(String path) => Data(path).destroy();
 
   final String path;
+  final String? isolate;
   final List<Function(Map data)> _builders;
   final List<DataIndex> _indexes;
   final CompactionStrategy _compactionStrategy;
   DataStore(this.path, {
+    this.isolate,
     List<Function(Map data)> builders = const[],
     List<DataIndex> indexes = const[],
     CompactionStrategy compactionStrategy = const DefaultCompactionStrategy()
@@ -42,7 +44,7 @@ class DataStore {
   bool get isOpen => _open;
   bool get isNotOpen => !isOpen;
 
-  Future<DataStore> open({String? isolate, int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
+  Future<DataStore> open({int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
     if(isNotOpen) {
       _open = true;
       _worker = await DataWorker(path, isolate: isolate).open(version: version, onUpgrade: onUpgrade);

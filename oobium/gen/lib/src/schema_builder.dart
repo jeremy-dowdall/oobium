@@ -13,11 +13,11 @@ class SchemaBuilder implements Builder {
     final lines = LineSplitter.split(contents);
     final schema = SchemaParser(lines).parse();
     if(schema != null) {
-      final formatter = DartFormatter();
-      final gen = SchemaGenerator.generate(inputId.pathSegments.last, schema);
+      final name = inputId.pathSegments.last.split('.')[0];
+      final gen = SchemaGenerator.generate(name, schema);
       await buildStep.writeAsString(
         inputId.addExtension('.g.dart'),
-        formatter.format(gen.library)
+        _tryFormat(gen.library)
       );
     }
   }
@@ -26,4 +26,13 @@ class SchemaBuilder implements Builder {
   final buildExtensions = const {
     '.schema': ['.schema.g.dart']
   };
+
+  String _tryFormat(String source) {
+    try {
+      return DartFormatter().format(source);
+    } catch(e,s) {
+      print('$e\n$s');
+      return source;
+    }
+  }
 }

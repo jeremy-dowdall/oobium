@@ -41,7 +41,7 @@ void main() {
   });
 
   test('test compacting - isolate', () async {
-    final ds = await createDatastore(testFile).open(isolate: testFile);
+    final ds = await createDatastore(testFile, isolate: testFile).open();
     final file = File('${ds.path}/1/repo');
     final m = TestType1();
 
