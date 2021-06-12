@@ -190,13 +190,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.0"
-  http:
-    dependency: "direct main"
-    description:
-      name: http
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.13.3"
   http_multi_server:
     dependency: transitive
     description:
@@ -247,7 +240,7 @@ packages:
     source: hosted
     version: "0.12.10"
   meta:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: meta
       url: "https://pub.dartlang.org"
@@ -260,13 +253,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.0.0"
-  mockito:
-    dependency: "direct dev"
-    description:
-      name: mockito
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "5.0.10"
   node_preamble:
     dependency: transitive
     description:
@@ -274,41 +260,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.0"
-  objectid:
-    dependency: "direct main"
-    description:
-      name: objectid
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "2.0.0"
-  oobium:
-    dependency: "direct main"
-    description:
-      path: "../oobium"
-      relative: true
-    source: path
-    version: "0.0.0"
-  oobium_datastore:
-    dependency: "direct main"
-    description:
-      path: "../datastore"
-      relative: true
-    source: path
-    version: "1.0.0"
-  oobium_datastore_gen:
-    dependency: "direct dev"
-    description:
-      path: "../datastore/gen"
-      relative: true
-    source: path
-    version: "0.1.0+1"
-  oobium_websocket:
-    dependency: "direct main"
-    description:
-      path: "../websocket"
-      relative: true
-    source: path
-    version: "0.1.0+1"
   package_config:
     dependency: transitive
     description:
@@ -324,7 +275,7 @@ packages:
     source: hosted
     version: "1.8.0"
   pedantic:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: pedantic
       url: "https://pub.dartlang.org"
@@ -379,13 +330,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.0.1"
-  source_gen:
-    dependency: transitive
-    description:
-      name: source_gen
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.0.2"
   source_map_stack_trace:
     dependency: transitive
     description:
@@ -415,7 +359,7 @@ packages:
     source: hosted
     version: "1.10.0"
   stream_channel:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: stream_channel
       url: "https://pub.dartlang.org"

@@ -1,5 +1,5 @@
-name: oobium_datastore_gen
-description: Generators for Oobium
+name: oobium_websocket
+description: Websocket implementation for clients and servers
 version: 0.1.0+1
 repository: https://github.com/jeremy-dowdall/oobium
 
@@ -9,13 +9,9 @@ environment:
   sdk: ">=2.12.0 <3.0.0"
 
 dependencies:
-  build: ^2.0.2
   collection: ^1.15.0
-  dart_style: ^2.0.1
   xstring: ^1.1.1
 
 dev_dependencies:
   test: ^1.15.3
   build_runner: ^2.0.4
-  oobium_datastore:
-    path: ../
