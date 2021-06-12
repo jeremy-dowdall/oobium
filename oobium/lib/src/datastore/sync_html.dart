@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:indexed_db';
 
 import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/datastore/executor.dart';
 import 'package:oobium/src/datastore.dart' show DataModel, DataRecord;
 
 import 'sync_base.dart' as base;
@@ -13,7 +12,6 @@ class Sync extends base.Sync {
   Sync(Data ds, Function(base.DataEvent event) onDataEvent, Iterable<DataModel> Function() onGetSyncRecords) : super(ds, onDataEvent, onGetSyncRecords);
 
   late Database idb;
-  final executor = Executor();
 
   @override
   Future<Sync> open() async {

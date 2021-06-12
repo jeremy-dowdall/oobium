@@ -2,7 +2,7 @@ import 'package:oobium_datastore/src/datastore/data.dart';
 import 'package:oobium_datastore/src/datastore/executor.dart';
 import 'package:oobium_datastore/src/datastore.dart';
 
-class Repo implements Connection {
+class Repo implements DataConnection {
 
   final Data data;
   var executor = Executor();

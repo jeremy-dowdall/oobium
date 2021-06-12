@@ -2,17 +2,19 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:indexed_db';
 
-class Data {
+import 'package:oobium_datastore/src/datastore/data.dart';
+import 'package:oobium_datastore/src/datastore/data_.dart';
 
-  final String path;
-  final _connections = <Connection>[];
-  Data(this.path);
+class DataHtml implements DataPlatform {
+
+  final Data data;
+  DataHtml(this.data);
 
   Database? idb;
 
-  Future<Data> open({int? version, FutureOr<bool> Function(DataUpgradeEvent event)? onUpgrade}) async {
+  Future<void> open({int? version, FutureOr<bool> Function(DataUpgradeEvent event)? onUpgrade}) async {
     assert(window.indexedDB != null);
-    idb = await window.indexedDB!.open('$path/$version', version: version,
+    idb = await window.indexedDB!.open('${data.path}/$version', version: version,
       onUpgradeNeeded: (event) async {
         final oldVersion = event.oldVersion ?? 0;
         if(oldVersion < 1) {
@@ -26,8 +28,8 @@ class Data {
         }
         final newVersion = event.newVersion ?? ((oldVersion == 0) ? 1 : oldVersion);
         if(newVersion != oldVersion) {
-          final oldData = (oldVersion > 0) ? (await Data(path).open(version: oldVersion)) : null;
-          final updated = (await onUpgrade?.call(DataUpgradeEvent(oldVersion, oldData, newVersion, this))) ?? true;
+          final oldData = (oldVersion > 0) ? (await Data(data.path).open(version: oldVersion)) : null;
+          final updated = (await onUpgrade?.call(DataUpgradeEvent(oldVersion, oldData, newVersion, data))) ?? true;
           if(updated) {
             await oldData?.destroy();
           }
@@ -37,36 +39,17 @@ class Data {
         print('onBlocked');
       }
     );
-    return this;
   }
 
-  dynamic connect(Connection connection) {
-    _connections.add(connection);
+  dynamic connect() {
     return idb;
   }
 
   Future<void> close() async {
-    for(var connection in _connections) {
-      await connection.close();
-    }
-    idb?.close();
     idb = null;
   }
 
   Future<void> destroy() async {
-    await close();
-    await window.indexedDB?.deleteDatabase(path);
+    await window.indexedDB?.deleteDatabase(data.path);
   }
-}
-
-abstract class Connection {
-  Future<void> close();
-}
-
-class DataUpgradeEvent {
-  final int oldVersion;
-  final Data? oldData;
-  final int newVersion;
-  final Data newData;
-  DataUpgradeEvent(this.oldVersion, this.oldData, this.newVersion, this.newData);
 }
