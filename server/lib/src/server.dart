@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File, Directory, ContentType, HttpRequest, HttpResponse, HttpServer, HttpStatus, HttpHeaders;
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium/oobium.dart';
-import 'package:oobium_server/src/html/html.dart';
 import 'package:oobium_server/src/server_settings.dart';
 import 'package:oobium_server/src/service.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 import 'package:xstring/xstring.dart';
 
 class Host {
@@ -538,18 +536,6 @@ class Response {
   int get statusCode => _httpResponse!.statusCode;
   set statusCode(int value) => _httpResponse!.statusCode = value;
 
-  bool get _livePages => _request!.host.livePages && _request!.host.settings.isDebug;
-
-  Future<void> render<T extends Json>(PageBuilder<T> builder, T data) async {
-    if(_livePages) {
-      final source = await _findSource(builder.runtimeType.toString(), T.toString());
-      if(source != null) {
-        return _renderSource(source, data);
-      }
-    }
-    return sendPage(builder.build(data));
-  }
-
   Future<void> send({int code=200, data}) async {
     assert(isOpen, 'called send after response has already been closed');
     _closed = true;
@@ -608,26 +594,12 @@ class Response {
     headers['Access-Control-Allow-Origin'] = '*';
     headers['Access-Control-Allow-Headers'] = '*';
     headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
-    return send(code: code, data: Json.encode(await data));
+    return send(code: code, data: jsonEncode(await data));
   }
-
-  Future<void> sendPage(Page page, {int code=200}) => sendHtml(page.render(), code: code);
 
   Future<void> close() async {
     await _httpResponse?.flush();
     await _httpResponse?.close();
-  }
-
-  Future<String?> _findSource(String builderType, String dataType) async {
-    final classDeclaration = 'class $builderType extends PageBuilder<$dataType>';
-    final views = Directory('lib/www/views');
-    for(var file in (await views.list(recursive: true).toList())) {
-      final source = await File(file.path).readAsString();
-      if(source.contains(classDeclaration)) {
-        return source;
-      }
-    }
-    return null;
   }
 
   Content _getContent(data) {
@@ -643,40 +615,6 @@ class Response {
       return data;
     }
     return StringContent(data.toString());
-  }
-
-  Future<void> _renderSource(String source, Json data) async {
-
-    // TODO really just need the imports... it re-compiles / builds everything
-
-    final matches = RegExp(r'class (\w+) extends PageBuilder<(\w+)>').firstMatch(source);
-    final builder = matches!.group(1);
-    final dataType = matches.group(2);
-
-    final content = '''
-      import 'dart:convert';
-      import 'dart:isolate';
-  
-      $source
-  
-      void main(args, SendPort port) {
-        final data = $dataType.fromJson(jsonDecode(args[0]));
-        final page = $builder().build(data);
-        final html = page.render();
-        port.send(html);
-      }
-    ''';
-    print(content);
-
-    final uri = Uri.dataFromString(content, mimeType: 'application/dart');
-    final port = ReceivePort();
-    final isolate = await Isolate.spawnUri(uri, [data.toJsonString()], port.sendPort);
-    final String html = await port.first;
-
-    port.close();
-    isolate.kill();
-
-    return sendHtml(html);
   }
 }
 

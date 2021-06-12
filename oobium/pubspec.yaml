@@ -11,6 +11,8 @@ dependencies:
   http: ^0.13.3
   oobium_datastore:
     path: ../datastore
+  oobium_websocket:
+    path: ../websocket
   http_parser: ^4.0.0
   stream_channel: ^2.1.0
   xstring: ^1.1.1

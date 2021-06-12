@@ -288,6 +288,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0+1"
+  oobium_websocket:
+    dependency: "direct main"
+    description:
+      path: "../websocket"
+      relative: true
+    source: path
+    version: "0.1.0+1"
   package_config:
     dependency: transitive
     description:

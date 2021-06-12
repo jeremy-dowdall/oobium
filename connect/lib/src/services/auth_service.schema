@@ -1,0 +1,23 @@
+AuthUser
+  name String
+  avatar String?
+  token AuthToken?
+  referredBy AuthUser?
+
+AuthToken
+  user AuthUser
+
+AuthLink // used to link external accounts (like Firebase Auth) to a User
+  user AuthUser
+  type String
+  code String // eg firebase auth id
+  data Map<String, String>=const{} // extra data from the linked account, stuff like name, email, photoUrl, etc
+
+AuthGroup
+  name String
+  owner AuthUser
+
+AuthMembership
+  user AuthUser
+  group AuthGroup
+  invitedBy AuthUser

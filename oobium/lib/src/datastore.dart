@@ -5,7 +5,7 @@ import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore/workers.dart';
 import 'package:oobium/src/datastore/models.dart';
-import 'package:oobium/src/websocket.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 import 'package:xstring/xstring.dart';
 
 export 'package:oobium/src/datastore/models.dart' show DataModel, DataModelEvent, DataIndex;

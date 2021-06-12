@@ -22,13 +22,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.1.1"
-  asn1lib:
-    dependency: transitive
-    description:
-      name: asn1lib
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.0.2"
   async:
     dependency: transitive
     description:
@@ -128,7 +121,7 @@ packages:
     source: hosted
     version: "4.0.0"
   collection:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: collection
       url: "https://pub.dartlang.org"
@@ -141,13 +134,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "3.0.0"
-  corsac_jwt:
-    dependency: "direct main"
-    description:
-      name: corsac_jwt
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.0.0-nullsafety.1"
   coverage:
     dependency: transitive
     description:
@@ -205,7 +191,7 @@ packages:
     source: hosted
     version: "2.0.0"
   http:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: http
       url: "https://pub.dartlang.org"
@@ -295,20 +281,20 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.0"
-  oobium_connect:
-    dependency: "direct main"
-    description:
-      path: "../connect"
-      relative: true
-    source: path
-    version: "0.1.0+1"
   oobium_datastore:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../datastore"
       relative: true
     source: path
     version: "1.0.0"
+  oobium_datastore_gen:
+    dependency: "direct dev"
+    description:
+      path: "../datastore/gen"
+      relative: true
+    source: path
+    version: "0.1.0+1"
   oobium_server:
     dependency: "direct main"
     description:
@@ -338,19 +324,12 @@ packages:
     source: hosted
     version: "1.8.0"
   pedantic:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: pedantic
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.11.0"
-  pointycastle:
-    dependency: transitive
-    description:
-      name: pointycastle
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "3.1.1"
   pool:
     dependency: transitive
     description:
@@ -372,13 +351,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.0.0"
-  rsa_pkcs:
-    dependency: transitive
-    description:
-      name: rsa_pkcs
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "2.0.0"
   shelf:
     dependency: transitive
     description:
@@ -443,7 +415,7 @@ packages:
     source: hosted
     version: "1.10.0"
   stream_channel:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: stream_channel
       url: "https://pub.dartlang.org"
@@ -534,7 +506,7 @@ packages:
     source: hosted
     version: "1.0.0"
   xstring:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: xstring
       url: "https://pub.dartlang.org"

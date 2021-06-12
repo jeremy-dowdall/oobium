@@ -5,6 +5,7 @@ import 'dart:convert' as convert;
 import 'package:firebase_auth_validator/src/firebase_token.dart';
 import 'package:firebase_auth_validator/src/key_cache.dart';
 import 'package:http/http.dart' as http;
+import 'package:oobium_connect/oobium_connect.dart';
 import 'package:oobium_server/oobium_server.dart';
 
 class FirebaseAuthValidator extends AuthValidator {

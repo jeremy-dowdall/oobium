@@ -3,6 +3,9 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/connect/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/connect/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/connect/build" />
       <excludeFolder url="file://$MODULE_DIR$/datastore/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/datastore/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/datastore/build" />
@@ -50,6 +53,9 @@
       <excludeFolder url="file://$MODULE_DIR$/oobium_server/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_test/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium_test/build" />
+      <excludeFolder url="file://$MODULE_DIR$/pages/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/pages/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/pages/build" />
       <excludeFolder url="file://$MODULE_DIR$/routing/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/routing/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/routing/build" />

@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/executor.dart';
+import 'package:oobium/src/datastore/executor.dart';
 import 'package:oobium/src/datastore.dart';
 import 'package:oobium/src/json.dart';
-import 'package:oobium/src/websocket.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 
 import 'sync_base.dart'
   if (dart.library.io) 'sync_io.dart'

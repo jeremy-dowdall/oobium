@@ -17,8 +17,24 @@ dependencies:
     # The example app is bundled with the plugin so we use a path dependency on
     # the parent directory to use the current plugin's version.
     path: ../datastore
+  oobium_server:
+    # When depending on this package from a real application you should use:
+    #   oobium_server: ^x.y.z
+    # See https://dart.dev/tools/pub/dependencies#version-constraints
+    # The example app is bundled with the plugin so we use a path dependency on
+    # the parent directory to use the current plugin's version.
+    path: ../server
   xstring: ^1.1.1
 
 dev_dependencies:
-  test: ^1.15.3
   build_runner: ^2.0.4
+  mockito: ^5.0.9
+  oobium_datastore_gen:
+    # When depending on this package from a real application you should use:
+    #   oobium_datastore_gen: ^x.y.z
+    # See https://dart.dev/tools/pub/dependencies#version-constraints
+    # The example app is bundled with the plugin so we use a path dependency on
+    # the parent directory to use the current plugin's version.
+    path: ../datastore/gen
+  stream_channel: ^2.1.0
+  test: ^1.15.3

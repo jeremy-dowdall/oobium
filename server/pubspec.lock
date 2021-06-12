@@ -281,13 +281,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.0"
-  oobium:
-    dependency: "direct main"
-    description:
-      path: "../oobium"
-      relative: true
-    source: path
-    version: "0.0.0"
   oobium_datastore:
     dependency: "direct main"
     description:

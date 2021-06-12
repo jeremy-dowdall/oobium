@@ -4,7 +4,7 @@ import 'package:objectid/objectid.dart';
 import 'package:oobium/src/datastore/data.dart';
 import 'package:oobium/src/datastore/sync.dart';
 import 'package:oobium/src/datastore.dart';
-import 'package:oobium/src/websocket.dart';
+import 'package:oobium_websocket/src/websocket.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 

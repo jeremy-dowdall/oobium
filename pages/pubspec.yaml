@@ -1,0 +1,18 @@
+name: oobium_pages
+description: HTML page templating for Oobium
+version: 0.1.0+1
+repository: https://github.com/jeremy-dowdall/oobium
+
+publish_to: 'none'
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+
+dependencies:
+  collection: ^1.15.0
+  oobium_server:
+    path: ../server
+  xstring: ^1.1.1
+
+dev_dependencies:
+  test: ^1.15.3
