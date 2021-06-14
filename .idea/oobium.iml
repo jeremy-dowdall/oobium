@@ -3,6 +3,9 @@
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/cli/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/cli/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/cli/build" />
       <excludeFolder url="file://$MODULE_DIR$/connect/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/connect/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/connect/build" />
@@ -22,6 +25,9 @@
       <excludeFolder url="file://$MODULE_DIR$/firebase_client/build" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_token_validator/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_token_validator/build" />
+      <excludeFolder url="file://$MODULE_DIR$/json/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/json/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/json/build" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/oobium/build" />

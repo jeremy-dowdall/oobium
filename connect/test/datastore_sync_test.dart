@@ -8,7 +8,7 @@ import 'package:oobium_websocket/src/websocket.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
-import 'utils/test_models.dart';
+import '../../oobium/test/utils/test_models.dart';
 
 Future<void> main() async {
 

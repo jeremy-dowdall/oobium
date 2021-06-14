@@ -3,12 +3,12 @@ import 'dart:html';
 import 'dart:indexed_db';
 
 import 'package:oobium_datastore/src/datastore/data.dart';
-import 'package:oobium_datastore/src/datastore/data_.dart';
+import 'package:oobium_datastore/src/datastore/data_.dart' as base;
 
-class DataHtml implements DataPlatform {
+class DataPlatform implements base.DataPlatform {
 
   final Data data;
-  DataHtml(this.data);
+  DataPlatform(this.data);
 
   Database? idb;
 

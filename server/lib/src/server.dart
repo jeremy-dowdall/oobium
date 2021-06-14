@@ -51,7 +51,8 @@ class Host {
   void put(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('PUT', path, handlers, logger: logger);
   void delete(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('DELETE', path, handlers, logger: logger);
 
-  void static(String directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, optional = false}) {
+  /// directoryPath may be null to accommodate configurations being read in that may not include certain paths for certain environments
+  void static(String? directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, bool optional = false}) {
     if(livePages) {
       final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
       get(path, [(req, res) {
@@ -64,7 +65,7 @@ class Host {
     } else {
       for(var file in _getFiles(directoryPath, optional: optional)) {
         final filePath = file.path;
-        final basePath = filePath.substring(directoryPath.length + 1);
+        final basePath = filePath.substring(directoryPath!.length + 1);
         final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
         final routePath = builtPath.replaceAll(RegExp(r'/+|\\'), '/');
         get(routePath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
@@ -80,7 +81,7 @@ class Host {
   void subdomain(String name) => _server.hostSubdomain(host: this.name, sub: name);
   void subdomains(List<String> names) => _server.hostSubdomains(host: name, subs: names);
 
-  Iterable<File> _getFiles(String directoryPath, {optional = false}) {
+  Iterable<File> _getFiles(String? directoryPath, {optional = false}) {
     assert(directoryPath != null || optional, 'directoryPath cannot be null, unless optional is true');
     if(directoryPath == null) {
       print('directory not specified... skipping.');
@@ -133,9 +134,7 @@ class Host {
             zoneSpecification: ZoneSpecification(
                 print: (self, parent, zone, message) {
                   final logMessage = logger.convertMessage(request, response, message);
-                  if(logMessage != null) {
-                    parent.print(self, logMessage);
-                  }
+                  parent.print(self, logMessage);
                 }
             )
         );
@@ -516,12 +515,12 @@ class RequestHeaders {
 
 class Response {
 
-  final Request? _request;
+  final Request request;
   final headers = <String, dynamic>{};
-  Response(Request? request) : _request = request {
-    request?._response = this;
+  Response(this.request) {
+    request._response = this;
   }
-  HttpRequest? get _httpRequest => _request?._httpRequest;
+  HttpRequest? get _httpRequest => request._httpRequest;
   HttpResponse? get _httpResponse => _httpRequest?.response;
 
   bool _closed = false;
@@ -556,8 +555,8 @@ class Response {
     if(await file.exists()) {
       final stat = await file.stat();
       final etag = 'todo'; // TODO
-      if(_request!.isPartial) {
-        final ranges = _request!.ranges ?? [];
+      if(request.isPartial) {
+        final ranges = request.ranges ?? [];
         if(ranges.isEmpty) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
@@ -569,7 +568,7 @@ class Response {
         if(start > end) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
-        final condition = _request!.headers[HttpHeaders.ifRangeHeader];
+        final condition = request!.headers[HttpHeaders.ifRangeHeader];
         if(condition == null || condition == etag) {
           headers[HttpHeaders.contentRangeHeader] =  'bytes $start-$end/${stat.size}';
           headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();

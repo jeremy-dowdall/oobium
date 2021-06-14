@@ -19,7 +19,7 @@ String dataPath([String? name]) => (name != null) ? '/ds/$name/data' : '/ds/data
 
 class DataSync implements Connection {
 
-  final Data ds; // TODO some sort of DataStore extension...
+  final Data ds; // TODO some sort of DataStore extension... ?
   final void Function(DataEvent event) onDataEvent;
   final Iterable<DataModel> Function() onGetSyncRecords;
   DataSync(this.ds, this.onDataEvent, this.onGetSyncRecords); //, this.repo, [this.models]);
@@ -280,6 +280,8 @@ class Binder {
 }
 
 class Replicant implements Connection {
+
+  what if this had it's own datastore? helps with versioning too...
 
   final Data ds;
   final String id;

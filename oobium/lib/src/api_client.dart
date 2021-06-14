@@ -1,6 +1,7 @@
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:oobium/src/file_cache.dart';
-import 'package:oobium/src/json.dart';
 
 abstract class ApiClient {
 
@@ -9,13 +10,13 @@ abstract class ApiClient {
 
   Future<T> get<T>({required String path, required T Function(Map json) builder, force = false}) async {
     final data = await _get(path, force: force);
-    final json = Json.decode(data);
+    final json = jsonDecode(data);
     return builder(json);
   }
 
   Future<List<T>> getAll<T>({required String path, required T Function(Map json) builder, force = false}) async {
     final data = await _get(path, force: force);
-    final json = Json.decode(data);
+    final json = jsonDecode(data);
     assert(json is List, 'expected $path to return a List; instead received $json');
     if(json is List) {
       return json.map((e) => builder(e)).toList();

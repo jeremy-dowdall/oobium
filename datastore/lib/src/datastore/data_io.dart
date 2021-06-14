@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:oobium_datastore/src/datastore/data.dart';
 import 'package:oobium_datastore/src/datastore/data_.dart' as base;
 
-class DataPlatform implements base.DataPlatform {
+class DataPlatform implements  base.DataPlatform {
 
   final Data data;
   DataPlatform(this.data);

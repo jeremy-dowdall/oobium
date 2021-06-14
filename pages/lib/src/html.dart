@@ -1,7 +1,35 @@
 import 'package:oobium_server/oobium_server.dart';
 
+class PageContext {
+  final String page;
+  PageContext(this.page);
+}
+
 abstract class PageBuilder<T> {
-  Page build(T data);
+
+  late final PageContext context;
+  String get page;
+  late final String path;
+  late final T data;
+
+  bool get isHome => path == '/';
+  bool get isNotHome => !isHome;
+
+  Page build();
+
+  Page buildPage<E>(PageBuilder<E> builder, [E? data]) {
+    builder.path = path;
+    if(data != null) builder.data = data;
+    builder.context = context;
+    return builder.build();
+  }
+
+  Page render({required String path, T? data, String? page}) {
+    this.path = path;
+    if(data != null) this.data = data;
+    this.context = PageContext(page ?? this.page);
+    return build();
+  }
 }
 
 class Page {
