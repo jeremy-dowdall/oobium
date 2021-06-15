@@ -68,42 +68,85 @@ void main() {
     test('MY _ MODEL', () => expect('MY _ MODEL'.varName, 'myModel'));
   });
 
-  group('test substr', () {
-    test('null', () => expect(null.substr(1), ''));
-    test('asdf.substr(1)', () => expect('asdf'.substr(1), 'sdf'));
-    test('asdf.substr(1, 0)', () => expect('asdf'.substr(1, 0), 'sdf'));
-    test('asdf.substr(2, 1)', () => expect('asdf'.substr(2, 1), ''));
-    test('asdf.substr(1, -1)', () => expect('asdf'.substr(1, -1), 'sd'));
-    test('asdf.substr(1, -2)', () => expect('asdf'.substr(1, -2), 's'));
-    test('asdf.substr(1, -3)', () => expect('asdf'.substr(1, -3), ''));
-    test('asdf.substr(1, -4)', () => expect('asdf'.substr(1, -4), ''));
+  group('test first', () {
+    test('null.first', () => expect(null.first, ''));
+    test('empty.first', () => expect(''.first, ''));
+    test('asdf.first', () => expect('asdf'.first, 'a'));
   });
 
   group('test last', () {
-    test('null.last(1)', () => expect(null.last(1), ''));
-    test('asdf.last(1)', () => expect('asdf'.last(1), 'f'));
-    test('asdf.last(2)', () => expect('asdf'.last(2), 'df'));
-    test('asdf.last()', () => expect('asdf'.last(), 'f'));
+    test('null.last', () => expect(null.last, ''));
+    test('empty.last', () => expect(''.last, ''));
+    test('asdf.last', () => expect('asdf'.last, 'f'));
   });
 
-  group('test take', () {
-    test('null.take(1)', () => expect(null.take(1), ''));
-    test('asdf.take(0)', () => expect('asdf'.take(0), ''));
-    test('asdf.take(1)', () => expect('asdf'.take(1), 'a'));
-    test('asdf.take(2)', () => expect('asdf'.take(2), 'as'));
-    test('asdf.take(3)', () => expect('asdf'.take(3), 'asd'));
-    test('asdf.take(4)', () => expect('asdf'.take(4), 'asdf'));
-    test('asdf.take(5)', () => expect('asdf'.take(5), 'asdf'));
+  group('test slice', () {
+    test('null', () => expect(null.slice(1), ''));
+    test('asdf.slice(-5)', () => expect('asdf'.slice(-5), 'asdf'));
+    test('asdf.slice(-4)', () => expect('asdf'.slice(-4), 'asdf'));
+    test('asdf.slice(-3)', () => expect('asdf'.slice(-3), 'sdf'));
+    test('asdf.slice(-2)', () => expect('asdf'.slice(-2), 'df'));
+    test('asdf.slice(-1)', () => expect('asdf'.slice(-1), 'f'));
+    test('asdf.slice(0)', () => expect('asdf'.slice(0), 'asdf'));
+    test('asdf.slice(1)', () => expect('asdf'.slice(1), 'sdf'));
+    test('asdf.slice(2)', () => expect('asdf'.slice(2), 'df'));
+    test('asdf.slice(3)', () => expect('asdf'.slice(3), 'f'));
+    test('asdf.slice(4)', () => expect('asdf'.slice(4), ''));
+    test('asdf.slice(5)', () => expect('asdf'.slice(5), ''));
+    test('asdf.slice(1, -5)', () => expect('asdf'.slice(1, -5), ''));
+    test('asdf.slice(1, -4)', () => expect('asdf'.slice(1, -4), ''));
+    test('asdf.slice(1, -3)', () => expect('asdf'.slice(1, -3), ''));
+    test('asdf.slice(1, -2)', () => expect('asdf'.slice(1, -2), 's'));
+    test('asdf.slice(1, -1)', () => expect('asdf'.slice(1, -1), 'sd'));
+    test('asdf.slice(1, 0)', () => expect('asdf'.slice(1, 0), ''));
+    test('asdf.slice(1, 1)', () => expect('asdf'.slice(1, 1), ''));
+    test('asdf.slice(1, 2)', () => expect('asdf'.slice(1, 2), 's'));
+    test('asdf.slice(1, 3)', () => expect('asdf'.slice(1, 3), 'sd'));
+    test('asdf.slice(1, 4)', () => expect('asdf'.slice(1, 4), 'sdf'));
+    test('asdf.slice(1, 5)', () => expect('asdf'.slice(1, 5), 'sdf'));
+    test('asdf.slice(-3, -5)', () => expect('asdf'.slice(-3, -5), ''));
+    test('asdf.slice(-3, -4)', () => expect('asdf'.slice(-3, -4), ''));
+    test('asdf.slice(-3, -3)', () => expect('asdf'.slice(-3, -3), ''));
+    test('asdf.slice(-3, -2)', () => expect('asdf'.slice(-3, -2), 's'));
+    test('asdf.slice(-3, -1)', () => expect('asdf'.slice(-3, -1), 'sd'));
+    test('asdf.slice(-3, 0)', () => expect('asdf'.slice(-3, 0), ''));
+    test('asdf.slice(-3, 1)', () => expect('asdf'.slice(-3, 1), ''));
+    test('asdf.slice(-3, 2)', () => expect('asdf'.slice(-3, 2), 's'));
+    test('asdf.slice(-3, 3)', () => expect('asdf'.slice(-3, 3), 'sd'));
+    test('asdf.slice(-3, 4)', () => expect('asdf'.slice(-3, 4), 'sdf'));
+    test('asdf.slice(-3, 5)', () => expect('asdf'.slice(-3, 5), 'sdf'));
   });
 
   group('test skip', () {
     test('null.skip(1)', () => expect(null.skip(1), ''));
+    test('empty.skip(1)', () => expect(''.skip(1), ''));
     test('asdf.skip(0)', () => expect('asdf'.skip(0), 'asdf'));
     test('asdf.skip(1)', () => expect('asdf'.skip(1), 'sdf'));
     test('asdf.skip(2)', () => expect('asdf'.skip(2), 'df'));
     test('asdf.skip(3)', () => expect('asdf'.skip(3), 'f'));
     test('asdf.skip(4)', () => expect('asdf'.skip(4), ''));
     test('asdf.skip(5)', () => expect('asdf'.skip(5), ''));
+    test('asdf.skip(-1)', () => expect('asdf'.skip(-1), 'asd'));
+    test('asdf.skip(-2)', () => expect('asdf'.skip(-2), 'as'));
+    test('asdf.skip(-3)', () => expect('asdf'.skip(-3), 'a'));
+    test('asdf.skip(-4)', () => expect('asdf'.skip(-4), ''));
+    test('asdf.skip(-5)', () => expect('asdf'.skip(-5), ''));
+  });
+
+  group('test take', () {
+    test('null.take(1)', () => expect(null.take(1), ''));
+    test('empty.take(1)', () => expect(''.take(1), ''));
+    test('asdf.take(0)', () => expect('asdf'.take(0), ''));
+    test('asdf.take(1)', () => expect('asdf'.take(1), 'a'));
+    test('asdf.take(2)', () => expect('asdf'.take(2), 'as'));
+    test('asdf.take(3)', () => expect('asdf'.take(3), 'asd'));
+    test('asdf.take(4)', () => expect('asdf'.take(4), 'asdf'));
+    test('asdf.take(5)', () => expect('asdf'.take(5), 'asdf'));
+    test('asdf.take(-1)', () => expect('asdf'.take(-1), 'f'));
+    test('asdf.take(-2)', () => expect('asdf'.take(-2), 'df'));
+    test('asdf.take(-3)', () => expect('asdf'.take(-3), 'sdf'));
+    test('asdf.take(-4)', () => expect('asdf'.take(-4), 'asdf'));
+    test('asdf.take(-5)', () => expect('asdf'.take(-5), 'asdf'));
   });
 
   group('test prefix', () {

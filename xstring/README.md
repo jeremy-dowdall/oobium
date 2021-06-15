@@ -27,12 +27,8 @@ void main() {
   // output: foo_bar
 
 
-  // dealing with potentialy null and/or empty strings
+  // dealing with potentially null and/or empty strings
   String? test = null;
-  print('isBlank: ${test.isBlank}');
-  // output: isBlank: true;
-
-  test = 'null';
   print('isBlank: ${test.isBlank}');
   // output: isBlank: true;
 
@@ -52,21 +48,27 @@ void main() {
   print(test.orElse('string 2'));
   // output: string 1
 
+  print(test.prefix('result: ').orElse('no data'));
+  // output: result: string 1
+
   test = null;
   print(test.orElse('string 2'));
   // output: string 2
 
+  print(test.prefix('result: ').orElse('no data'));
+  // output: no data
+
 
   // string parsing and collection-like conveniences
   // (see also the 'characters' dart package)
-  final data = 'some-special-code';
-  print(data.substr(5, -5));
+  final data = 'my-special-code';
+  print(data.slice(3, -5));
   // output: special
 
-  print(data.skip(5).take(7));
+  print(data.skip(3).take(7));
   // output: special
 
-  print(data.last(12));
-  // output: special-code
+  print(data.skip(-5).take(-7));
+  // output: special
 }
 ```

@@ -5,19 +5,24 @@ extension XString on String? {
   String? prefix(String? prefix) => (this != null) ? ((prefix != null) ? '${prefix}${this}' : this) : null;
   String? suffix(String? suffix) => (this != null) ? ((suffix != null) ? '${this}${suffix}' : this) : null;
 
-  String substr(int start, [int? end]) {
-    if(this == null) {
-      return '';
+  String slice(int start, [int? end]) {
+    if(isEmptyOrNull) return '';
+
+    var s = start, e = end ?? size;
+    if(s < 0) {
+      s = max(0, size+s);
     }
-    if(end != null && end <= 0) {
-      end = size + end;
+    if(e < 0) {
+      e = max(0, size+e);
     }
-    return this!.substring(start, max(start, end ?? size));
+
+    return (s < e) ? this!.substring(s, min(e, size)) : '';
   }
 
-  String last([int count=1]) => substr(size-count);
-  String skip(int count) => substr(min(size, count));
-  String take(int count) => substr(0, min(0, -(size-count)));
+  String get first => this.isEmptyOrNull ? '' : this![0];
+  String get last => this.isEmptyOrNull ? '' : this![this!.length-1];
+  String skip(int count) => ((count > 0) ? this?.substring(min(size, count)) : this?.substring(0, max(0, size+count))) ?? '';
+  String take(int count) => ((count > 0) ? this?.substring(0, min(size, count)) : this?.substring(max(0, size+count), size)) ?? '';
 
   int get size => (this == null) ? 0 : this!.length;
 
@@ -25,8 +30,8 @@ extension XString on String? {
   bool get isBlank => isEmptyOrNull || this!.trim().isEmpty;
   bool get isNotBlank => !isBlank;
 
-  /// true if this is null (including the string 'null'), or empty
-  bool get isEmptyOrNull => this == null || this!.isEmpty || this == 'null';
+  /// true if this is null, or empty
+  bool get isEmptyOrNull => this == null || this!.isEmpty;
 
   /// true if this is non-null, non-empty and consists of only digits: [0-9]
   bool get isDigit => this != null && _digitPattern.hasMatch(this!);
