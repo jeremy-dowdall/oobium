@@ -5,7 +5,7 @@
 * BREAKING: `isEmptyOrNull` no longer treats 'null' as an actual `null`.
 * `slice` added, follows JavaScript's slice method for arrays.
 * `first` added, returns first character.
-* `skip` and take updated to accept negative values.
+* `skip` and `take` updated to accept negative values.
 
 ## 1.1.1
 
