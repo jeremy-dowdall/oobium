@@ -2,22 +2,14 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:objectid/objectid.dart';
-import 'package:oobium/src/datastore/data.dart';
-import 'package:oobium/src/datastore/executor.dart';
-import 'package:oobium/src/datastore.dart';
-import 'package:oobium/src/json.dart';
 import 'package:oobium_websocket/oobium_websocket.dart';
-
-import 'sync_base.dart'
-  if (dart.library.io) 'sync_io.dart'
-  if (dart.library.html) 'sync_html.dart' as platform;
 
 String replicantPath([String? name]) => (name != null) ? '/ds/$name/replicant' : '/ds/replicant';
 String connectPath([String? name]) => (name != null) ? '/ds/$name/connect' : '/ds/connect';
 String syncPath([String? name]) => (name != null) ? '/ds/$name/sync' : '/ds/sync';
 String dataPath([String? name]) => (name != null) ? '/ds/$name/data' : '/ds/data';
 
-class DataSync implements Connection {
+class DataSync {
 
   final Data ds; // TODO some sort of DataStore extension... ?
   final void Function(DataEvent event) onDataEvent;

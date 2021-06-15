@@ -15,7 +15,8 @@ class DataStore {
   final String? isolate;
   final List<Function(Map data)> _builders;
   final List<DataIndex> _indexes;
-  final CompactionStrategy _compactionStrategy;
+  final CompactionStrategy? _compactionStrategy;
+  final bool _persist;
   DataStore(this.path, {
     this.isolate,
     List<Function(Map data)> builders = const[],
@@ -25,7 +26,19 @@ class DataStore {
     assert(path.isNotBlank, 'datastore path cannot be blank'),
     _builders = builders,
     _indexes = indexes,
-    _compactionStrategy = compactionStrategy
+    _compactionStrategy = compactionStrategy,
+    _persist = true
+  ;
+  DataStore.memory({
+    List<Function(Map data)> builders = const[],
+    List<DataIndex> indexes = const[],
+  }) :
+    path = '',
+    isolate = null,
+    _builders = builders,
+    _indexes = indexes,
+    _compactionStrategy = null,
+    _persist = false
   ;
 
   Models? _models;
@@ -44,8 +57,10 @@ class DataStore {
   Future<DataStore> open({int version=1, Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) async {
     if(isNotOpen) {
       _open = true;
-      _worker = await DataWorker(path, isolate: isolate).open(version: version, onUpgrade: onUpgrade);
-      _models = await Models(_builders, _indexes).load(_worker!.getData());
+      if(_persist) {
+        _worker = await DataWorker(path, isolate: isolate).open(version: version, onUpgrade: onUpgrade);
+      }
+      _models = await Models(_builders, _indexes).load(_worker?.getData() ?? Stream.empty());
     }
     return this;
   }
@@ -125,7 +140,7 @@ class DataStore {
   bool _shouldCompact() {
     final models = _models;
     if(models != null && models.modelCount > 0 && models.recordCount > 0) {
-      return _compactionStrategy.shouldCompact(models.modelCount, models.recordCount);
+      return _compactionStrategy?.shouldCompact(models.modelCount, models.recordCount) ?? false;
     }
     return false;
   }
