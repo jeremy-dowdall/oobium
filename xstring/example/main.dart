@@ -1,7 +1,6 @@
 import 'package:xstring/xstring.dart';
 
 void main() {
-
   // displaying string data
   final name = 'foo bar';
 
@@ -13,7 +12,6 @@ void main() {
 
   print(name.underscored);
   // output: foo_bar
-
 
   // dealing with potentially null and/or empty strings
   String? test = null;
@@ -45,7 +43,6 @@ void main() {
 
   print(test.prefix('result: ').orElse('no data'));
   // output: no data
-
 
   // string parsing and collection-like conveniences
   // (see also the 'characters' dart package)

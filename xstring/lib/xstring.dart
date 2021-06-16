@@ -1,30 +1,42 @@
 import 'dart:math';
 
 extension XString on String? {
+  String? prefix(String? prefix) =>
+      (this != null) ? ((prefix != null) ? '${prefix}${this}' : this) : null;
 
-  String? prefix(String? prefix) => (this != null) ? ((prefix != null) ? '${prefix}${this}' : this) : null;
-  String? suffix(String? suffix) => (this != null) ? ((suffix != null) ? '${this}${suffix}' : this) : null;
+  String? suffix(String? suffix) =>
+      (this != null) ? ((suffix != null) ? '${this}${suffix}' : this) : null;
 
   String slice(int start, [int? end]) {
-    if(isEmptyOrNull) return '';
+    if (isEmptyOrNull) return '';
 
     var s = start, e = end ?? size;
-    if(s < 0) {
-      s = max(0, size+s);
+    if (s < 0) {
+      s = max(0, size + s);
     }
-    if(e < 0) {
-      e = max(0, size+e);
+    if (e < 0) {
+      e = max(0, size + e);
     }
 
     return (s < e) ? this!.substring(s, min(e, size)) : '';
   }
 
-  String get first => this.isEmptyOrNull ? '' : this![0];
-  String get last => this.isEmptyOrNull ? '' : this![this!.length-1];
-  String skip(int count) => ((count > 0) ? this?.substring(min(size, count)) : this?.substring(0, max(0, size+count))) ?? '';
-  String take(int count) => ((count > 0) ? this?.substring(0, min(size, count)) : this?.substring(max(0, size+count), size)) ?? '';
+  String skip(int count) =>
+      ((count > 0)
+          ? this?.substring(min(size, count))
+          : this?.substring(0, max(0, size + count))) ??
+      '';
+
+  String take(int count) =>
+      ((count > 0)
+          ? this?.substring(0, min(size, count))
+          : this?.substring(max(0, size + count), size)) ??
+      '';
 
   int get size => (this == null) ? 0 : this!.length;
+
+  String get first => this.isEmptyOrNull ? '' : this![0];
+  String get last => this.isEmptyOrNull ? '' : this![this!.length - 1];
 
   /// true if this is null (including the string 'null'), empty or consists of only whitespace characters
   bool get isBlank => isEmptyOrNull || this!.trim().isEmpty;
@@ -118,7 +130,6 @@ extension XString on String? {
           : '${this![0].toLowerCase()}${camelCase.substring(1)}';
 
   String get idField => varName;
-
 }
 
 final _digitPattern = RegExp(r'^[0-9]+$');
