@@ -30,32 +30,31 @@ class WsTestServer {
       ws.done.then((_) {
         channel.sink.add('done');
       });
-      ws.on.get('/delay/<millis>', (req, res) async {
+      ws.on.get('/delay/<millis>', (req) async {
         await Future.delayed(Duration(milliseconds: int.parse(req['millis'])));
-        res.send(code: 200);
       });
-      ws.on.get('/echo/<msg>', (req, res) {
-        res.send(data: req.params['msg']);
+      ws.on.get('/echo/<msg>', (req) {
+        return req.params['msg'];
       });
-      ws.on.get('/data', (req, res) {
-        res.send(data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+      ws.on.get('/data', (req) {
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
       });
-      ws.on.get('/stream', (req, res) {
-        res.send(data: Stream.fromIterable([[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]]));
+      ws.on.getStream('/stream', (req) {
+        return Stream.fromIterable([[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]]);
       });
-      ws.on.put('/data', (req, res) {
-        wsData = req.data.value;
+      ws.on.put('/data', (req) {
+        wsData = req.data;
       });
-      ws.on.put('/stream', (req, res) async {
+      ws.on.putStream('/stream', (req) async {
         final completer = Completer<List<List<int>>>();
         wsData = completer.future;
-        final d = await req.data.stream.toList();
+        final d = await req.stream.toList();
         completer.complete(d);
       });
-      ws.on.put('/file', (req, res) async {
+      ws.on.putStream('/file', (req) async {
         final completer = Completer<List<List<int>>>();
         wsData = completer.future;
-        final d = await req.data.stream.toList();
+        final d = await req.stream.toList();
         completer.complete(d);
       });
     });

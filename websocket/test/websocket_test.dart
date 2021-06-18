@@ -17,42 +17,43 @@ Future<void> main() async {
 
   group('test message', () {
     test('without data', () {
-      final input = WsMessage(type: 'REQ', id: '0123456789012', method: 'GET', path: '/path');
-      expect(input.toString(), 'REQ:0123456789012:GET/path');
+      final input = WsMessage.get('/path');
+      final id = MessageId.current;
+      expect(input.toString(), '$id:G/path');
       final output = WsMessage.parse(input.toString());
-      expect(output.type, 'REQ');
-      expect(output.isRequest, isTrue);
-      expect(output.id, '0123456789012');
-      expect(output.method, 'GET');
+      expect(output.id, id);
+      expect(output.type, 'G');
       expect(output.path, '/path');
       expect(output.data, isNull);
     });
     test('with String data', () {
-      final input = WsMessage(type: 'REQ', id: '0123456789012', method: 'GET', path: '/path', data: 'data');
-      expect(input.toString(), 'REQ:0123456789012:GET/path "data"');
+      final input = WsMessage.get('/path', 'data');
+      final id = MessageId.current;
+      expect(input.toString(), '$id:G/path "data"');
       final output = WsMessage.parse(input.toString());
-      expect(output.type, 'REQ');
-      expect(output.isRequest, isTrue);
-      expect(output.id, '0123456789012');
-      expect(output.method, 'GET');
+      expect(output.id, id);
+      expect(output.type, 'G');
       expect(output.path, '/path');
       expect(output.data, 'data');
     });
     test('with int data', () {
-      final input = WsMessage(type: 'REQ', id: '0123456789012', method: 'GET', path: '/path', data: 123);
-      expect(input.toString(), 'REQ:0123456789012:GET/path 123');
+      final input = WsMessage.get('/path', 123);
+      final id = MessageId.current;
+      expect(input.toString(), '$id:G/path 123');
       final output = WsMessage.parse(input.toString());
       expect(output.data, 123);
     });
     test('with Map data', () {
-      final input = WsMessage(type: 'REQ', id: '0123456789012', method: 'GET', path: '/path', data: {'1': 2, '2': 3});
-      expect(input.toString(), 'REQ:0123456789012:GET/path {"1":2,"2":3}');
+      final input = WsMessage.get('/path', {'1': 2, '2': 3});
+      final id = MessageId.current;
+      expect(input.toString(), '$id:G/path {"1":2,"2":3}');
       final output = WsMessage.parse(input.toString());
       expect(output.data, {'1': 2, '2': 3});
     });
     test('with List data', () {
-      final input = WsMessage(type: 'REQ', id: '0123456789012', method: 'GET', path: '/path', data: [1,2,3]);
-      expect(input.toString(), 'REQ:0123456789012:GET/path [1,2,3]');
+      final input = WsMessage.get('/path', [1,2,3]);
+      final id = MessageId.current;
+      expect(input.toString(), '$id:G/path [1,2,3]');
       final output = WsMessage.parse(input.toString());
       expect(output.data, [1, 2, 3]);
     });
@@ -61,13 +62,19 @@ Future<void> main() async {
   group('test on routing', () {
     test('error on duplicate path', () {
       final ws = WebSocket();
-      ws.on.get('/dup', (req, res) => print('hi'));
-      expect(() => ws.on.get('/dup', (req, res) => print('hi')), throwsA(equals('duplicate route: GET/dup')));
+      ws.on.get('/dup', (_) => null);
+      expect(() => ws.on.get('/dup', (_) => null), throwsA(equals('duplicate route: G/dup')));
+    });
+    test('get, getStream and putStream on same path', () {
+      final ws = WebSocket();
+      expect(ws.on.get('/path', (_) => null), isA<WsSubscription>());
+      expect(ws.on.getStream('/path', (_) => Stream.empty()), isA<WsSubscription>());
+      expect(ws.on.putStream('/path', (_) => null), isA<WsSubscription>());
     });
     test('error on duplicate path with variables', () {
       final ws = WebSocket();
-      ws.on.get('/dup/<id>', (req, res) => print('hi'));
-      expect(() => ws.on.get('/dup/<name>', (req, res) => print('hi')), throwsA('duplicate route: GET/dup/<name>'));
+      ws.on.get('/dup/<id>', (_) => null);
+      expect(() => ws.on.get('/dup/<name>', (_) => print('hi')), throwsA('duplicate route: G/dup/<name>'));
     });
   });
 
@@ -157,11 +164,9 @@ Future<void> main() async {
     test('get data stream', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket().connect(port: 8001);
-      final result = await client.get('/stream');
-      expect(result.code, 100);
-      expect(result.data, isA<Stream>());
+      final stream = client.getStream('/stream');
       final fsData = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
-      final wsData = (await (result.data as Stream<List<int>>).toList());
+      final wsData = (await stream.toList());
       expect(wsData, fsData);
     });
   });
@@ -182,11 +187,11 @@ Future<void> main() async {
       await client.put('/data', [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
       expect(await server.data, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     });
-    test('put data stream', () async {
+      test('put data stream', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket().connect(port: 8001);
       final data = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
-      final result = await client.put('/stream', Stream.fromIterable(data));
+      final result = await client.putStream('/stream', Stream.fromIterable(data));
       expect(result.code, 200);
       expect(await server.data, data);
     });

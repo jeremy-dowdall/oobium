@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:oobium_websocket/oobium_websocket.dart';
 
 void main() async {
