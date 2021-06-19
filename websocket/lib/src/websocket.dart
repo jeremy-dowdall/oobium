@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
+import 'package:oobium_websocket/src/cancelable_completer.dart';
 import 'package:oobium_websocket/src/router.extensions.dart';
 import 'package:oobium_websocket/src/websocket/ws_socket.dart';
 
@@ -10,8 +11,8 @@ import 'package:oobium_websocket/src/websocket/ws_socket.dart';
 ///   future = await client.get('/path')
 ///     client -> id:G/path
 ///     server <- id:G/path
-///     server -> id:200:'data'
-///     client <- id:200:'data'
+///     server -> id:200 'data'
+///     client <- id:200 'data'
 ///   future.complete(200, 'data')
 ///
 /// Get data (Stream<List<int>>)
@@ -30,15 +31,15 @@ import 'package:oobium_websocket/src/websocket/ws_socket.dart';
 ///
 /// Put resource (String)
 ///   future = await client.put('/path', 'data')
-///     client -> id:P/path:'data'
-///     server <- id:P/path:'data'
+///     client -> id:P/path 'data'
+///     server <- id:P/path 'data'
 ///     server -> id:200
 ///     client <- id:200
 ///   future.complete(200)
 ///
 /// Put data (Stream<List<int>>)
 ///   future = await client.putStream('/path', Stream<List<int>>)
-///     client -> id:PS/path:Stream<List<int>>
+///     client -> id:PS/path Stream<List<int>>
 ///     server <- id:PS/path
 ///     server -> id:100
 ///     client <- id:100
@@ -51,13 +52,16 @@ import 'package:oobium_websocket/src/websocket/ws_socket.dart';
 ///
 class WebSocket {
 
+  final String? name; // for debug / logging purposes
+  WebSocket([this.name]);
+
   WsSocket? _ws;
-  Completer _ready = Completer();
-  Completer _done = Completer(); // TODO change to a listener that can be removed
+  final _done = CancelableCompleter<void>();
+  final _ready = CancelableCompleter<void>();
   StreamSubscription? _wsSubscription;
   WsResult? _closedResult;
 
-  final _requests = RequestQueue();
+  final _requests = Requests();
   final _streams = StreamQueue();
 
   final on = WsHandlers();
@@ -86,11 +90,11 @@ class WebSocket {
   Future<WsResult> put(String path, dynamic data) => _sendRequest(WsMessage.put(path, data));
   Future<WsResult> putStream(String path, Stream<List<int>> data) => _sendRequest(WsMessage.putStream(path, data));
 
-  Future<void> get ready => _ready.future;
+  CancelableFuture<void> get ready => _ready.future;
   bool get isReady => _ready.isCompleted;
   bool get isNotReady => !isReady;
 
-  Future<void> get done => _done.future;
+  CancelableFuture<void> get done => _done.future;
   bool get isDone => _done.isCompleted;
   bool get isNotDone => !isDone;
 
@@ -132,6 +136,11 @@ class WebSocket {
     _requests.completeAll(result);
     _streams.closeAll();
     if(isNotDone) _done.complete();
+  }
+
+  Future<void> flush() async {
+    await _requests.flush();
+    await _streams.flush();
   }
 
   ///
@@ -181,15 +190,15 @@ class WebSocket {
       case '200':
       case '404':
       case '500':
-        final request = _requests.remove(message);
-        if(request != null) {
-          request.complete(message.asResult());
-        }
-        final next = _streams.close(message);
-        if(next != null) {
-          _send(next.message);
+        if(_requests.complete(message) == false) {
+          final next = _streams.close(message);
+          if(next != null) {
+            _send(next.message);
+          }
         }
         break;
+      default:
+        throw 'unknown message type, ${message.type}, in $message';
     }
   }
 
@@ -210,7 +219,7 @@ class WebSocket {
           }
         })
         .catchError((error, stackTrace) {
-          print('$error\n$stackTrace');
+          _log('$error\n$stackTrace');
           _send(message.as('500', error));
         });
     }
@@ -232,7 +241,7 @@ class WebSocket {
             );
           })
           .catchError((e,s) {
-            print('$e\n$s');
+            _log('$e\n$s');
             _send(message.as('500', e));
           });
     }
@@ -256,7 +265,7 @@ class WebSocket {
             }
           })
           .catchError((e,s) {
-            print('$e\n$s');
+            _log('$e\n$s');
             _send(message.as('500', e));
           });
       if(_streams.isReceiving(item)) {
@@ -266,6 +275,7 @@ class WebSocket {
   }
 
   void _onData(dynamic data) {
+    _log('onData: $data');
     if(data is String) {
       _onMessage(data);
     }
@@ -275,7 +285,7 @@ class WebSocket {
   }
 
   void _onError(Object error, StackTrace stackTrace) {
-    print('error: $error\n$stackTrace');
+    _log('error: $error\n$stackTrace');
   }
 
   void _onDone() {
@@ -283,18 +293,23 @@ class WebSocket {
   }
 
   T _send<T>(T data) {
+    _log('send: $data');
     if(isClosed) {
-      print('tried adding to a closed socket');
+      _log('tried adding to a closed socket');
     } else {
       _ws!.add(data); // TODO json...
     }
     return data;
   }
+
+  void _log(msg) => print('${DateTime.now().millisecondsSinceEpoch} ${(name == null) ? msg : '$name: $msg'}');
 }
 
 class StreamQueue {
   StreamItem? _receiving;
   final _items = <StreamItem>[];
+  Completer? _flush;
+
   StreamItem get first => _items.first;
 
   StreamItem add(WsMessage message) {
@@ -307,16 +322,22 @@ class StreamQueue {
   bool isReceiving(StreamItem item) => _receiving == item;
 
   void onData(List<int> data) {
+    // _log('data: $data');
     _items.first.controller.add(data);
   }
 
   StreamItem? close(WsMessage message) {
+    // _log('close: $message');
     final item = _items.firstWhereOrNull((i) => i.message.id == message.id);
-    if(item != null) {
-      _items.remove(item);
-      item.controller.close();
-      if(_receiving == item) {
-        _receiving = (_items.isNotEmpty) ? _items.last : null;
+    if(item != null && _items.remove(item)) {
+      item.controller.close().then((_) {
+        if(_items.isEmpty) {
+          _flush?.complete();
+          _flush = null;
+        }
+      });
+      if(_receiving == item && _items.isNotEmpty) {
+        _receiving = _items.first;
         return _receiving;
       }
     }
@@ -329,7 +350,13 @@ class StreamQueue {
       item.controller.close();
     }
     _items.clear();
+    _flush?.complete();
+    _flush = null;
   }
+
+  Future<void> flush() => _items.isEmpty
+    ? Future.value()
+    : (_flush = Completer()).future;
 }
 
 class StreamItem {
@@ -338,17 +365,39 @@ class StreamItem {
   StreamItem(this.message);
 }
 
-class RequestQueue {
+class Requests {
   final _items = <String, RequestItem>{};
+  Completer? _flush;
+
   RequestItem? operator [](WsMessage message) => _items[message.id];
+
   RequestItem add(WsMessage message) => _items[message.id] = RequestItem(message);
-  RequestItem? remove(WsMessage message) => _items.remove(message.id);
+
+  bool complete(WsMessage message) {
+    final item = _items.remove(message.id);
+    if(item != null) {
+      item.complete(message.toResult());
+      if(_items.isEmpty) {
+        _flush?.complete();
+        _flush = null;
+      }
+      return true;
+    }
+    return false;
+  }
+
   void completeAll(WsResult result) {
     for(final item in _items.values) {
       item.complete(result);
     }
     _items.clear();
+    _flush?.complete();
+    _flush = null;
   }
+
+  Future<void> flush() => _items.isEmpty
+    ? Future.value()
+    : (_flush = Completer()).future;
 }
 
 class RequestItem {
@@ -388,28 +437,26 @@ class WsMessage {
     this.data
   });
 
-  factory WsMessage.parse(String data) {
-    final i0 = data.indexOf(':');
-    final i1 = data.indexOf('/', i0 + 1);
-    final i2 = data.indexOf(' ', i1 + 1);
-    return WsMessage._(
-      id: data.substring(0, i0),
-      type: data.substring(i0 + 1, i1),
-      path: (i1 == -1) ? '' : data.substring(i1, (i2 == -1) ? null : i2),
-      data: (i2 == -1) ? null : jsonDecode(data.substring(i2 + 1))
-    );
+  // <id>:<type>[/path][ {data}]
+  factory WsMessage.parse(String str) {
+    final match = _pattern.firstMatch(str);
+    if(match != null) {
+      return WsMessage._(
+          id:   match.group(1)!,
+          type: match.group(2)!,
+          path: match.group(3) ?? '',
+          data: _jsonDecode(match.group(5))
+      );
+    } else {
+      throw FormatException('cannot parse message: $str');
+    }
   }
+  static final _pattern = RegExp(r'^(\d+):(\w+)([/\w]+)?( (.+))?$');
+  static _jsonDecode(String? data) => (data != null) ? jsonDecode(data) : null;
 
-  WsMessage copyWith({String? id, String? type, String? method, String? path, data}) => WsMessage._(
-    id: id ?? this.id, type: type ?? this.type, path: path ?? this.path,
-    data: data // data is NOT automatically copied over
-  );
+  WsMessage as(String type, [data]) => WsMessage._(id: id, type: type, data: data);
 
-  bool get isPutStream => (type == 'P') && (data is Stream<List<int>>);
-
-  WsMessage as(String type, [data]) => WsMessage._(id: id, type: type, path: path, data: data);
-
-  WsResult asResult() => WsResult(int.parse(type), data);
+  WsResult toResult() => WsResult(int.parse(type), data);
 
   @override
   toString() => '$id:$type$path$_dataString';

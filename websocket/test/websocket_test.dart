@@ -16,7 +16,7 @@ Future<void> main() async {
   // });
 
   group('test message', () {
-    test('without data', () {
+    test('single segment path without data', () {
       final input = WsMessage.get('/path');
       final id = MessageId.current;
       expect(input.toString(), '$id:G/path');
@@ -24,6 +24,16 @@ Future<void> main() async {
       expect(output.id, id);
       expect(output.type, 'G');
       expect(output.path, '/path');
+      expect(output.data, isNull);
+    });
+    test('multi segment path without data', () {
+      final input = WsMessage.get('/path/to/something');
+      final id = MessageId.current;
+      expect(input.toString(), '$id:G/path/to/something');
+      final output = WsMessage.parse(input.toString());
+      expect(output.id, id);
+      expect(output.type, 'G');
+      expect(output.path, '/path/to/something');
       expect(output.data, isNull);
     });
     test('with String data', () {
@@ -56,6 +66,36 @@ Future<void> main() async {
       expect(input.toString(), '$id:G/path [1,2,3]');
       final output = WsMessage.parse(input.toString());
       expect(output.data, [1, 2, 3]);
+    });
+    test('as without data', () {
+      final msg = WsMessage.get('/path').as('200');
+      final id = MessageId.current;
+      expect(msg.toString(), '$id:200');
+      final output = WsMessage.parse(msg.toString());
+      expect(output.id, id);
+      expect(output.type, '200');
+      expect(output.path, '');
+      expect(output.data, isNull);
+    });
+    test('as with data', () {
+      final msg = WsMessage.get('/path', 'data').as('200');
+      final id = MessageId.current;
+      expect(msg.toString(), '$id:200');
+      final output = WsMessage.parse(msg.toString());
+      expect(output.id, id);
+      expect(output.type, '200');
+      expect(output.path, '');
+      expect(output.data, isNull);
+    });
+    test('as with data, copied', () {
+      final msg = WsMessage.get('/path', 'data').as('200', 'other');
+      final id = MessageId.current;
+      expect(msg.toString(), '$id:200 "other"');
+      final output = WsMessage.parse(msg.toString());
+      expect(output.id, id);
+      expect(output.type, '200');
+      expect(output.path, '');
+      expect(output.data, 'other');
     });
   });
 
@@ -130,7 +170,7 @@ Future<void> main() async {
     });
   });
 
-  group('test gets', () {
+  group('test get', () {
     test('single get with url params', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket().connect(port: 8001);
@@ -161,17 +201,54 @@ Future<void> main() async {
       expect(result.code, 200);
       expect(result.data, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     });
-    test('get data stream', () async {
+    test('out of order', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket().connect(port: 8001);
-      final stream = client.getStream('/stream');
-      final fsData = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
-      final wsData = (await stream.toList());
-      expect(wsData, fsData);
+      final events = [];
+      client.get('/delay/10').then((_) => events.add('delay'));
+      client.get('/echo/hi').then((_) => events.add('echo'));
+      await client.flush();
+      expect(events, ['echo', 'delay']);
     });
   });
 
-  group('test puts', () {
+  group('test getStream', () {
+    test('get stream', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      final stream = client.getStream('/stream');
+      expect(await stream.toList(), [[1, 2, 3],[4, 5, 6],[7, 8, 9]]);
+    });
+    test('get stream with delays', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      final stream = client.getStream('/stream/delay/1/2/3');
+      expect(await stream.toList(), [[1, 2, 3],[4, 5, 6],[7, 8, 9]]);
+    });
+    test('get stream mixed with simple gets', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      final events = [];
+      client.get('/delay/100').then((e) => events.add('hi 1'));
+      client.getStream('/stream/delay/0/50/150').listen((e) => events.add(e));
+      client.get('/delay/0').then((e) => events.add('hi 2'));
+      client.get('/echo/hi').then((e) => events.add('hi'));
+      await client.flush();
+      expect(events, ['hi', [1, 2, 3], 'hi 2', [4, 5, 6], 'hi 1', [7, 8, 9]]);
+    });
+    test('get multiple streams', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      final events = [];
+      client.getStream('/stream1').listen((e) => events.add(e));
+      client.getStream('/stream2').listen((e) => events.add(e));
+      client.getStream('/stream3').listen((e) => events.add(e));
+      await client.flush();
+      expect(events, [[1, 2, 3], [1, 5, 6], [1, 8, 9], [2, 2, 3], [2, 5, 6], [2, 8, 9], [3, 2, 3], [3, 5, 6], [3, 8, 9]]);
+    });
+  });
+
+  group('test put', () {
     test('put String', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket().connect(port: 8001);
@@ -187,7 +264,10 @@ Future<void> main() async {
       await client.put('/data', [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
       expect(await server.data, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     });
-      test('put data stream', () async {
+  });
+
+  group('test putStream', () {
+    test('put data stream', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket().connect(port: 8001);
       final data = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];

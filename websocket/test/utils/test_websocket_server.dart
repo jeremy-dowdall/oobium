@@ -18,7 +18,7 @@ class TestWebsocketServer {
     server._onUpgrade = onUpgrade;
     server._http = await io.HttpServer.bind('127.0.0.1', port);
     server._subscription = server._http.listen((req) async {
-      final ws = await WebSocket();
+      final ws = await WebSocket('server');
       await server._onUpgrade(ws);
       await ws.upgrade(req);
     });

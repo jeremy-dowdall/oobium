@@ -32,6 +32,7 @@ class WsTestServer {
       });
       ws.on.get('/delay/<millis>', (req) async {
         await Future.delayed(Duration(milliseconds: int.parse(req['millis'])));
+        return 'done';
       });
       ws.on.get('/echo/<msg>', (req) {
         return req.params['msg'];
@@ -39,9 +40,23 @@ class WsTestServer {
       ws.on.get('/data', (req) {
         return [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
       });
-      ws.on.getStream('/stream', (req) {
-        return Stream.fromIterable([[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]]);
-      });
+      ws.on.getStream('/stream', (req) => Stream.fromIterable([
+        [1, 2, 3], [4, 5, 6], [7, 8, 9]
+      ]));
+      ws.on.getStream('/stream1', (req) => Stream.fromIterable([
+        [1, 2, 3], [1, 5, 6], [1, 8, 9]
+      ]));
+      ws.on.getStream('/stream2', (req) => Stream.fromIterable([
+        [2, 2, 3], [2, 5, 6], [2, 8, 9]
+      ]));
+      ws.on.getStream('/stream3', (req) => Stream.fromIterable([
+        [3, 2, 3], [3, 5, 6], [3, 8, 9]
+      ]));
+      ws.on.getStream('/stream/delay/<d0>/<d1>/<d2>', (req) => Stream.fromFutures([
+        Future.delayed(Duration(milliseconds: int.parse(req['d0'])), () => [1, 2, 3]),
+        Future.delayed(Duration(milliseconds: int.parse(req['d1'])), () => [4, 5, 6]),
+        Future.delayed(Duration(milliseconds: int.parse(req['d2'])), () => [7, 8, 9]),
+      ]));
       ws.on.put('/data', (req) {
         wsData = req.data;
       });
