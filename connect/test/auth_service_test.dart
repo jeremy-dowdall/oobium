@@ -20,7 +20,7 @@ void main() {
 
   group('test validator', () {
     test('valid', () async {
-      final req = Request.values(
+      final req = Request(
         host: Server(address: '127.0.0.1').host(),
         headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'Test SOME_TOKEN'})
       );
@@ -32,7 +32,7 @@ void main() {
     });
 
     test('invalid: missing authorizationHeader', () async {
-      final req = Request.values(
+      final req = Request(
         host: Server(address: '127.0.0.1').host(),
         headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'todo'})
       );
@@ -42,7 +42,7 @@ void main() {
       expect(valid, isFalse);
     });
     test('invalid: empty authorizationHeader', () async {
-      final req = Request.values(
+      final req = Request(
         host: Server(address: '127.0.0.1').host(),
         headers: RequestHeaders.values({HttpHeaders.authorizationHeader: ''})
       );
@@ -52,7 +52,7 @@ void main() {
       expect(valid, isFalse);
     });
     test('invalid: bad authorizationHeader format', () async {
-      final req = Request.values(
+      final req = Request(
         host: Server(address: '127.0.0.1').host(),
         headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'invalid'})
       );
@@ -80,7 +80,7 @@ void main() {
         when(host.socket('${existingUser.id}')).thenReturn(proxy);
         when(proxy.getAny('/installs/approval')).thenAnswer((_) => Future.value(WsResult(200, true)));
 
-        final req = Request.values(
+        final req = Request(
           host: host,
           headers: RequestHeaders.values({WsProtocolHeader: '$WsAuthProtocol, $code'})
         );
@@ -96,7 +96,7 @@ void main() {
         final service = MockAuthService();
         when(service.getUserToken('user_id')).thenReturn('token_id');
 
-        final req = Request.values(
+        final req = Request(
           host: MockHost(),
           headers: RequestHeaders.values({WsProtocolHeader: '$WsAuthProtocol, user_id-token_id'})
         );

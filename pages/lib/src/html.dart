@@ -32,9 +32,10 @@ abstract class PageBuilder<T> {
   }
 }
 
-class Page {
+class Page implements HtmlResource {
   final Page? layout;
   final Map<String, List<Element>> blocks;
+  Page? _page;
   Page({this.layout, List<Element>? content, List<Element>? scripts, List<Element>? styles, Map<String, List<Element>>? blocks}) : blocks = blocks ?? {} {
     if(content != null) {
       assert(this.blocks.containsKey('content') == false, 'content will shadow blocks[\'content\']');
@@ -51,7 +52,7 @@ class Page {
     for(var e in this.blocks.values.expand((l) => l)) { e._page = this; }
   }
 
-  Page? _page;
+  @override
   String render() {
     final buffer = StringBuffer();
     buffer.write('<!DOCTYPE html>');

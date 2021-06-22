@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:oobium/src/websocket.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 
 class AuthSocket extends WebSocket {
 
@@ -38,19 +38,11 @@ class AuthSocket extends WebSocket {
     }
   }
 
-  FutureOr<bool> Function()? _onApprove;
   WsSubscription? _onApproveSub;
-  set onApprove(FutureOr<bool> Function() value) {
-    _onApprove = value;
+  set onApprove(FutureOr<bool> Function()? cb) {
     _onApproveSub?.cancel();
-    if(_onApprove != null) {
-      _onApproveSub = on.get('/installs/approval', _onApproveInstall);
+    if(cb != null) {
+      _onApproveSub = on.get('/installs/approval', (req) => cb());
     }
-  }
-
-  Future<void> _onApproveInstall(WsRequest req, WsResponse res) async {
-    assert(_onApprove != null, 'approval callback not set');
-    final approved = await _onApprove?.call();
-    res.send(data: approved);
   }
 }

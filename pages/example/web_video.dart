@@ -6,13 +6,11 @@ import 'package:oobium_pages/oobium_pages.dart';
 void main() {
   final server = Server();
 
-  server.get('/video', [(req, res) => res.sendPage(
+  server.get('/video', [(req) => PageResponse(
       Page(content: [ video(autoplay: true, controls: true, src: '/video/src') ]))
   ]);
 
-  server.get('/video/src', [(req, res) => res.sendFile(
-      File('examples/assets/video.mp4')
-  )]);
+  server.get('/video/src', [(req) => File('examples/path/to/large.mp4')]);
 
   server.start();
 }

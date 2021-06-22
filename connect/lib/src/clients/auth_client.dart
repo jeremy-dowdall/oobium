@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:oobium/src/clients/auth_client.schema.g.dart';
-import 'package:oobium/src/clients/auth_socket.dart';
-import 'package:oobium/src/websocket.dart';
+import 'package:oobium_connect/src/clients/auth_socket.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 
 class AuthClient {
 

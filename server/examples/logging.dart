@@ -3,20 +3,20 @@ import 'package:oobium_server/src/server.dart';
 void main() {
   final server = Server();
 
-  server.logger.errorConverter = (req, res, err, stack) {
+  server.logger.errorConverter = (req, err, stack) {
     return 'ErrorConverter Example: $err';
   };
 
-  server.logger.messageConverter = (req, res, msg) {
+  server.logger.messageConverter = (req, msg) {
     return 'MessageConverter Example: $msg';
   };
 
-  server.get('/', [(req, res) {
+  server.get('/', [(req) {
     print('test message');
     throw Exception('test error');
   }]);
 
-  server.get('/custom', [(req, res) async {
+  server.get('/custom', [(req) {
     print('test message');
   }], logger: CustomLogger('message-2'));
 
@@ -29,7 +29,7 @@ class CustomLogger extends Logger {
   CustomLogger(this.customMessage);
 
   @override
-  String convertMessage(Request req, Response res, String message) {
+  String convertMessage(Request req, String message) {
     return customMessage;
   }
 }

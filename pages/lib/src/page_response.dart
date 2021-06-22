@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -5,21 +6,32 @@ import 'dart:isolate';
 import 'package:oobium_pages/src/html.dart';
 import 'package:oobium_server/oobium_server.dart';
 
-extension ResponsePagesX on Response {
+class PageResponse extends HtmlResponse {
+  final PageBuilder? builder;
+  final String? dataType;
+  PageResponse(Page page, {int code=200}) : this._(builder: null, data: page.render(), code: code);
+  static PageResponse render<T>(PageBuilder<T> builder, [T? data]) {
+    return PageResponse._(builder: builder, data: data, dataType: '$T');
+  }
+  PageResponse._({this.builder, this.dataType, int code=200, data}) : super(data, code: code);
 
-  bool get _livePages => request.host.livePages && request.host.settings.isDebug;
-
-  Future<void> render<T>(PageBuilder<T> builder, [T? data]) async {
-    if(_livePages) {
-      final source = await _findSource(builder.runtimeType.toString(), T.toString());
-      if(source != null) {
-        return _renderSource(source, data);
-      }
+  @override
+  FutureOr<dynamic> resolve(Request request) async {
+    if(builder == null) {
+      return '$data';
     }
-    return sendPage(builder.render(path: request.path, data: data));
+    if(request.livePages) {
+      return _render(request, builder!, dataType!);
+    }
+    return builder!.render(path: request.path, data: data).render();
   }
 
-  Future<void> sendPage(Page page, {int code=200}) => sendHtml(page.render(), code: code);
+  Future<dynamic> _render(Request request, PageBuilder builder, String dataType) async {
+    final source = await _findSource(builder.runtimeType.toString(), dataType);
+    if(source != null) {
+      return _renderSource(source, data);
+    }
+  }
 
   Future<String?> _findSource(String builderType, String dataType) async {
     final classDeclaration = 'class $builderType extends PageBuilder<$dataType>';
@@ -33,7 +45,7 @@ extension ResponsePagesX on Response {
     return null;
   }
 
-  Future<void> _renderSource<T>(String source, T data) async {
+  Future<String> _renderSource<T>(String source, T data) async {
 
     // TODO really just need the imports... it re-compiles / builds everything
 
@@ -64,7 +76,7 @@ extension ResponsePagesX on Response {
     port.close();
     isolate.kill();
 
-    return sendHtml(html);
+    return html;
   }
 }
 

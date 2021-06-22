@@ -55,12 +55,12 @@ class Host {
   void static(String? directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, bool optional = false}) {
     if(livePages) {
       final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
-      get(path, [(req, res) {
+      get(path, [(req) {
         if(req.path.contains('..')) {
-          return res.send(code: 400);
+          return 400;
         }
         final filePath = '$directoryPath/${req.path.substring(path.length-1)}';
-        return res.sendFile(File(filePath));
+        return File(filePath);
       }], logger: logger);
     } else {
       for(var file in _getFiles(directoryPath, optional: optional)) {
@@ -68,10 +68,10 @@ class Host {
         final basePath = filePath.substring(directoryPath!.length + 1);
         final builtPath = (pathBuilder != null) ? pathBuilder(basePath) : (at.isBlank ? '/$basePath' : '$at/$basePath');
         final routePath = builtPath.replaceAll(RegExp(r'/+|\\'), '/');
-        get(routePath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
+        get(routePath, [(req) => File(filePath)], logger: logger);
         if(routePath.endsWith('index.html')) {
           final impliedPath = routePath.substring(0, routePath.length - 10);
-          get(impliedPath, [(req, res) => res.sendFile(File(filePath))], logger: logger);
+          get(impliedPath, [(req) => File(filePath)], logger: logger);
         }
       }
     }
@@ -117,57 +117,60 @@ class Host {
     final lookupMethod = (httpRequest.method == 'HEAD') ? 'GET' : httpRequest.method;
     final requestPath = '$lookupMethod${httpRequest.requestedUri.path}';
     final routePath = _handlers.containsKey(requestPath) ? requestPath : requestPath.findRouterPath(_handlers.keys);
-    final request = Request(this, routePath ?? '', httpRequest);
-    final response = Response(request);
+    final request = Request(
+      host: this,
+      routePath: routePath ?? '',
+      method: httpRequest.method,
+      path: httpRequest.requestedUri.path,
+      headers: RequestHeaders(httpRequest),
+      query: httpRequest.uri.queryParameters
+    );
+    var response;
+    final sender = ResponseHandler(request, httpRequest);
     final handlers = _handlers[routePath] ?? _notFoundHandlers ?? [];
     print(requestPath);
     if(handlers.isNotEmpty) {
       final logger = _loggers[routePath] ?? this.logger;
       try {
         await runZoned(() async {
-          for(var handler in handlers) {
-            await handler(request, response);
-            if(response.isClosed) {
+          for(final handler in handlers) {
+            response = await handler(request);
+            if(response != null) {
               return;
             }
           }},
             zoneSpecification: ZoneSpecification(
                 print: (self, parent, zone, message) {
-                  final logMessage = logger.convertMessage(request, response, message);
+                  final logMessage = logger.convertMessage(request, message);
                   parent.print(self, logMessage);
                 }
             )
         );
       } catch(error, stackTrace) {
-        print(logger.convertError(request, response, error, stackTrace));
+        print(logger.convertError(request, error, stackTrace));
       }
-      if(response.isNotClosed) {
-        await _handleError(request, response, 404);
-      }
-    } else {
-      await _handleError(request, response, 404);
     }
+    response ??= await _handleError(request, 404);
+    await sender.sendResponse(response);
     if(httpRequest.response.statusCode >= 400) {
       print('ERROR: ${httpRequest.requestedUri} -> ${httpRequest.response.statusCode}');
     }
   }
 
-  Future<void> _handleCors(req, res) {
-    // TODO
-    res.headers['Access-Control-Allow-Origin'] = '*';
-    res.headers['Access-Control-Allow-Headers'] = '*';
-    res.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
-    return res.send(data: 'sure');
-  }
+  FutureOr<dynamic> _handleCors(req) => Response(headers: {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Allow-Methods': 'POST,GET,DELETE,PUT,OPTIONS',
+  });
 
-  Future<void> _handleError(Request req, Response res, int code) {
+  FutureOr<dynamic> _handleError(Request req, int code) {
     if(code == 404 && error404Handler != null) {
-      return error404Handler!(req, res);
+      return error404Handler!(req);
     }
     if(code >= 500 && error500Handler != null) {
-      return error500Handler!(req, res);
+      return error500Handler!(req);
     }
-    return res.send(code: code);
+    return Response(code: code);
   }
 
   final _sockets = <String, List<ServerWebSocket>>{};
@@ -423,24 +426,24 @@ class Redirect {
   Redirect(this.host, this.temporary);
 }
 
-typedef ErrorConverter = String Function(Request req, Response res, Object error, StackTrace stackTrace);
-typedef MessageConverter = String Function(Request req, Response res, String message);
+typedef ErrorConverter = String Function(Request req, Object error, StackTrace stackTrace);
+typedef MessageConverter = String Function(Request req, String message);
 
 class Logger {
 
   ErrorConverter? errorConverter;
   MessageConverter? messageConverter;
 
-  String convertMessage(Request req, Response res, String message) {
-    return messageConverter?.call(req, res, message) ?? message;
+  String convertMessage(Request req, String message) {
+    return messageConverter?.call(req, message) ?? message;
   }
 
-  String convertError(Request req, Response res, Object error, StackTrace stackTrace) {
-    return errorConverter?.call(req, res, error, stackTrace) ?? '$error\n$stackTrace';
+  String convertError(Request req, Object error, StackTrace stackTrace) {
+    return errorConverter?.call(req, error, stackTrace) ?? '$error\n$stackTrace';
   }
 }
 
-typedef RequestHandler = Future<void> Function(Request request, Response response);
+typedef RequestHandler = FutureOr<dynamic> Function(Request request);
 
 class Request {
   final Host host;
@@ -449,31 +452,18 @@ class Request {
   final String path;
   final RequestHeaders headers;
   final query = <String, String>{};
-  final HttpRequest? _httpRequest;
-  Request(this.host, this.routePath, HttpRequest httpRequest) :
-    method = httpRequest.method,
-    path = httpRequest.requestedUri.path,
-    headers = RequestHeaders(httpRequest),
-    _httpRequest = httpRequest
-  {
-    query.addAll(httpRequest.uri.queryParameters);
-  }
-  Request.values({
+  Request({
     required this.host,
     this.routePath='/',
     this.method='GET',
     this.path='/',
     this.headers=const RequestHeaders.empty(),
     Map<String, String>? query
-  }) :
-    _httpRequest = null
-  {
+  }) {
     if(query != null) {
       this.query.addAll(query);
     }
   }
-
-  late Response _response;
 
   String create(String path) => path.replaceAllMapped(RegExp(r'<(\w+)>'), (m) => this[m[1]!]);
 
@@ -488,18 +478,10 @@ class Request {
   bool get isPartial => headers[HttpHeaders.rangeHeader]?.startsWith('bytes=') == true;
   bool get isNotPartial => !isPartial;
 
+  bool get livePages => host.livePages && host.settings.isDebug;
+
   List<List<int?>>? get ranges => headers[HttpHeaders.rangeHeader]?.substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
-
-  ServerWebSocket _websocket() {
-    final socket = ServerWebSocket._(params['uid']!, host);
-    host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
-    socket.done.then((_) {
-      host._sockets.remove(socket.uid);
-    });
-    _response._closed = true; // don't _actually_ close this response, the websocket will handle it
-    return socket;
-  }
 }
 class RequestHeaders {
   final Map<String, String> _headers;
@@ -514,14 +496,39 @@ class RequestHeaders {
 }
 
 class Response {
-
-  final Request request;
-  final headers = <String, dynamic>{};
-  Response(this.request) {
-    request._response = this;
+  final int code;
+  final Map<String, dynamic> headers;
+  final dynamic data;
+  Response({this.code=200, this.headers=const{}, this.data,});
+  FutureOr<dynamic> resolve(Request request) => data;
+}
+class HtmlResponse extends Response {
+  HtmlResponse(data, {
+    int code=200,
+    Map<String, dynamic>? headers,
+  }) : super(code: code, headers: headers??{}, data: data) {
+    this.headers[HttpHeaders.contentTypeHeader] = ContentType.html.toString();
   }
-  HttpRequest? get _httpRequest => request._httpRequest;
-  HttpResponse? get _httpResponse => _httpRequest?.response;
+}
+class JsonResponse extends Response {
+  JsonResponse(data, {
+    int code=200,
+    Map<String, dynamic>? headers,
+  }) : super(code: code, headers: headers??{}, data: data) {
+    this.headers[HttpHeaders.contentTypeHeader] = ContentType.json.toString();
+    this.headers['Access-Control-Allow-Origin'] = '*';
+    this.headers['Access-Control-Allow-Headers'] = '*';
+    this.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
+  }
+  @override
+  FutureOr<dynamic> resolve(Request request) async => jsonEncode(await data);
+}
+
+class ResponseHandler {
+  final Request request;
+  final HttpRequest httpRequest;
+  final HttpResponse httpResponse;
+  ResponseHandler(this.request, this.httpRequest) : httpResponse = httpRequest.response;
 
   bool _closed = false;
   bool get isClosed => _closed;
@@ -529,26 +536,55 @@ class Response {
   bool get isOpen => isNotClosed;
   bool get isNotOpen => !isOpen;
 
-  void add(List<int> data) => _httpResponse!.add(data);
-  void write(data) => _httpResponse!.write(data);
+  Future<void> close() async {
+    await httpResponse.flush();
+    await httpResponse.close();
+  }
 
-  int get statusCode => _httpResponse!.statusCode;
-  set statusCode(int value) => _httpResponse!.statusCode = value;
-
-  Future<void> send({int code=200, data}) async {
+  Future<void> send({int code=200, Map<String, dynamic> headers=const{}, data}) async {
     assert(isOpen, 'called send after response has already been closed');
     _closed = true;
-    statusCode = code;
-    final content = _getContent(data);
-    for(var header in (headers).entries) {
-      _httpResponse!.headers.add(header.key, header.value);
+    httpResponse.statusCode = code;
+    final content = _getContent(code, data);
+    for(var header in headers.entries) {
+      httpResponse.headers.add(header.key, header.value);
     }
-    _httpResponse!.headers.add(HttpHeaders.serverHeader, 'oobium');
-    _httpResponse!.contentLength = content.length;
-    if(_httpRequest!.method != 'HEAD') {
-      await _httpResponse!.addStream(content.stream);
+    httpResponse.headers.add(HttpHeaders.serverHeader, 'oobium');
+    httpResponse.contentLength = content.length;
+    if(httpRequest.method != 'HEAD') {
+      await httpResponse.addStream(content.stream);
     }
     await close();
+  }
+
+  Future<void> sendResponse(response) async {
+    if(response is Response) {
+      final data = response.resolve(request);
+      return send(
+        code: response.code,
+        headers: response.headers,
+        data: (data is Future) ? (await data) : data
+      );
+    }
+    if(response is WebSocketResponse) {
+      return response.handle(request, httpRequest);
+    }
+    if(response is Future) {
+      response = await response;
+    }
+    if(response is int) {
+      return send(code: response);
+    }
+    if(response is bool) {
+      return response ? send() : close();
+    }
+    if(response is File) {
+      return sendFile(response);
+    }
+    if(response is String) {
+      return sendHtml(response);
+    }
+    return sendJson(response);
   }
 
   Future<void> sendFile(File file) async {
@@ -568,42 +604,41 @@ class Response {
         if(start > end) {
           return send(code: 416, data: 'Requested Range Not Satisfiable');
         }
-        final condition = request!.headers[HttpHeaders.ifRangeHeader];
+        final condition = request.headers[HttpHeaders.ifRangeHeader];
         if(condition == null || condition == etag) {
-          headers[HttpHeaders.contentRangeHeader] =  'bytes $start-$end/${stat.size}';
-          headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();
-          return send(code: 206, data: FileContent(file, stat.size, start, end + 1));
+          return send(code: 206, data: FileContent(file, stat.size, start, end + 1), headers: {
+            HttpHeaders.contentRangeHeader:  'bytes $start-$end/${stat.size}',
+            HttpHeaders.contentTypeHeader: file.contentType.toString(),
+          });
         }
       }
-      headers[HttpHeaders.acceptRangesHeader] = 'bytes';
-      headers[HttpHeaders.contentTypeHeader] ??= file.contentType.toString();
-      return send(code: 200, data: FileContent(file, stat.size));
+      return send(code: 200, data: FileContent(file, stat.size), headers: {
+        HttpHeaders.acceptRangesHeader: 'bytes',
+        HttpHeaders.contentTypeHeader: file.contentType.toString(),
+      });
     }
     return send(code: 404);
   }
 
   Future<void> sendHtml(html, {int code=200}) {
-    headers[HttpHeaders.contentTypeHeader] = ContentType.html.toString();
-    return send(code: code, data: html);
+    return send(code: code, data: html, headers: {
+      HttpHeaders.contentTypeHeader: ContentType.html.toString()
+    });
   }
 
   Future<void> sendJson(FutureOr<dynamic> data, {int code=200}) async {
-    headers[HttpHeaders.contentTypeHeader] = ContentType.json.toString();
-    // TODO
-    headers['Access-Control-Allow-Origin'] = '*';
-    headers['Access-Control-Allow-Headers'] = '*';
-    headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
-    return send(code: code, data: jsonEncode(await data));
+    return send(code: code, data: jsonEncode(await data), headers: {
+      HttpHeaders.contentTypeHeader: ContentType.json.toString(),
+      // TODO
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Allow-Methods': 'POST,GET,DELETE,PUT,OPTIONS',
+    });
   }
 
-  Future<void> close() async {
-    await _httpResponse?.flush();
-    await _httpResponse?.close();
-  }
-
-  Content _getContent(data) {
+  Content _getContent(int code, data) {
     if(data == null) {
-      switch(statusCode) {
+      switch(code) {
         case HttpStatus.notFound: return StringContent('Not Found');
         case HttpStatus.forbidden: return StringContent('Forbidden');
         case HttpStatus.internalServerError: return StringContent('Internal Server Error');
@@ -613,9 +648,15 @@ class Response {
     if(data is Content) {
       return data;
     }
-    return StringContent(data.toString());
+    return StringContent('$data');
   }
 }
+
+abstract class Resource {
+  FutureOr<String> render();
+}
+abstract class HtmlResource extends Resource {}
+abstract class JsonResource extends Resource {}
 
 abstract class Content {
   Stream<List<int>> get stream;
@@ -645,8 +686,24 @@ class StringContent implements Content {
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
 
-RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols)? protocol, bool autoStart = true}) => (req, res) async {
-  final socket = req._websocket();
-  await f(socket);
-  await socket.upgrade(req._httpRequest, protocol: protocol, autoStart: autoStart);
+class WebSocketResponse {
+  final FutureOr Function(ServerWebSocket socket) f;
+  final String Function(List<String> protocols)? protocol;
+  final bool autoStart;
+  WebSocketResponse(this.f, this.protocol, this.autoStart);
+
+  Future<void> handle(Request request, HttpRequest httpRequest) async {
+    final host = request.host;
+    final socket = ServerWebSocket._(request.params['uid'], host);
+    host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
+    socket.done.then((_) { // ignore: unawaited_futures
+      host._sockets.remove(socket.uid);
+    });
+    await f(socket);
+    await socket.upgrade(httpRequest, protocol: protocol, autoStart: autoStart);
+  }
+}
+
+RequestHandler websocket(FutureOr Function(ServerWebSocket socket) f, {String Function(List<String> protocols)? protocol, bool autoStart = true}) => (req) {
+  return WebSocketResponse(f, protocol, autoStart);
 };
