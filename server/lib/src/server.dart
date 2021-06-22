@@ -478,8 +478,6 @@ class Request {
   bool get isPartial => headers[HttpHeaders.rangeHeader]?.startsWith('bytes=') == true;
   bool get isNotPartial => !isPartial;
 
-  bool get livePages => host.livePages && host.settings.isDebug;
-
   List<List<int?>>? get ranges => headers[HttpHeaders.rangeHeader]?.substring(6).split(',')
       .map((r) => r.trim().split('-').map((e) => int.tryParse(e.trim())).toList()).toList();
 }
@@ -501,27 +499,6 @@ class Response {
   final dynamic data;
   Response({this.code=200, this.headers=const{}, this.data,});
   FutureOr<dynamic> resolve(Request request) => data;
-}
-class HtmlResponse extends Response {
-  HtmlResponse(data, {
-    int code=200,
-    Map<String, dynamic>? headers,
-  }) : super(code: code, headers: headers??{}, data: data) {
-    this.headers[HttpHeaders.contentTypeHeader] = ContentType.html.toString();
-  }
-}
-class JsonResponse extends Response {
-  JsonResponse(data, {
-    int code=200,
-    Map<String, dynamic>? headers,
-  }) : super(code: code, headers: headers??{}, data: data) {
-    this.headers[HttpHeaders.contentTypeHeader] = ContentType.json.toString();
-    this.headers['Access-Control-Allow-Origin'] = '*';
-    this.headers['Access-Control-Allow-Headers'] = '*';
-    this.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PUT,OPTIONS';
-  }
-  @override
-  FutureOr<dynamic> resolve(Request request) async => jsonEncode(await data);
 }
 
 class ResponseHandler {
@@ -545,7 +522,7 @@ class ResponseHandler {
     assert(isOpen, 'called send after response has already been closed');
     _closed = true;
     httpResponse.statusCode = code;
-    final content = _getContent(code, data);
+    final content = await _getContent(code, data);
     for(var header in headers.entries) {
       httpResponse.headers.add(header.key, header.value);
     }
@@ -558,19 +535,18 @@ class ResponseHandler {
   }
 
   Future<void> sendResponse(response) async {
+    if(response is Future) {
+      return sendResponse(await response);
+    }
     if(response is Response) {
-      final data = response.resolve(request);
       return send(
         code: response.code,
         headers: response.headers,
-        data: (data is Future) ? (await data) : data
+        data: response.resolve(request)
       );
     }
     if(response is WebSocketResponse) {
       return response.handle(request, httpRequest);
-    }
-    if(response is Future) {
-      response = await response;
     }
     if(response is int) {
       return send(code: response);
@@ -580,6 +556,15 @@ class ResponseHandler {
     }
     if(response is File) {
       return sendFile(response);
+    }
+    if(response is JsonResource) {
+      return sendJson(response);
+    }
+    if(response is HtmlResource) {
+      return sendHtml(response);
+    }
+    if(response is Resource) {
+      return sendHtml(response);
     }
     if(response is String) {
       return sendHtml(response);
@@ -626,8 +611,8 @@ class ResponseHandler {
     });
   }
 
-  Future<void> sendJson(FutureOr<dynamic> data, {int code=200}) async {
-    return send(code: code, data: jsonEncode(await data), headers: {
+  Future<void> sendJson(data, {int code=200}) async {
+    return send(code: code, data: data, headers: {
       HttpHeaders.contentTypeHeader: ContentType.json.toString(),
       // TODO
       'Access-Control-Allow-Origin': '*',
@@ -636,7 +621,7 @@ class ResponseHandler {
     });
   }
 
-  Content _getContent(int code, data) {
+  Future<Content> _getContent(int code, data) async {
     if(data == null) {
       switch(code) {
         case HttpStatus.notFound: return StringContent('Not Found');
@@ -647,6 +632,12 @@ class ResponseHandler {
     }
     if(data is Content) {
       return data;
+    }
+    if(data is Resource) {
+      data = data.render();
+    }
+    if(data is Future) {
+      return _getContent(code, await data);
     }
     return StringContent('$data');
   }

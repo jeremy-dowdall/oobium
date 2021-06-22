@@ -24,7 +24,7 @@ abstract class PageBuilder<T> {
     return builder.build();
   }
 
-  Page render({required String path, T? data, String? page}) {
+  Page render(String path, {T? data, String? page}) {
     this.path = path;
     if(data != null) this.data = data;
     this.context = PageContext(page ?? this.page);
