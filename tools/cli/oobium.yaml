@@ -1,0 +1,6 @@
+address: d
+host: www
+subdomains:
+  - www
+  - api
+email: ssss

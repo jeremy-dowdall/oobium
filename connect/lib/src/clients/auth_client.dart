@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:oobium_connect/src/clients/auth_client.schema.g.dart';
 import 'package:oobium_connect/src/clients/auth_socket.dart';
 import 'package:oobium_websocket/oobium_websocket.dart';
 

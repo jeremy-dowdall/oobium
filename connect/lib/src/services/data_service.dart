@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:oobium/oobium.dart' hide Group, Membership;
-import 'package:oobium_server/src/server.dart';
-import 'package:oobium_server/src/services/auth_service.dart';
-import 'package:oobium_server/src/services/auth_service.schema.g.dart';
-import 'package:oobium_server/src/service.dart';
+import 'package:oobium_connect/src/clients/data_client.dart';
+import 'package:oobium_connect/src/clients/data_client.schema.g.dart';
+import 'package:oobium_connect/src/clients/user_client.schema.g.dart';
+import 'package:oobium_connect/src/services/auth_service.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
+import 'package:oobium_server/oobium_server.dart';
 
 const _verbose = false;
 
@@ -141,21 +142,21 @@ class DataService extends Service<AuthConnection, Null> {
   }
 
   void _onMembershipsEvent(DataModelEvent<Membership> event) {
-    if(_verbose) print('dataService._onMembershipsEvent(put: ${event.puts.map((e) => '${e.user?.name}:${e.group?.name}')}, remove: ${event.removes.map((e) => '${e.user?.name}:${e.group?.name}')})');
+    if(_verbose) print('dataService._onMembershipsEvent(put: ${event.puts.map((e) => '${e.user.name}:${e.group.name}')}, remove: ${event.removes.map((e) => '${e.user.name}:${e.group?.name}')})');
     for(var membership in event.puts) {
-      if(_verbose) print('  dataService._onMembershipsEvent-put(${membership.user?.name} to ${membership.group?.name})');
-      final client = _clients[membership.user?.id];
+      if(_verbose) print('  dataService._onMembershipsEvent-put(${membership.user.name} to ${membership.group.name})');
+      final client = _clients[membership.user.id];
       if(client != null) {
-        final defs = _shared!.getAll<Definition>().where((d) => d.access == membership.group?.id);
+        final defs = _shared!.getAll<Definition>().where((d) => d.access == membership.group.id);
         if(_verbose) print('  dataService._onMembershipsEvent-put($defs)');
         client.putAll(defs);
       }
     }
     for(var membership in event.removes) {
-      if(_verbose) print('  dataService._onMembershipsEvent-remove(${membership.user?.name} from ${membership.group?.name})');
-      final client = _clients[membership.user?.id];
+      if(_verbose) print('  dataService._onMembershipsEvent-remove(${membership.user.name} from ${membership.group.name})');
+      final client = _clients[membership.user.id];
       if(client != null) {
-        final defs = _shared!.getAll<Definition>().where((d) => d.access == membership.group?.id);
+        final defs = _shared!.getAll<Definition>().where((d) => d.access == membership.group.id);
         if(_verbose) print('  dataService._onMembershipsEvent-remove($defs)');
         client.removeAll(defs.map((d) => d.id));
       }

@@ -1,16 +1,18 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:oobium_connect/src/services/auth/validators.dart';
 import 'package:oobium_connect/src/services/auth_service.schema.g.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 import 'package:oobium_server/src/server.dart';
 import 'package:oobium_server/src/service.dart';
 
 const WsProtocolHeader = 'sec-websocket-protocol';
 const WsAuthProtocol = 'authorized';
 
-Future<void> auth(Request req, Response res) => req.host.getService<AuthService>()._auth(req, res);
+Future<void> auth(Request req) => req.host.getService<AuthService>()._auth(req);
 
 class AuthService extends Service<Host, AuthConnection> {
 
@@ -25,12 +27,12 @@ class AuthService extends Service<Host, AuthConnection> {
   InstallCodes? _codes;
   AuthToken? consume(String code) => _ds.remove(_codes?.consume(code));
 
-  String? getUserToken(String uid, {bool forceNew = false}) {
-    final user = _ds.get<User>(uid);
+  ObjectId? getUserToken(String uid, {bool forceNew = false}) {
+    final user = _ds.getAuthUser(uid);
     if(user != null) {
       final token = user.token;
       if(token == null) {
-        final newToken = Token(user: user);
+        final newToken = AuthToken(user: user);
         _ds.put(user.copyWith(token: newToken));
         return newToken.id;
       }
@@ -44,9 +46,9 @@ class AuthService extends Service<Host, AuthConnection> {
     return null;
   }
 
-  User? updateUserToken(String uid) {
+  AuthUser? updateUserToken(String uid) {
     getUserToken(uid, forceNew: true);
-    return _ds.get<User>(uid);
+    return _ds.getAuthUser(uid);
   }
 
   @override
@@ -121,7 +123,7 @@ class AuthService extends Service<Host, AuthConnection> {
     }
   }
 
-  Future<void> _auth(Request req, Response res) async {
+  FutureOr<dynamic> _auth(Request req) async {
     if(_validators.isEmpty) {
       return;
     }
@@ -130,7 +132,7 @@ class AuthService extends Service<Host, AuthConnection> {
         return;
       }
     }
-    return res.send(code: HttpStatus.forbidden);
+    HttpStatus.forbidden;
   }
 }
 
@@ -139,10 +141,10 @@ class AuthConnection {
   final AuthService _service;
   final ServerWebSocket _socket;
   AuthConnection._(this._service, this._socket) {
-    _socket.on.get('/users/id', (req, res) => res.send(data: uid));
-    _socket.on.get('/users/token', (req, res) => res.send(data: _service.getUserToken(uid)));
-    _socket.on.get('/users/token/new', (req, res) => res.send(data: _service.getUserToken(uid, forceNew: true)));
-    _socket.on.get('/installs/token', (req, res) => res.send(code: 201, data: _service._codes?.createInstallCode(uid)));
+    _socket.on.get('/users/id', (req) => uid);
+    _socket.on.get('/users/token', (req) => _service.getUserToken(uid));
+    _socket.on.get('/users/token/new', (req) => _service.getUserToken(uid, forceNew: true));
+    _socket.on.get('/installs/token', (req) => Response(code: 201, data: _service._codes?.createInstallCode(uid)));
   }
 
   Future<void> close() => _socket.close();
@@ -166,10 +168,10 @@ abstract class AuthValidator {
   void onStart() {}
   void onStop() {}
 
-  Token? consume(String code) => _service.consume(code);
+  AuthToken? consume(String code) => _service.consume(code);
 
   bool hasUser(String userId, String tokenId) => _service.getUserToken(userId) == tokenId;
-  User putUser(Token token) => _service.putUser(User(token: token.copyNew(), referredBy: token.user));
+  AuthUser putUser(AuthToken token) => _service.putAuthUser(token: token.copyNew(), referredBy: token.user);
 
   void updateUserToken(String userId) {
     _service.updateUserToken(userId);
@@ -193,14 +195,14 @@ class InstallCodes {
   }
 
   String createInstallCode(String userId) {
-    final user = _ds.get<User>(userId);
+    final user = _ds.get<AuthUser>(userId);
     final old = _codes.keys.firstWhereOrNull((k) => _codes[k]?.user == user?.id);
     if(old != null) {
       print('found old code ($old), removing');
       _ds.remove(_codes.remove(old)?.token);
     }
 
-    final token = _ds.put(Token(user: user));
+    final token = _ds.put(AuthToken(user: user));
     final code = _generateInstallCode();
     print('new code: $code');
 

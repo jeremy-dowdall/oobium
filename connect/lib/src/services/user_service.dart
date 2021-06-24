@@ -1,11 +1,9 @@
 import 'dart:async';
 
-import 'package:oobium/oobium.dart' hide User, Group, Membership;
-import 'package:oobium/oobium.dart' as c show User, Group, Membership;
-import 'package:oobium_server/src/server.dart';
-import 'package:oobium_server/src/services/auth_service.dart';
-import 'package:oobium_server/src/service.dart';
-import 'package:oobium_server/src/services/auth_service.schema.gen.models.dart' as s;
+import 'package:oobium_connect/src/clients/user_client.schema.g.dart';
+import 'package:oobium_connect/src/services/auth_service.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
+import 'package:oobium_server/oobium_server.dart';
 
 class UserService extends Service<AuthConnection, Null> {
 
@@ -55,7 +53,7 @@ class UserService extends Service<AuthConnection, Null> {
   }
 
   Future<UserClientData> _openClient(String uid) async {
-    final client = await UserClientData('$root/$uid').open() as UserClientData;
+    final client = await UserClientData('$root/$uid').open();
     await _onClientInit(uid, client);
     client.streamAll().listen(_onClientEvent(uid));
     return client;
@@ -77,9 +75,9 @@ class UserService extends Service<AuthConnection, Null> {
 
     client.batch(
       put: [
-        ...users.map((u) => c.User.fromJson(u.toJson())),
-        ...groups.map((g) => c.Group.fromJson(g.toJson())),
-        ...memberships.map((m) => c.Membership.fromJson(m.toJson())),
+        ...users.map((u) => User.fromJson(u.toJson())),
+        ...groups.map((g) => Group.fromJson(g.toJson())),
+        ...memberships.map((m) => Membership.fromJson(m.toJson())),
       ],
       remove: client.getAll().where((e) => service.none(e.id)).map((e) => e.id).toList(),
     );
@@ -93,11 +91,11 @@ class UserService extends Service<AuthConnection, Null> {
     // do not put client users into the service ds
 
     // all memberships involving the user
-    final memberships = event.puts.whereType<c.Membership>()
+    final memberships = event.puts.whereType<Membership>()
       .where((m) => (m.user.id == uid) || (m.group.owner.id == uid));
 
     // only groups owned by the user
-    final groups = event.puts.whereType<c.Group>()
+    final groups = event.puts.whereType<Group>()
       .where((g) => (g.owner.id == uid) || service.getMemberships().any((m) => (m.group?.id == g.id) && (m.user?.id == uid)));
 
     service.batch(
@@ -120,22 +118,22 @@ class UserService extends Service<AuthConnection, Null> {
       final client = e.value;
 
       // all memberships involving the user
-      final memberships = event.puts.whereType<s.Membership>()
-        .where((m) => (m.user?.id == uid) || (m.group?.owner?.id == uid));
+      final memberships = event.puts.whereType<Membership>()
+        .where((m) => (m.user.id == uid) || (m.group.owner.id == uid));
 
       // all groups involving the user (as owner or member)
-      final groups = event.puts.whereType<s.Group>()
-        .where((g) => (g.owner?.id == uid)
-          || memberships.any((m) => (m.group?.id == g.id) && (m.user?.id == uid))               // this event
-          || service.getMemberships().any((m) => (m.group?.id == g.id) && (m.user?.id == uid))) // the whole ds
-        .followedBy(memberships.map((m) => m.group!))
-        .fold<Map<String, s.Group>>({}, (a,g) {a[g.id] = g; return a;}).values;
+      final groups = event.puts.whereType<Group>()
+        .where((g) => (g.owner.id == uid)
+          || memberships.any((m) => (m.group.id == g.id) && (m.user.id == uid))               // this event
+          || service.getMemberships().any((m) => (m.group.id == g.id) && (m.user.id == uid))) // the whole ds
+        .followedBy(memberships.map((m) => m.group))
+        .fold<Map<String, Group>>({}, (a,g) {a[g.id] = g; return a;}).values;
 
       client.batch(
         put: [
-          ...users.map((u) => c.User.fromJson(u.toJson())),
-          ...groups.map((g) => c.Group.fromJson(g.toJson())),
-          ...memberships.map((m) => c.Membership.fromJson(m.toJson())),
+          ...users.map((u) => User.fromJson(u.toJson())),
+          ...groups.map((g) => Group.fromJson(g.toJson())),
+          ...memberships.map((m) => Membership.fromJson(m.toJson())),
         ],
         remove: event.removes.map((m) => m.id).toList()
       );

@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:objectid/objectid.dart';
 import 'package:oobium_server/src/server_settings.dart';
 import 'package:oobium_server/src/service.dart';
+import 'package:oobium_server/src/server_watcher.dart' as watcher;
 import 'package:oobium_websocket/oobium_websocket.dart';
 import 'package:xstring/xstring.dart';
 
@@ -203,6 +204,7 @@ class Server {
   HttpServer? https;
   StreamSubscription? httpSubscription;
   StreamSubscription? httpsSubscription;
+  StreamSubscription? watcherSubscription;
 
   Host host([String name='']) {
     return _hosts.putIfAbsent(name, () => Host._(name, this));
@@ -239,6 +241,7 @@ class Server {
     }
     await httpSubscription?.cancel();
     await httpsSubscription?.cancel();
+    await watcherSubscription?.cancel();
     if(https == null) {
       httpSubscription = http!.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on http://${http!.address.host}:${http!.port}/');
@@ -247,14 +250,17 @@ class Server {
       httpsSubscription = https!.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on https://${https!.address.host}:${https!.port}/ with redirect from http on port 80');
     }
+    watcherSubscription = await watcher.start();
   }
 
   Future<void> stop() async {
     await _stopServices();
     await httpSubscription?.cancel();
     await httpsSubscription?.cancel();
+    await watcherSubscription?.cancel();
     httpSubscription = null;
     httpsSubscription = null;
+    watcherSubscription = null;
   }
 
   Future<void> close({bool force = true}) async {
@@ -686,8 +692,10 @@ class WebSocketResponse {
   Future<void> handle(Request request, HttpRequest httpRequest) async {
     final host = request.host;
     final socket = ServerWebSocket._(request.params['uid'], host);
+    print('add socket(${socket.uid})');
     host._sockets.putIfAbsent(socket.uid, () => <ServerWebSocket>[]).add(socket);
     socket.done.then((_) { // ignore: unawaited_futures
+      print('remove socket(${socket.uid})');
       host._sockets.remove(socket.uid);
     });
     await f(socket);

@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:objectid/objectid.dart';
+import 'package:oobium_connect/src/clients/auth_client.schema.g.dart';
+import 'package:oobium_connect/src/clients/data_client.schema.g.dart';
 import 'package:oobium_datastore/oobium_datastore.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 
 const SchemaName = '__schema__';
 

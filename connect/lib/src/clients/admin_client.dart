@@ -1,4 +1,4 @@
-import 'package:oobium/oobium.dart';
+import 'package:oobium_websocket/oobium_websocket.dart';
 
 class AdminClient {
 

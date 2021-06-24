@@ -129,7 +129,6 @@ class WebSocket {
   }
 
   Future<void> close([int code=499, String reason='Client Closed Request']) async {
-    await stop();
     await _ws?.close();
     _ws = null;
     final result = _closedResult = WsResult(code, reason);
@@ -275,7 +274,7 @@ class WebSocket {
   }
 
   void _onData(dynamic data) {
-    _log('onData: $data');
+    // _log('onData: $data');
     if(data is String) {
       _onMessage(data);
     }
@@ -293,7 +292,7 @@ class WebSocket {
   }
 
   T _send<T>(T data) {
-    _log('send: $data');
+    // _log('send: $data');
     if(isClosed) {
       _log('tried adding to a closed socket');
     } else {

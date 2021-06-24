@@ -1,0 +1,22 @@
+import 'package:args/command_runner.dart';
+import 'package:oobium_cli/commands/host.dart';
+import 'package:oobium_cli/commands/info.dart';
+import 'package:oobium_cli/commands/init.dart';
+
+///
+/// - init new project
+///   - create a remote.json file
+/// - create a new build machine
+/// - create a new host machine
+/// - restart server
+/// - update server
+/// - dart builds (server)
+/// - flutter builds (client/web)
+///
+void main(List<String> args) async {
+  await CommandRunner('oobium', 'a cli for oobium based applications')
+    ..addCommand(InfoCommand())
+    ..addCommand(InitCommand())
+    ..addCommand(HostCommand())
+    ..run(args);
+}
