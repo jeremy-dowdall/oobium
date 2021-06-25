@@ -10,7 +10,7 @@ environment:
 
 dependencies:
   collection: ^1.15.0
-  xstring: ^1.1.1
+  xstring: ^1.2.0
 
 dev_dependencies:
   test: ^1.15.3

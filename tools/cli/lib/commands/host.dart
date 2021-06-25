@@ -24,3 +24,16 @@ class StatusCommand extends ConnectedCommand {
     }
   }
 }
+
+class DeployCommand extends ConnectedCommand {
+  @override final name = 'deploy';
+  @override final description = 'deploy a project to an oobium host';
+
+  @override
+  Future<void> runWithConnection(Project project, WebSocket ws) async {
+    final status = await ws.put('/deploy', 'deployment descriptor type thing...');
+    if(status.isSuccess) {
+      print('status: ${status.data}');
+    }
+  }
+}

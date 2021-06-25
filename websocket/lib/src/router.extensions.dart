@@ -49,7 +49,6 @@ extension RouterStringExtensions on String {
 
   List<String> get segments {
     final sa = split(RegExp(r'[/+]'))..removeWhere((s) => s.isEmpty);
-    // print('segments($this) -> $sa');
     return sa;
   }
 

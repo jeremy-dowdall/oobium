@@ -1,4 +1,4 @@
-import 'package:oobium_host/commands/build.dart';
+import 'package:oobium_host/commands/deploy.dart';
 import 'package:oobium_host/commands/status.dart';
 import 'package:oobium_server/oobium_server.dart';
 
@@ -7,7 +7,7 @@ main() async {
 
   server.get('/host', [websocket((ws) { // TODO use an AuthSocket
     ws.on.get('/status', statusHandler);
-    ws.on.get('/build', buildHandler);
+    ws.on.put('/deploy', deployHandler);
   })]);
 
   await server.start();

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:oobium_websocket/src/logging.dart';
 import 'package:oobium_websocket/src/websocket.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -7,8 +8,8 @@ import 'utils/test_websocket_server.dart';
 
 Future<void> hybridMain(StreamChannel channel, dynamic message) async {
 
-  print('server [$message]');
-  
+  log.level = Level.fine;
+
   final server = WsTestServer(channel);
   await server.start(message);
   server.listen();
@@ -38,7 +39,7 @@ class WsTestServer {
         return req.params['msg'];
       });
       ws.on.get('/ping/<msg>', (req) async {
-        final result = await req.socket.get('${req.path}/pong/${req['msg']}');
+        final result = await req.socket.get('/pong/${req['msg']}');
         return result.data;
       });
       ws.on.get('/data', (req) {
