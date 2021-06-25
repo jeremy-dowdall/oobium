@@ -210,6 +210,15 @@ Future<void> main() async {
       await client.flush();
       expect(events, ['echo', 'delay']);
     });
+    test('child listener', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket().connect(port: 8001);
+      final events = [];
+      await client.get('/ping/hi',
+        WsHandlers()..get('/pong/<msg>', (req) => events.add(req['msg']))
+      ).then((_) => events.add('hi'));
+      expect(events, ['hi', 'hi']);
+    });
   });
 
   group('test getStream', () {

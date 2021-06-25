@@ -85,10 +85,18 @@ class WebSocket {
     return this;
   }
 
-  Future<WsResult> get(String path) => _sendRequest(WsMessage.get(path));
-  Stream<List<int>> getStream(String path) => _sendStreamRequest(WsMessage.getStream(path));
-  Future<WsResult> put(String path, dynamic data) => _sendRequest(WsMessage.put(path, data));
-  Future<WsResult> putStream(String path, Stream<List<int>> data) => _sendRequest(WsMessage.putStream(path, data));
+  Future<WsResult> get(String path, [WsHandlers? on]) {
+    return _wrap(path, on, () => _sendRequest(WsMessage.get(path)));
+  }
+  Stream<List<int>> getStream(String path) {
+    return _sendStreamRequest(WsMessage.getStream(path));
+  }
+  Future<WsResult> put(String path, dynamic data, [WsHandlers? on]) {
+    return _wrap(path, on, () => _sendRequest(WsMessage.put(path, data)));
+  }
+  Future<WsResult> putStream(String path, Stream<List<int>> data, [WsHandlers? on]) {
+    return _wrap(path, on, () => _sendRequest(WsMessage.putStream(path, data)));
+  }
 
   CancelableFuture<void> get ready => _ready.future;
   bool get isReady => _ready.isCompleted;
@@ -168,8 +176,10 @@ class WebSocket {
     final message = WsMessage.parse(data);
     switch(message.type) {
       case 'G':
+        _onGetRequest(message);
+        break;
       case 'P':
-        _onRequest(message);
+        _onPutRequest(message);
         break;
       case 'GS':
         _onGetStreamRequest(message);
@@ -201,15 +211,15 @@ class WebSocket {
     }
   }
 
-  void _onRequest(WsMessage message) {
-    final path = '${message.type}${message.path}';
-    final routePath = on._handlers.containsKey(path) ? path : path.findRouterPath(on._handlers.keys);
-    final handler = on._handlers[routePath];
+  void _onGetRequest(WsMessage message) {
+    assert(message.type == 'G');
+    final path = message.path;
+    final handler = on._find<_Get>(path);
     if(handler == null) {
       _send(message.as('404'));
     } else {
-      final request = WsRequest._(message, routePath!, message.data);
-      Future.value(handler(request))
+      final request = WsRequest._(this, message, handler.path, message.data);
+      Future.value(handler.impl(request))
         .then((result) {
           if(result is WsResult) {
             _send(message.as('${result.code}', result.data));
@@ -225,14 +235,13 @@ class WebSocket {
   }
   void _onGetStreamRequest(WsMessage message) {
     assert(message.type == 'GS');
-    final path = '${message.type}${message.path}';
-    final routePath = on._getStreamHandlers.containsKey(path) ? path : path.findRouterPath(on._getStreamHandlers.keys);
-    final handler = on._getStreamHandlers[routePath];
+    final path = message.path;
+    final handler = on._find<_GetStream>(path);
     if(handler == null) {
       _send(message.as('404'));
     } else {
-      final request = WsRequest._(message, routePath!, message.data);
-      Future.value(handler(request))
+      final request = WsRequest._(this, message, handler.path, message.data);
+      Future.value(handler.impl(request))
           .then((result) {
             result.listen((data) => _send(data),
                 onDone: () => _send(message.as('200')),
@@ -245,17 +254,38 @@ class WebSocket {
           });
     }
   }
+  void _onPutRequest(WsMessage message) {
+    assert(message.type == 'P');
+    final path = message.path;
+    final handler = on._find<_Put>(path);
+    if(handler == null) {
+      _send(message.as('404'));
+    } else {
+      final request = WsRequest._(this, message, handler.path, message.data);
+      Future.value(handler.impl(request))
+          .then((result) {
+        if(result is WsResult) {
+          _send(message.as('${result.code}', result.data));
+        } else {
+          _send(message.as('200', result));
+        }
+      })
+          .catchError((error, stackTrace) {
+        _log('$error\n$stackTrace');
+        _send(message.as('500', error));
+      });
+    }
+  }
   void _onPutStreamRequest(WsMessage message) {
     assert(message.type == 'PS');
-    final path = '${message.type}${message.path}';
-    final routePath = on._putStreamHandlers.containsKey(path) ? path : path.findRouterPath(on._putStreamHandlers.keys);
-    final handler = on._putStreamHandlers[routePath];
+    final path = message.path;
+    final handler = on._find<_PutStream>(path);
     if(handler == null) {
       _send(message.as('404'));
     } else {
       final item = _streams.add(message);
-      final request = WsStreamRequest._(message, routePath!, item.controller);
-      Future.value(handler(request))
+      final request = WsStreamRequest._(this, message, handler.path, item.controller);
+      Future.value(handler.impl(request))
           .then((result) {
             if(result is WsResult) {
               _send(message.as('${result.code}', result.data));
@@ -296,9 +326,21 @@ class WebSocket {
     if(isClosed) {
       _log('tried adding to a closed socket');
     } else {
-      _ws!.add(data); // TODO json...
+      _ws!.add(data); // TODO json... ?
     }
     return data;
+  }
+
+  Future<WsResult> _wrap(String path, WsHandlers? on, Future<WsResult> Function() f) {
+    if(on != null) {
+      on.attach(this.on, path);
+      return f().then((result) {
+        on.detach();
+        return result;
+      });
+    } else {
+      return f();
+    }
   }
 
   void _log(msg) => print('${DateTime.now().millisecondsSinceEpoch} ${(name == null) ? msg : '$name: $msg'}');
@@ -466,34 +508,34 @@ class WsMessage {
 }
 
 class WsRequest {
+  final WebSocket socket;
   final WsMessage _message;
   final String _routePath;
   final dynamic data;
-  WsRequest._(this._message, this._routePath, this.data);
+  WsRequest._(this.socket, this._message, this._routePath, this.data);
 
   operator [](String key) => params[key];
 
-  String get method => _message.type;
   String get path => _message.path;
 
   Map<String, dynamic>? _params;
-  Map<String, dynamic> get params => _params ??= '$method$path'.parseParams(_routePath);
+  Map<String, dynamic> get params => _params ??= path.parseParams(_routePath);
 }
 class WsStreamRequest {
+  final WebSocket socket;
   final WsMessage _message;
   final String _routePath;
   final StreamController<List<int>> _controller;
-  WsStreamRequest._(this._message, this._routePath, this._controller);
+  WsStreamRequest._(this.socket, this._message, this._routePath, this._controller);
 
   Stream<List<int>> get stream => _controller.stream;
 
   operator [](String key) => params[key];
 
-  String get method => _message.type;
   String get path => _message.path;
 
   Map<String, dynamic>? _params;
-  Map<String, dynamic> get params => _params ??= '$method$path'.parseParams(_routePath);
+  Map<String, dynamic> get params => _params ??= path.parseParams(_routePath);
 }
 
 class WsResult {
@@ -509,42 +551,95 @@ class WsResult {
 
 class WsHandlers {
 
-  final _handlers = <String, WsMessageHandler>{};
-  final _getStreamHandlers = <String, WsGetStreamHandler>{};
-  final _putStreamHandlers = <String, WsPutStreamHandler>{};
+  var _path = '';
+  WsHandlers? _parent;
 
-  WsSubscription get(String path, WsMessageHandler handler)  => _add('G', path, handler);
-  WsSubscription put(String path, WsMessageHandler handler) => _add('P', path, handler);
-  WsSubscription getStream(String path, WsGetStreamHandler handler) => _addGetStream(path, handler);
-  WsSubscription putStream(String path, WsPutStreamHandler handler) => _addPutStream(path, handler);
+  final _children = <WsHandlers>[];
+  final _handlers = <Type, Map<String, dynamic>>{};
 
-  WsSubscription _add(String method, String path, WsMessageHandler handler) {
-    final route = _checkedRoute(method, path, _handlers.keys);
-    _handlers[route] = handler;
-    return WsSubscription(() => _handlers.remove(route));
+  void attach(WsHandlers parent, String path) {
+    if(_parent != parent) {
+      detach();
+      _path = path;
+      _parent = parent;
+      parent._children.add(this);
+    }
   }
 
-  WsSubscription _addGetStream(String path, WsGetStreamHandler handler) {
-    final route = _checkedRoute('GS', path, _getStreamHandlers.keys);
-    _getStreamHandlers[route] = handler;
-    return WsSubscription(() => _getStreamHandlers.remove(route));
+  void clear() {
+    _handlers.clear();
   }
 
-  WsSubscription _addPutStream(String path, WsPutStreamHandler handler) {
-    final route = _checkedRoute('PS', path, _putStreamHandlers.keys);
-    _putStreamHandlers[route] = handler;
-    return WsSubscription(() => _putStreamHandlers.remove(route));
+  void detach() {
+    _parent?._children.remove(this);
+    _parent = null;
+    _path = '';
   }
 
-  String _checkedRoute(String method, String path, Iterable<String> routes) {
-    final route = '$method$path';
-    final sa = route.verifiedSegments;
-    for(var handlerRoute in routes) {
-      if(sa.matches(handlerRoute.segments)) {
-        throw 'duplicate route: $route';
+  void dispose() {
+    for(final child in _children) {
+      child.dispose();
+    }
+    _handlers.clear();
+    detach();
+  }
+
+  bool get isEmpty => _handlers.isEmpty;
+  bool get isNotEmpty => !isEmpty;
+
+  WsSubscription get(String path, WsGetHandler handler) => _add<_Get>(path, handler);
+  WsSubscription put(String path, WsPutHandler handler) => _add<_Put>(path, handler);
+  WsSubscription getStream(String path, WsGetStreamHandler handler) => _add<_GetStream>(path, handler);
+  WsSubscription putStream(String path, WsPutStreamHandler handler) => _add<_PutStream>(path, handler);
+
+  WsSubscription _add<T>(String path, impl) {
+    _check<T>(path);
+    print('add:$T-$path');
+    _handlers.putIfAbsent(T, () => {})[path] = impl;
+    return WsSubscription(() {
+      _handlers[T]?.remove(path);
+      if(_handlers[T]?.isEmpty == true) {
+        _handlers.remove(T);
+      }
+    });
+  }
+
+  void _check<T>(String path) {
+    final routes = _handlers[T]?.keys;
+    if(routes != null) {
+      final sa = path.verifiedSegments;
+      for(var handlerRoute in routes) {
+        if(sa.matches(handlerRoute.segments)) {
+          throw 'duplicate route: $path';
+        }
       }
     }
-    return route;
+  }
+
+  T? _find<T>(String path) {
+    if(path.length <= _path.length) {
+      return null;
+    }
+    final route = path.substring(_path.length);
+    for(final child in _children) {
+      final handler = child._find<T>(route);
+      if(handler != null) {
+        return handler;
+      }
+    }
+    final handlers = _handlers[T];
+    if(handlers != null) {
+      final routePath = handlers.containsKey(route) ? route : route.findRouterPath(handlers.keys);
+      if(routePath != null) {
+        final handler = handlers[routePath];
+        if(handler != null) {
+          if(T == _Get) return _Get(routePath, handler) as T;
+          if(T == _GetStream) return _GetStream(routePath, handler) as T;
+          if(T == _PutStream) return _PutStream(routePath, handler) as T;
+        }
+      }
+    }
+    return null;
   }
 }
 class WsSubscription {
@@ -552,6 +647,32 @@ class WsSubscription {
   WsSubscription(this._onCancel);
   void cancel() => _onCancel();
 }
-typedef WsMessageHandler = FutureOr<dynamic> Function(WsRequest request);
+typedef WsGetHandler = FutureOr<dynamic> Function(WsRequest request);
+typedef WsPutHandler = FutureOr<dynamic> Function(WsRequest request);
 typedef WsGetStreamHandler = FutureOr<Stream<List<int>>> Function(WsRequest request);
 typedef WsPutStreamHandler = FutureOr<dynamic> Function(WsStreamRequest request);
+
+class _Get {
+  final String path;
+  final WsGetHandler impl;
+  _Get(this.path, this.impl);
+  @override toString() => 'Get$path';
+}
+class _GetStream {
+  final String path;
+  final WsGetStreamHandler impl;
+  _GetStream(this.path, this.impl);
+  @override toString() => 'GetStream$path';
+}
+class _Put {
+  final String path;
+  final WsPutHandler impl;
+  _Put(this.path, this.impl);
+  @override toString() => 'Put$path';
+}
+class _PutStream {
+  final String path;
+  final WsPutStreamHandler impl;
+  _PutStream(this.path, this.impl);
+  @override toString() => 'PutStream$path';
+}

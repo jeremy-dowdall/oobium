@@ -37,6 +37,10 @@ class WsTestServer {
       ws.on.get('/echo/<msg>', (req) {
         return req.params['msg'];
       });
+      ws.on.get('/ping/<msg>', (req) async {
+        final result = await req.socket.get('${req.path}/pong/${req['msg']}');
+        return result.data;
+      });
       ws.on.get('/data', (req) {
         return [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
       });
