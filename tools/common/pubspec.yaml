@@ -1,5 +1,5 @@
-name: tools_host
-description: Host for Oobium based projects
+name: tools_common
+description: common classes and utilities for oobium tools
 version: 0.1.0
 repository: https://github.com/jeremy-dowdall/oobium
 publish_to: 'none'
@@ -8,12 +8,6 @@ environment:
   sdk: ">=2.12.0 <3.0.0"
 
 dependencies:
-  oobium_server:
-    path: ../../server
-  oobium_websocket:
-    path: ../../websocket
-  tools_common:
-    path: ../common
   xstring: ^1.2.0
 
 dev_dependencies:

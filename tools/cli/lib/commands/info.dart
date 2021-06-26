@@ -1,5 +1,5 @@
-import 'package:oobium_cli/commands/_base.dart';
-import 'package:oobium_cli/models.dart';
+import 'package:tools_cli/commands/_base.dart';
+import 'package:tools_cli/models.dart';
 
 class InfoCommand extends OobiumCommand {
   @override final name = 'info';

@@ -1,4 +1,4 @@
-name: oobium_cli
+name: tools_cli
 description: CLI for Oobium based projects
 version: 0.1.0
 repository: https://github.com/jeremy-dowdall/oobium
@@ -13,6 +13,8 @@ dependencies:
     path: ../../server
   oobium_websocket:
     path: ../../websocket
+  tools_common:
+    path: ../common
   yaml: ^3.1.0
   xstring: ^1.2.0
 

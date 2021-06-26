@@ -283,6 +283,26 @@ Future<void> main() async {
       expect(result.code, 200);
       expect(await server.data, data);
     });
+    test('put multiple data streams, await', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      final data = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
+      final result1 = await client.putStream('/stream', Stream.fromIterable(data));
+      final result2 = await client.putStream('/stream', Stream.fromIterable(data));
+      expect(result1.code, 200);
+      expect(result2.code, 200);
+      expect(await server.data, data);
+    });
+    test('put multiple data streams, no await', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      final data1 = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0]];
+      final data2 = [[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
+      client.putStream('/stream', Stream.fromIterable(data1));
+      client.putStream('/stream', Stream.fromIterable(data2));
+      await client.flush();
+      expect(await server.data, data2);
+    });
   });
 
   group('test anonymous listeners', () {

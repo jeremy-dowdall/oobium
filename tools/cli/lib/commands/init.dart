@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:oobium_cli/commands/_base.dart';
-import 'package:oobium_cli/models.dart';
-import 'package:oobium_cli/prompt.dart';
+import 'package:tools_cli/commands/_base.dart';
+import 'package:tools_cli/models.dart';
+import 'package:tools_cli/prompt.dart';
 
 class InitCommand extends ProjectCommand {
   @override final name = 'init';

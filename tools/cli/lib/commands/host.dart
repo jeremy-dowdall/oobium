@@ -1,6 +1,8 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
-import 'package:oobium_cli/commands/_base.dart';
-import 'package:oobium_cli/models.dart';
+import 'package:tools_cli/commands/_base.dart';
+import 'package:tools_cli/models.dart';
 import 'package:oobium_websocket/oobium_websocket.dart';
 
 class HostCommand extends Command {
@@ -9,6 +11,7 @@ class HostCommand extends Command {
 
   HostCommand() {
     addSubcommand(StatusCommand());
+    addSubcommand(DeployCommand());
   }
 }
 
@@ -18,10 +21,8 @@ class StatusCommand extends ConnectedCommand {
 
   @override
   Future<void> runWithConnection(Project project, WebSocket ws) async {
-    final status = await ws.get('/status');
-    if(status.isSuccess) {
-      print('status: ${status.data}');
-    }
+    final stream = ws.getStream('/status');
+    await stream.listen((e) => stdout.add(e)).asFuture();
   }
 }
 

@@ -169,9 +169,7 @@ class WebSocket {
   }
   Stream<List<int>> _sendStreamRequest(WsMessage message) {
     final item = _streams.add(message);
-    if(_streams.isReceiving(item)) {
-      _send(message);
-    }
+    _send(item);
     return item.controller.stream;
   }
 
@@ -196,24 +194,39 @@ class WebSocket {
       case '100':
         final request = _requests[message];
         if(request != null) {
-          (request.message.data as Stream<List<int>>).listen((data) => _send(data),
-              onDone: () => _send(request.message.as('200')),
-              onError: (e) => _send(request.message.as('500', e))
+          // TODO make cancelable
+          (request.message.data as Stream<List<int>>).listen(
+              (data) {
+                _send(data);
+              },
+              onDone: () {
+                final message = request.message.as('200');
+                _complete(message);
+                _send(message);
+              },
+              onError: (e) {
+                final message = request.message.as('500', e);
+                _complete(message);
+                _send(message);
+              }
           );
         }
         break;
       case '200':
       case '404':
       case '500':
-        if(_requests.complete(message) == false) {
-          final next = _streams.close(message);
-          if(next != null) {
-            _send(next.message);
-          }
-        }
+        _complete(message);
         break;
       default:
         throw 'unknown message type, ${message.type}, in $message';
+    }
+  }
+
+  void _complete(WsMessage message) {
+    _requests.complete(message);
+    final next = _streams.close(message);
+    if(next != null) {
+      _send(next);
     }
   }
 
@@ -289,28 +302,24 @@ class WebSocket {
       final request = WsStreamRequest._(this, message, handler.path, item.controller);
       Future.value(handler.impl(request))
           .then((result) {
-            if(result is WsResult) {
-              _send(message.as('${result.code}', result.data));
-            } else {
-              _send(message.as('200', result));
+            if(result != false) {
+              _send(item);
             }
           })
           .catchError((e,s) {
             log.warning('$name: $e\n$s');
             _send(message.as('500', e));
           });
-      if(_streams.isReceiving(item)) {
-        _send(item.message.as('100'));
-      }
     }
   }
 
   void _onData(dynamic data) {
-    log.fine(() => '$name: rcv: ${data?.runtimeType} $data');
     if(data is String) {
+      log.fine(() => '$name: rcv: $data');
       _onMessage(data);
     }
     if(data is List<int>) {
+      log.fine(() => '$name: rcv: List<int>');
       _streams.onData(data);
     }
   }
@@ -323,14 +332,23 @@ class WebSocket {
     close(444, 'Connection Closed Without Response');
   }
 
-  T _send<T>(T data) {
-    log.fine(() => '$name: snd: ${data?.runtimeType} $data');
+  void _send(data) {
     if(isClosed) {
       log.error('$name: tried adding to a closed socket');
-    } else {
+      log.fine(() => '$name: snd: $data');
+    }
+    else if(data is StreamItem) {
+      if(_streams.isReceiving(data)) {
+        log.fine(() => '$name: snd: ${data.message(this)}');
+        _ws!.add(data.message(this));
+      } else {
+        log.fine(() => '$name: snd: ${data.message(this)} - q');
+      }
+    }
+    else {
+      log.fine(() => '$name: snd: ${(data is List<int>) ? 'List<int>' : data}');
       _ws!.add(data); // TODO json... ?
     }
-    return data;
   }
 
   Future<WsResult> _wrap(WsMessage msg, WsHandlers? on, Future<WsResult> Function(WsMessage msg) f) {
@@ -368,7 +386,7 @@ class StreamQueue {
   }
 
   StreamItem? close(WsMessage message) {
-    final item = _items.firstWhereOrNull((i) => i.message.id == message.id);
+    final item = _items.firstWhereOrNull((i) => i.id == message.id);
     if(item != null && _items.remove(item)) {
       item.controller.close().then((_) {
         if(_items.isEmpty) {
@@ -376,8 +394,12 @@ class StreamQueue {
           _flush = null;
         }
       });
-      if(_receiving == item && _items.isNotEmpty) {
-        _receiving = _items.first;
+      if(_receiving == item) {
+        if(_items.isEmpty) {
+          _receiving = null;
+        } else {
+          _receiving = _items.first;
+        }
         return _receiving;
       }
     }
@@ -400,9 +422,15 @@ class StreamQueue {
 }
 
 class StreamItem {
-  final WsMessage message;
+  final WsMessage _message;
   final controller = StreamController<List<int>>();
-  StreamItem(this.message);
+  StreamItem(this._message);
+  String get id => _message.id;
+  WsMessage message(WebSocket socket) {
+    return (socket._upgraded == MessageId.isUpgraded(_message.id))
+        ? _message
+        : _message.as('100');
+  }
 }
 
 class Requests {
@@ -455,6 +483,7 @@ class MessageId {
     _counter = (_counter < double.maxFinite) ? _counter + 1 : 1;
     return current(upgraded);
   }
+  static bool isUpgraded(String id) => id.endsWith('0');
 }
 
 class WsMessage {

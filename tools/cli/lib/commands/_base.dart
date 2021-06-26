@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:oobium_cli/models.dart';
+import 'package:tools_cli/models.dart';
 import 'package:oobium_websocket/oobium_websocket.dart';
 
 abstract class ProjectCommand extends Command {

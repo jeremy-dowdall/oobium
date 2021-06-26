@@ -39,7 +39,7 @@
     },
     {
       "name": "cli_util",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/cli_util-0.3.0",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/cli_util-0.3.1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -51,7 +51,7 @@
     },
     {
       "name": "convert",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/convert-3.0.0",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/convert-3.0.1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -69,7 +69,7 @@
     },
     {
       "name": "file",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/file-6.1.1",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/file-6.1.2",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -82,12 +82,6 @@
     {
       "name": "glob",
       "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/glob-2.0.1",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "http",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/http-0.13.3",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -141,31 +135,7 @@
     },
     {
       "name": "node_preamble",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/node_preamble-2.0.0",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "objectid",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/objectid-2.0.0",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "oobium_datastore",
-      "rootUri": "../../../datastore",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "oobium_server",
-      "rootUri": "../../../server",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "oobium_websocket",
-      "rootUri": "../../../websocket",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/node_preamble-2.0.1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -183,7 +153,7 @@
     },
     {
       "name": "pedantic",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/pedantic-1.11.0",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/pedantic-1.11.1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -267,7 +237,7 @@
     },
     {
       "name": "test",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/test-1.17.7",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/test-1.17.9",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -279,13 +249,7 @@
     },
     {
       "name": "test_core",
-      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/test_core-0.3.27",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "tools_common",
-      "rootUri": "../../common",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/test_core-0.3.29",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -332,13 +296,13 @@
       "languageVersion": "2.12"
     },
     {
-      "name": "tools_cli",
+      "name": "tools_common",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     }
   ],
-  "generated": "2021-06-26T14:32:57.157960Z",
+  "generated": "2021-06-26T14:32:20.870687Z",
   "generator": "pub",
   "generatorVersion": "2.13.3"
 }

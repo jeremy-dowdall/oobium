@@ -86,6 +86,9 @@
       <excludeFolder url="file://$MODULE_DIR$/tools/cli/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/cli/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/tools/cli/build" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/common/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/common/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/common/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/host/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/host/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/tools/host/build" />

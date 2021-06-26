@@ -1,7 +1,7 @@
 import 'package:args/command_runner.dart';
-import 'package:oobium_cli/commands/host.dart';
-import 'package:oobium_cli/commands/info.dart';
-import 'package:oobium_cli/commands/init.dart';
+import 'package:tools_cli/commands/host.dart';
+import 'package:tools_cli/commands/info.dart';
+import 'package:tools_cli/commands/init.dart';
 
 ///
 /// - init new project
