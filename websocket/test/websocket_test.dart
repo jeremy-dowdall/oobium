@@ -19,9 +19,15 @@ Future<void> main() async {
   log.level = Level.fine;
 
   group('test message', () {
+    test('id', () {
+      expect(WsMessage.get(true, '/path').id, endsWith('0'));
+      expect(WsMessage.get(true, '/path').id, endsWith('0'));
+      expect(WsMessage.get(false, '/path').id, endsWith('1'));
+      expect(WsMessage.get(false, '/path').id, endsWith('1'));
+    });
     test('single segment path without data', () {
-      final input = WsMessage.get('/path');
-      final id = MessageId.current;
+      final input = WsMessage.get(true, '/path');
+      final id = MessageId.current(true);
       expect(input.toString(), '$id:0|G/path');
       final output = WsMessage.parse(input.toString());
       expect(output.id, id);
@@ -31,8 +37,8 @@ Future<void> main() async {
       expect(output.data, isNull);
     });
     test('multi segment path without data', () {
-      final input = WsMessage.get('/path/to/something');
-      final id = MessageId.current;
+      final input = WsMessage.get(true, '/path/to/something');
+      final id = MessageId.current(true);
       expect(input.toString(), '$id:0|G/path/to/something');
       final output = WsMessage.parse(input.toString());
       expect(output.id, id);
@@ -42,8 +48,8 @@ Future<void> main() async {
       expect(output.data, isNull);
     });
     test('with String data', () {
-      final input = WsMessage.put('/path', 'data');
-      final id = MessageId.current;
+      final input = WsMessage.put(false, '/path', 'data');
+      final id = MessageId.current(false);
       expect(input.toString(), '$id:0|P/path "data"');
       final output = WsMessage.parse(input.toString());
       expect(output.id, id);
@@ -53,29 +59,29 @@ Future<void> main() async {
       expect(output.data, 'data');
     });
     test('with int data', () {
-      final input = WsMessage.put('/path', 123);
-      final id = MessageId.current;
+      final input = WsMessage.put(true, '/path', 123);
+      final id = MessageId.current(true);
       expect(input.toString(), '$id:0|P/path 123');
       final output = WsMessage.parse(input.toString());
       expect(output.data, 123);
     });
     test('with Map data', () {
-      final input = WsMessage.put('/path', {'1': 2, '2': 3});
-      final id = MessageId.current;
+      final input = WsMessage.put(true, '/path', {'1': 2, '2': 3});
+      final id = MessageId.current(true);
       expect(input.toString(), '$id:0|P/path {"1":2,"2":3}');
       final output = WsMessage.parse(input.toString());
       expect(output.data, {'1': 2, '2': 3});
     });
     test('with List data', () {
-      final input = WsMessage.put('/path', [1,2,3]);
-      final id = MessageId.current;
+      final input = WsMessage.put(true, '/path', [1,2,3]);
+      final id = MessageId.current(true);
       expect(input.toString(), '$id:0|P/path [1,2,3]');
       final output = WsMessage.parse(input.toString());
       expect(output.data, [1, 2, 3]);
     });
     test('as without data', () {
-      final msg = WsMessage.get('/path').as('200');
-      final id = MessageId.current;
+      final msg = WsMessage.get(true, '/path').as('200');
+      final id = MessageId.current(true);
       expect(msg.toString(), '$id:0|200');
       final output = WsMessage.parse(msg.toString());
       expect(output.id, id);
@@ -84,8 +90,8 @@ Future<void> main() async {
       expect(output.data, isNull);
     });
     test('as with data', () {
-      final msg = WsMessage.put('/path', 'data').as('200');
-      final id = MessageId.current;
+      final msg = WsMessage.put(true, '/path', 'data').as('200');
+      final id = MessageId.current(true);
       expect(msg.toString(), '$id:0|200');
       final output = WsMessage.parse(msg.toString());
       expect(output.id, id);
@@ -94,8 +100,8 @@ Future<void> main() async {
       expect(output.data, isNull);
     });
     test('as with data, copied', () {
-      final msg = WsMessage.put('/path', 'data').as('200', 'other');
-      final id = MessageId.current;
+      final msg = WsMessage.put(true, '/path', 'data').as('200', 'other');
+      final id = MessageId.current(true);
       expect(msg.toString(), '$id:0|200 "other"');
       final output = WsMessage.parse(msg.toString());
       expect(output.id, id);

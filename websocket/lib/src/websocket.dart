@@ -59,6 +59,7 @@ class WebSocket {
   WebSocket([this.name='websocket']);
 
   WsSocket? _ws;
+  late bool _upgraded; // is this the upgraded (or 'server') side
   final _done = CancelableCompleter<void>();
   final _ready = CancelableCompleter<void>();
   StreamSubscription? _wsSubscription;
@@ -71,6 +72,7 @@ class WebSocket {
 
   Future<WebSocket> upgrade(httpRequest, {String Function(List<String> protocols)? protocol, bool autoStart = true}) async {
     assert(isNotStarted && isNotDone);
+    _upgraded = true;
     _ws = await WsSocket.upgrade(httpRequest, protocol: protocol);
     if(autoStart == true) {
       start();
@@ -80,6 +82,7 @@ class WebSocket {
 
   Future<WebSocket> connect({String address='127.0.0.1', int port=8080, String path='', List<String>? protocols, bool autoStart = true}) async {
     assert(isNotStarted && isNotDone);
+    _upgraded = false;
     final url = 'ws://$address:$port$path';
     _ws = await WsSocket.connect(url, protocols: protocols);
     if(autoStart == true) {
@@ -89,16 +92,16 @@ class WebSocket {
   }
 
   Future<WsResult> get(String path, [WsHandlers? on]) {
-    return _wrap(WsMessage.get(path), on, (msg) => _sendRequest(msg));
+    return _wrap(WsMessage.get(_upgraded, path), on, (msg) => _sendRequest(msg));
   }
   Stream<List<int>> getStream(String path) {
-    return _sendStreamRequest(WsMessage.getStream(path));
+    return _sendStreamRequest(WsMessage.getStream(_upgraded, path));
   }
   Future<WsResult> put(String path, dynamic data, [WsHandlers? on]) {
-    return _wrap(WsMessage.put(path, data), on, (msg) => _sendRequest(msg));
+    return _wrap(WsMessage.put(_upgraded, path, data), on, (msg) => _sendRequest(msg));
   }
   Future<WsResult> putStream(String path, Stream<List<int>> data, [WsHandlers? on]) {
-    return _wrap(WsMessage.putStream(path, data), on, (msg) => _sendRequest(msg));
+    return _wrap(WsMessage.putStream(_upgraded, path, data), on, (msg) => _sendRequest(msg));
   }
 
   CancelableFuture<void> get ready => _ready.future;
@@ -303,7 +306,7 @@ class WebSocket {
   }
 
   void _onData(dynamic data) {
-    log.fine('$name: onData: $data');
+    log.fine(() => '$name: rcv: ${data?.runtimeType} $data');
     if(data is String) {
       _onMessage(data);
     }
@@ -321,7 +324,7 @@ class WebSocket {
   }
 
   T _send<T>(T data) {
-    log.fine('$name: send: $data');
+    log.fine(() => '$name: snd: ${data?.runtimeType} $data');
     if(isClosed) {
       log.error('$name: tried adding to a closed socket');
     } else {
@@ -446,16 +449,12 @@ class RequestItem {
 }
 
 class MessageId {
-  final String value;
-  MessageId._(this.value);
-  factory MessageId() => MessageId._(next);
-
-  @override
-  String toString() => value;
-
-  static String get current => '$_counter';
-  static String get next => '${_counter = (_counter < double.maxFinite) ? _counter + 1 : 0}';
   static var _counter = 1; // always > 0
+  static String current(bool upgraded) => '$_counter${upgraded?0:1}';
+  static String next(bool upgraded) {
+    _counter = (_counter < double.maxFinite) ? _counter + 1 : 1;
+    return current(upgraded);
+  }
 }
 
 class WsMessage {
@@ -464,10 +463,10 @@ class WsMessage {
   final String type;
   final String path;
   final data;
-  WsMessage.get(this.path, {this.channel='0'}) : id = MessageId.next, type = 'G', data = null;
-  WsMessage.put(this.path, this.data, {this.channel='0'}) : id = MessageId.next, type = 'P';
-  WsMessage.getStream(this.path, {this.channel='0'}) : id = MessageId.next, type = 'GS', data = null;
-  WsMessage.putStream(this.path, Stream<List<int>> data, {this.channel='0'}) : id = MessageId.next, type = 'PS', data = data;
+  WsMessage.get(bool upgraded, this.path, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'G', data = null;
+  WsMessage.put(bool upgraded, this.path, this.data, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'P';
+  WsMessage.getStream(bool upgraded, this.path, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'GS', data = null;
+  WsMessage.putStream(bool upgraded, this.path, Stream<List<int>> data, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'PS', data = data;
   WsMessage._({
     required this.id,
     required this.channel,
@@ -560,10 +559,11 @@ class WsRequestSocket {
   final WebSocket _socket;
   final String _channel;
   WsRequestSocket._(this._socket, this._channel);
-  Future<WsResult> get(String path) => _socket._sendRequest(WsMessage.get(path, channel: _channel));
-  Stream<List<int>> getStream(String path) => _socket._sendStreamRequest(WsMessage.getStream(path, channel: _channel));
-  Future<WsResult> put(String path, dynamic data) => _socket._sendRequest(WsMessage.put(path, data, channel: _channel));
-  Future<WsResult> putStream(String path, Stream<List<int>> data) => _socket._sendRequest(WsMessage.putStream(path, data, channel: _channel));
+  Future<WsResult> get(String path) => _socket._sendRequest(WsMessage.get(_socket._upgraded, path, channel: _channel));
+  Stream<List<int>> getStream(String path) => _socket._sendStreamRequest(WsMessage.getStream(_socket._upgraded, path, channel: _channel));
+  Future<WsResult> put(String path, dynamic data) => _socket._sendRequest(WsMessage.put(_socket._upgraded, path, data, channel: _channel));
+  Future<WsResult> putStream(String path, Stream<List<int>> data) => _socket._sendRequest(WsMessage.putStream(_socket._upgraded, path, data, channel: _channel));
+  Future<void> flush() => _socket.flush();
 }
 
 class WsHandlers {
