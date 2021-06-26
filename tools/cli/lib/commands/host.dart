@@ -20,9 +20,8 @@ class StatusCommand extends ConnectedCommand {
   @override final description = 'display the status for a project on an oobium host';
 
   @override
-  Future<void> runWithConnection(Project project, WebSocket ws) async {
-    final stream = ws.getStream('/status');
-    await stream.listen((e) => stdout.add(e)).asFuture();
+  Future<void> runWithConnection(Project project, WebSocket ws) {
+    return ws.getStream('/status').listen((e) => stdout.add(e)).asFuture();
   }
 }
 

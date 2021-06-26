@@ -257,12 +257,21 @@ class WebSocket {
     if(handler == null) {
       _send(message.as('404'));
     } else {
+      // TODO make cancelable
       final request = WsRequest._(this, message, handler.path, message.data);
       Future.value(handler.impl(request))
           .then((result) {
-            result.listen((data) => _send(data),
-                onDone: () => _send(message.as('200')),
-                onError: (e) => _send(message.as('500', e))
+            result.listen(
+                (data) {
+                  _send(data);
+                },
+                onDone: () {
+                  _send(message.as('200'));
+                },
+                onError: (e) {
+                  log.warning('$name: $e');
+                  _send(message.as('500', e));
+                }
             );
           })
           .catchError((e,s) {
@@ -382,7 +391,11 @@ class StreamQueue {
   bool isReceiving(StreamItem item) => _receiving == item;
 
   void onData(List<int> data) {
-    _items.first.controller.add(data);
+    if(_items.isNotEmpty) {
+      _items.first.controller.add(data);
+    } else {
+      log.warning('tried add data with no StreamItem available');
+    }
   }
 
   StreamItem? close(WsMessage message) {
