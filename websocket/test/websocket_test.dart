@@ -22,9 +22,10 @@ Future<void> main() async {
     test('single segment path without data', () {
       final input = WsMessage.get('/path');
       final id = MessageId.current;
-      expect(input.toString(), '$id:G/path');
+      expect(input.toString(), '$id:0|G/path');
       final output = WsMessage.parse(input.toString());
       expect(output.id, id);
+      expect(output.channel, '0');
       expect(output.type, 'G');
       expect(output.path, '/path');
       expect(output.data, isNull);
@@ -32,9 +33,10 @@ Future<void> main() async {
     test('multi segment path without data', () {
       final input = WsMessage.get('/path/to/something');
       final id = MessageId.current;
-      expect(input.toString(), '$id:G/path/to/something');
+      expect(input.toString(), '$id:0|G/path/to/something');
       final output = WsMessage.parse(input.toString());
       expect(output.id, id);
+      expect(output.channel, '0');
       expect(output.type, 'G');
       expect(output.path, '/path/to/something');
       expect(output.data, isNull);
@@ -42,9 +44,10 @@ Future<void> main() async {
     test('with String data', () {
       final input = WsMessage.put('/path', 'data');
       final id = MessageId.current;
-      expect(input.toString(), '$id:P/path "data"');
+      expect(input.toString(), '$id:0|P/path "data"');
       final output = WsMessage.parse(input.toString());
       expect(output.id, id);
+      expect(output.channel, '0');
       expect(output.type, 'P');
       expect(output.path, '/path');
       expect(output.data, 'data');
@@ -52,28 +55,28 @@ Future<void> main() async {
     test('with int data', () {
       final input = WsMessage.put('/path', 123);
       final id = MessageId.current;
-      expect(input.toString(), '$id:P/path 123');
+      expect(input.toString(), '$id:0|P/path 123');
       final output = WsMessage.parse(input.toString());
       expect(output.data, 123);
     });
     test('with Map data', () {
       final input = WsMessage.put('/path', {'1': 2, '2': 3});
       final id = MessageId.current;
-      expect(input.toString(), '$id:P/path {"1":2,"2":3}');
+      expect(input.toString(), '$id:0|P/path {"1":2,"2":3}');
       final output = WsMessage.parse(input.toString());
       expect(output.data, {'1': 2, '2': 3});
     });
     test('with List data', () {
       final input = WsMessage.put('/path', [1,2,3]);
       final id = MessageId.current;
-      expect(input.toString(), '$id:P/path [1,2,3]');
+      expect(input.toString(), '$id:0|P/path [1,2,3]');
       final output = WsMessage.parse(input.toString());
       expect(output.data, [1, 2, 3]);
     });
     test('as without data', () {
       final msg = WsMessage.get('/path').as('200');
       final id = MessageId.current;
-      expect(msg.toString(), '$id:200');
+      expect(msg.toString(), '$id:0|200');
       final output = WsMessage.parse(msg.toString());
       expect(output.id, id);
       expect(output.type, '200');
@@ -83,7 +86,7 @@ Future<void> main() async {
     test('as with data', () {
       final msg = WsMessage.put('/path', 'data').as('200');
       final id = MessageId.current;
-      expect(msg.toString(), '$id:200');
+      expect(msg.toString(), '$id:0|200');
       final output = WsMessage.parse(msg.toString());
       expect(output.id, id);
       expect(output.type, '200');
@@ -93,7 +96,7 @@ Future<void> main() async {
     test('as with data, copied', () {
       final msg = WsMessage.put('/path', 'data').as('200', 'other');
       final id = MessageId.current;
-      expect(msg.toString(), '$id:200 "other"');
+      expect(msg.toString(), '$id:0|200 "other"');
       final output = WsMessage.parse(msg.toString());
       expect(output.id, id);
       expect(output.type, '200');
@@ -209,18 +212,6 @@ Future<void> main() async {
       await client.flush();
       expect(events, ['echo', 'delay']);
     });
-    test('child listener', () async {
-      final server = await WsTestServerClient.start(8001);
-      final client = await WebSocket('client').connect(port: 8001);
-      final events = [];
-      await client.get('/ping/hi',
-          WsHandlers()..get('/pong/<msg>', (req) {
-            events.add(req['msg']);
-            return req['msg'];
-          })
-      ).then((result) => events.add(result.data));
-      expect(events, ['hi', 'hi']);
-    });
   });
 
   group('test getStream', () {
@@ -288,8 +279,35 @@ Future<void> main() async {
     });
   });
 
-  group('test multiple connections', () {
-    test('2 child listeners', () async {
+  group('test anonymous listeners', () {
+    test('request socket, published channel', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      final events = [];
+      client.on.get('/pong/<msg>', (req) {
+        events.add(req['msg']);
+        return req['msg'];
+      });
+      await client.get('/ping/hi').then((result) => events.add(result.data));
+      expect(events, ['hi', 'hi']);
+    });
+    test('request socket, anonymous channel', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      final events = [];
+      client.on.get('/pong/<msg>', (req) {
+        events.add('nope');
+        return req['msg'];
+      });
+      await client.get('/ping/hi',
+          WsHandlers()..get('/pong/<msg>', (req) {
+            events.add(req['msg']);
+            return req['msg'];
+          })
+      ).then((result) => events.add(result.data));
+      expect(events, ['hi', 'hi']);
+    });
+    test('2 clients', () async {
       final server = await WsTestServerClient.start(8001);
       final client1 = await WebSocket('client1').connect(port: 8001);
       final client2 = await WebSocket('client2').connect(port: 8001);
@@ -310,6 +328,16 @@ Future<void> main() async {
       await client1.flush();
       await client2.flush();
       expect(events, ['hi', 'bye', 'hi', 'bye']);
+    });
+    test('request.socket to published channel', () async {
+      final server = await WsTestServerClient.start(8001);
+      final client = await WebSocket('client').connect(port: 8001);
+      client.on.get('/pong/<msg>', (req) async {
+        return req.socket.get('/echo/bye');
+      });
+      final result = await client.get('/ping/hello');
+      expect(result.isSuccess, isTrue);
+      expect(result.data, 'bye');
     });
   });
 }

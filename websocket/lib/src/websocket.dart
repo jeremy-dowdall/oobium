@@ -332,7 +332,8 @@ class WebSocket {
 
   Future<WsResult> _wrap(WsMessage msg, WsHandlers? on, Future<WsResult> Function(WsMessage msg) f) {
     if(on != null) {
-      on.attach(msg.id, this.on);
+      msg = msg.onChannel();
+      on.attach(this.on, msg.channel);
       return f(msg).then((result) {
         on.detach();
         return result;
@@ -454,48 +455,58 @@ class MessageId {
 
   static String get current => '$_counter';
   static String get next => '${_counter = (_counter < double.maxFinite) ? _counter + 1 : 0}';
-  static var _counter = -1;
+  static var _counter = 1; // always > 0
 }
 
 class WsMessage {
   final String id;
+  final String channel;
   final String type;
   final String path;
   final data;
-  WsMessage.get(this.path, {String? id}) : id = id ?? MessageId.next, type = 'G', data = null;
-  WsMessage.put(this.path, this.data, {String? id}) : id = id ?? MessageId.next, type = 'P';
-  WsMessage.getStream(this.path, {String? id}) : id = id ?? MessageId.next, type = 'GS', data = null;
-  WsMessage.putStream(this.path, Stream<List<int>> data, {String? id}) : id = id ?? MessageId.next, type = 'PS', data = data;
+  WsMessage.get(this.path, {this.channel='0'}) : id = MessageId.next, type = 'G', data = null;
+  WsMessage.put(this.path, this.data, {this.channel='0'}) : id = MessageId.next, type = 'P';
+  WsMessage.getStream(this.path, {this.channel='0'}) : id = MessageId.next, type = 'GS', data = null;
+  WsMessage.putStream(this.path, Stream<List<int>> data, {this.channel='0'}) : id = MessageId.next, type = 'PS', data = data;
   WsMessage._({
     required this.id,
+    required this.channel,
     required this.type,
     this.path='',
     this.data
   });
 
-  // <id>:<type>[/path][ {data}]
+  // <id>:<channel>|<type>[/path][ {data}]
   factory WsMessage.parse(String str) {
     final match = _pattern.firstMatch(str);
     if(match != null) {
       return WsMessage._(
-          id:   match.group(1)!,
-          type: match.group(2)!,
-          path: match.group(3) ?? '',
-          data: _jsonDecode(match.group(5))
+          id:      match.group(1)!,
+          channel: match.group(2)!,
+          type:    match.group(3)!,
+          path:    match.group(4) ?? '',
+          data:    _jsonDecode(match.group(6))
       );
     } else {
       throw FormatException('cannot parse message: $str');
     }
   }
-  static final _pattern = RegExp(r'^(\d+):(\w+)([/\w]+)?( (.+))?$');
+  static final _pattern = RegExp(r'^(\d+):(\d+)\|(\w+)([/\w]+)?( (.+))?$');
   static _jsonDecode(String? data) => (data != null) ? jsonDecode(data) : null;
 
-  WsMessage as(String type, [data]) => WsMessage._(id: id, type: type, data: data);
+  WsMessage as(String type, [data]) {
+    return WsMessage._(id: id, channel: channel, type: type, data: data);
+  }
+
+  WsMessage onChannel() {
+    assert(channel == '0');
+    return WsMessage._(id: id, channel: id, type: type, path: path, data: data);
+  }
 
   WsResult toResult() => WsResult(int.parse(type), data);
 
   @override
-  toString() => '$id:$type$path$_dataString';
+  toString() => '$id:$channel|$type$path$_dataString';
 
   String get _dataString {
     return (data == null || data is Stream<List<int>>) ? '' : ' ${jsonEncode(data)}';
@@ -508,7 +519,7 @@ class WsRequest {
   final String _routePath;
   final dynamic data;
   WsRequest._(WebSocket socket, this._message, this._routePath, this.data) :
-    socket = WsRequestSocket._(_message.id, socket);
+    socket = WsRequestSocket._(socket, _message.channel);
 
   operator [](String key) => params[key];
 
@@ -546,27 +557,27 @@ class WsResult {
 }
 
 class WsRequestSocket {
-  final String _id;
   final WebSocket _socket;
-  WsRequestSocket._(this._id, this._socket);
-  Future<WsResult> get(String path) => _socket._sendRequest(WsMessage.get(path, id: _id));
-  Stream<List<int>> getStream(String path) => _socket._sendStreamRequest(WsMessage.getStream(path, id: _id));
-  Future<WsResult> put(String path, dynamic data) => _socket._sendRequest(WsMessage.put(path, data, id: _id));
-  Future<WsResult> putStream(String path, Stream<List<int>> data) => _socket._sendRequest(WsMessage.putStream(path, data, id: _id));
+  final String _channel;
+  WsRequestSocket._(this._socket, this._channel);
+  Future<WsResult> get(String path) => _socket._sendRequest(WsMessage.get(path, channel: _channel));
+  Stream<List<int>> getStream(String path) => _socket._sendStreamRequest(WsMessage.getStream(path, channel: _channel));
+  Future<WsResult> put(String path, dynamic data) => _socket._sendRequest(WsMessage.put(path, data, channel: _channel));
+  Future<WsResult> putStream(String path, Stream<List<int>> data) => _socket._sendRequest(WsMessage.putStream(path, data, channel: _channel));
 }
 
 class WsHandlers {
 
-  var _id = '';
+  var _channel = '0';
   WsHandlers? _parent;
 
   final _children = <WsHandlers>[];
   final _handlers = <Type, Map<String, dynamic>>{};
 
-  void attach(String id, WsHandlers parent) {
+  void attach(WsHandlers parent, String channel) {
     if(_parent != parent) {
       detach();
-      _id = id;
+      _channel = channel;
       _parent = parent;
       parent._children.add(this);
     }
@@ -579,7 +590,7 @@ class WsHandlers {
   void detach() {
     _parent?._children.remove(this);
     _parent = null;
-    _id = '';
+    _channel = '0';
   }
 
   void dispose() {
@@ -623,7 +634,7 @@ class WsHandlers {
 
   T? _find<T>(WsMessage message) {
     for(final child in _children) {
-      if(child._id == message.id) {
+      if(child._channel == message.channel) {
         return child._find<T>(message);
       }
     }
