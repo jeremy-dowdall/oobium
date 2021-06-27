@@ -7,7 +7,7 @@ main() async {
 
   server.get('/host', [websocket((ws) { // TODO use an AuthSocket
     ws.on.getStream('/status', statusHandler);
-    ws.on.put('/deploy', deployHandler);
+    ws.on.getStream('/deploy', deployHandler);
   })]);
 
   await server.start();

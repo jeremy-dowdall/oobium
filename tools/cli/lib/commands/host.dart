@@ -31,9 +31,10 @@ class DeployCommand extends ConnectedCommand {
 
   @override
   Future<void> runWithConnection(Project project, WebSocket ws) async {
-    final status = await ws.put('/deploy', 'deployment descriptor type thing...');
-    if(status.isSuccess) {
-      print('status: ${status.data}');
-    }
+    ws.on.put('/exec', (req) async {
+      stdout.writeln(req.data);
+      return stdin.readLineSync();
+    });
+    return ws.getStream('/deploy').listen((e) => stdout.add(e)).asFuture();
   }
 }

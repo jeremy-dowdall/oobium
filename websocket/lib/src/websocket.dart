@@ -92,16 +92,16 @@ class WebSocket {
   }
 
   Future<WsResult> get(String path, [WsHandlers? on]) {
-    return _wrap(WsMessage.get(_upgraded, path), on, (msg) => _sendRequest(msg));
+    return _attached(WsMessage.get(_upgraded, path), on, (msg) => _sendRequest(msg));
   }
-  Stream<List<int>> getStream(String path) {
-    return _sendStreamRequest(WsMessage.getStream(_upgraded, path));
+  Stream<List<int>> getStream(String path, [WsHandlers? on]) {
+    return _attached(WsMessage.getStream(_upgraded, path), on, (msg) => _sendStreamRequest(msg));
   }
   Future<WsResult> put(String path, dynamic data, [WsHandlers? on]) {
-    return _wrap(WsMessage.put(_upgraded, path, data), on, (msg) => _sendRequest(msg));
+    return _attached(WsMessage.put(_upgraded, path, data), on, (msg) => _sendRequest(msg));
   }
   Future<WsResult> putStream(String path, Stream<List<int>> data, [WsHandlers? on]) {
-    return _wrap(WsMessage.putStream(_upgraded, path, data), on, (msg) => _sendRequest(msg));
+    return _attached(WsMessage.putStream(_upgraded, path, data), on, (msg) => _sendRequest(msg));
   }
 
   CancelableFuture<void> get ready => _ready.future;
@@ -223,6 +223,7 @@ class WebSocket {
   }
 
   void _complete(WsMessage message) {
+    on.detach(message.channel);
     _requests.complete(message);
     final next = _streams.close(message);
     if(next != null) {
@@ -309,16 +310,14 @@ class WebSocket {
     } else {
       final item = _streams.add(message);
       final request = WsStreamRequest._(this, message, handler.path, item.controller);
-      Future.value(handler.impl(request))
-          .then((result) {
-            if(result != false) {
-              _send(item);
-            }
-          })
-          .catchError((e,s) {
-            log.warning('$name: $e\n$s');
-            _send(message.as('500', e));
-          });
+      final result = handler.impl(request);
+      if(result != false) {
+        Future.value(result).catchError((e,s) {
+          log.warning('$name: $e\n$s');
+          _send(message.as('500', e));
+        });
+        _send(item);
+      }
     }
   }
 
@@ -360,17 +359,12 @@ class WebSocket {
     }
   }
 
-  Future<WsResult> _wrap(WsMessage msg, WsHandlers? on, Future<WsResult> Function(WsMessage msg) f) {
+  T _attached<T>(WsMessage msg, WsHandlers? on, T Function(WsMessage msg) f) {
     if(on != null) {
-      msg = msg.onChannel();
-      on.attach(this.on, msg.channel);
-      return f(msg).then((result) {
-        on.detach();
-        return result;
-      });
-    } else {
-      return f(msg);
+      msg = msg.startChannel();
+      this.on.attach(on, msg.channel);
     }
+    return f(msg);
   }
 }
 
@@ -539,7 +533,7 @@ class WsMessage {
     return WsMessage._(id: id, channel: channel, type: type, data: data);
   }
 
-  WsMessage onChannel() {
+  WsMessage startChannel() {
     assert(channel == '0');
     return WsMessage._(id: id, channel: id, type: type, path: path, data: data);
   }
@@ -610,37 +604,16 @@ class WsRequestSocket {
 
 class WsHandlers {
 
-  var _channel = '0';
-  WsHandlers? _parent;
-
-  final _children = <WsHandlers>[];
+  final _children = <String, WsHandlers>{};
   final _handlers = <Type, Map<String, dynamic>>{};
 
-  void attach(WsHandlers parent, String channel) {
-    if(_parent != parent) {
-      detach();
-      _channel = channel;
-      _parent = parent;
-      parent._children.add(this);
-    }
+  void attach(WsHandlers child, String channel) {
+    detach(channel);
+    _children[channel] = child;
   }
 
-  void clear() {
-    _handlers.clear();
-  }
-
-  void detach() {
-    _parent?._children.remove(this);
-    _parent = null;
-    _channel = '0';
-  }
-
-  void dispose() {
-    for(final child in _children) {
-      child.dispose();
-    }
-    _handlers.clear();
-    detach();
+  void detach(String channel) {
+    _children.remove(channel);
   }
 
   bool get isEmpty => _handlers.isEmpty;
@@ -675,10 +648,9 @@ class WsHandlers {
   }
 
   T? _find<T>(WsMessage message) {
-    for(final child in _children) {
-      if(child._channel == message.channel) {
-        return child._find<T>(message);
-      }
+    final child = _children[message.channel];
+    if(child != null) {
+      return child._find<T>(message);
     }
     final route = message.path;
     final handlers = _handlers[T];
