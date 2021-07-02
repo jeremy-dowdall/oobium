@@ -3,11 +3,14 @@ import 'dart:convert';
 
 import 'dart:io';
 
-Stream<List<int>> run(String executable, List<String> args, {bool echo=false}) async* {
+Stream<List<int>> run(String executable, List<String> args, {
+  bool echo=false,
+  String? workingDirectory
+}) async* {
   if(echo) {
     yield line('$executable ${args.join(' ')}');
   }
-  final process = await Process.start(executable, args);
+  final process = await Process.start(executable, args, workingDirectory: workingDirectory);
   yield* process.stdout;
   yield* process.stderr;
   final code = await process.exitCode;

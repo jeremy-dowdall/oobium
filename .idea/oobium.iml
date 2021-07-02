@@ -79,6 +79,9 @@
       <excludeFolder url="file://$MODULE_DIR$/string_x/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/bootstrap/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/bootstrap/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/bootstrap/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/ci/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/ci/.pub" />

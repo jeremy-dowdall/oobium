@@ -29,7 +29,7 @@ void main() {
       final validator = FirebaseAuthValidator.values(service: service, decoder: decoder);
 
       final req = Request(
-          host: Server(settings: ServerSettings(custom: {'firebase': {'projectId': 'test-project'}})).host(),
+          host: Server(config: ServerConfig(custom: {'firebase': {'projectId': 'test-project'}})).host(),
           headers: RequestHeaders.values({HttpHeaders.authorizationHeader: 'Token TODO_TOKEN'})
       );
 

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:tools_cli/models.dart';
 import 'package:oobium_websocket/oobium_websocket.dart';
+import 'package:tools_common/models.dart';
 
 abstract class ProjectCommand extends Command {
   ProjectCommand() {
@@ -34,13 +34,13 @@ abstract class OobiumCommand extends Command {
     );
   }
 
-  FutureOr<void> runWithOobiumProject(Project project);
+  FutureOr<void> runWithOobiumProject(OobiumProject project);
 
   @override
   void run() {
     final dir = Directory(argResults!['directory']);
     if(dir.isOobium) {
-      runWithOobiumProject(Project.load(dir));
+      runWithOobiumProject(OobiumProject.load(dir));
     } else {
       print('not an oobium project (${dir.uri})');
     }

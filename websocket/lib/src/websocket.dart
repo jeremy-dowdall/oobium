@@ -91,17 +91,41 @@ class WebSocket {
     return this;
   }
 
-  Future<WsResult> get(String path, [WsHandlers? on]) {
+  Future<WsResult> get(String path, {
+    Map<String, WsGetHandler>? onGet,
+    Map<String, WsGetStreamHandler>? onGetStream,
+    Map<String, WsPutHandler>? onPut,
+    Map<String, WsPutStreamHandler>? onPutStream,
+  }) {
+    final on = WsHandlers._from(onGet, onGetStream, onPut, onPutStream);
     return _attached(WsMessage.get(_upgraded, path), on, (msg) => _sendRequest(msg));
   }
-  Stream<List<int>> getStream(String path, [WsHandlers? on]) {
-    return _attached(WsMessage.getStream(_upgraded, path), on, (msg) => _sendStreamRequest(msg));
+  Stream<List<int>> getStream(String path, {
+    Map<String, WsGetHandler>? onGet,
+    Map<String, WsGetStreamHandler>? onGetStream,
+    Map<String, WsPutHandler>? onPut,
+    Map<String, WsPutStreamHandler>? onPutStream,
+  }) {
+    final on = WsHandlers._from(onGet, onGetStream, onPut, onPutStream);
+    return _attached(WsMessage.getStream(_upgraded, path), on, (msg) => _sendGetStreamRequest(msg));
   }
-  Future<WsResult> put(String path, dynamic data, [WsHandlers? on]) {
+  Future<WsResult> put(String path, dynamic data, {
+    Map<String, WsGetHandler>? onGet,
+    Map<String, WsGetStreamHandler>? onGetStream,
+    Map<String, WsPutHandler>? onPut,
+    Map<String, WsPutStreamHandler>? onPutStream,
+  }) {
+    final on = WsHandlers._from(onGet, onGetStream, onPut, onPutStream);
     return _attached(WsMessage.put(_upgraded, path, data), on, (msg) => _sendRequest(msg));
   }
-  Future<WsResult> putStream(String path, Stream<List<int>> data, [WsHandlers? on]) {
-    return _attached(WsMessage.putStream(_upgraded, path, data), on, (msg) => _sendRequest(msg));
+  StreamSink<List<int>> putStream(String path, {
+    Map<String, WsGetHandler>? onGet,
+    Map<String, WsGetStreamHandler>? onGetStream,
+    Map<String, WsPutHandler>? onPut,
+    Map<String, WsPutStreamHandler>? onPutStream,
+  }) {
+    final on = WsHandlers._from(onGet, onGetStream, onPut, onPutStream);
+    return _attached(WsMessage.putStream(_upgraded, path), on, (msg) => _sendPutStreamRequest(msg));
   }
 
   CancelableFuture<void> get ready => _ready.future;
@@ -167,10 +191,17 @@ class WebSocket {
     _send(message);
     return future;
   }
-  Stream<List<int>> _sendStreamRequest(WsMessage message) {
+  Stream<List<int>> _sendGetStreamRequest(WsMessage message) {
     final item = _streams.add(message);
     _send(item);
     return item.controller.stream;
+  }
+  StreamSink<List<int>> _sendPutStreamRequest(WsMessage message) {
+    final controller = StreamController<List<int>>();
+    message = message.withData(controller);
+    _requests.add(message);
+    _send(message);
+    return controller.sink;
   }
 
   ///
@@ -195,7 +226,7 @@ class WebSocket {
         final request = _requests[message];
         if(request != null) {
           // TODO make cancelable
-          (request.message.data as Stream<List<int>>).listen(
+          (request.message.data as StreamController<List<int>>).stream.listen(
               (data) {
                 _send(data);
               },
@@ -242,7 +273,11 @@ class WebSocket {
           .then((result) {
             if(result is WsResult) {
               _send(message.as('${result.code}', result.data));
-            } else {
+            }
+            else if(result is Error || result is Exception) {
+              _send(message.as('500', '$result'));
+            }
+            else {
               _send(message.as('200', result));
             }
           })
@@ -292,7 +327,11 @@ class WebSocket {
           .then((result) {
             if(result is WsResult) {
               _send(message.as('${result.code}', result.data));
-            } else {
+            }
+            else if(result is Error || result is Exception) {
+              _send(message.as('500', '$result'));
+            }
+            else {
               _send(message.as('200', result));
             }
           })
@@ -502,7 +541,7 @@ class WsMessage {
   WsMessage.get(bool upgraded, this.path, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'G', data = null;
   WsMessage.put(bool upgraded, this.path, this.data, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'P';
   WsMessage.getStream(bool upgraded, this.path, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'GS', data = null;
-  WsMessage.putStream(bool upgraded, this.path, Stream<List<int>> data, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'PS', data = data;
+  WsMessage.putStream(bool upgraded, this.path, {this.channel='0'}) : id = MessageId.next(upgraded), type = 'PS', data = null;
   WsMessage._({
     required this.id,
     required this.channel,
@@ -540,11 +579,21 @@ class WsMessage {
 
   WsResult toResult() => WsResult(int.parse(type), data);
 
+  WsMessage withData(data) {
+    return WsMessage._(id: id, channel: channel, type: type, path: path, data: data);
+  }
+
   @override
   toString() => '$id:$channel|$type$path$_dataString';
 
   String get _dataString {
-    return (data == null || data is Stream<List<int>>) ? '' : ' ${jsonEncode(data)}';
+    if(data == null || data is StreamController<List<int>>) {
+      return '';
+    }
+    if(data is Error || data is Exception) {
+      return ' ${jsonEncode('error: $data')}';
+    }
+    return ' ${jsonEncode(data)}';
   }
 }
 
@@ -596,9 +645,9 @@ class WsRequestSocket {
   final String _channel;
   WsRequestSocket._(this._socket, this._channel);
   Future<WsResult> get(String path) => _socket._sendRequest(WsMessage.get(_socket._upgraded, path, channel: _channel));
-  Stream<List<int>> getStream(String path) => _socket._sendStreamRequest(WsMessage.getStream(_socket._upgraded, path, channel: _channel));
+  Stream<List<int>> getStream(String path) => _socket._sendGetStreamRequest(WsMessage.getStream(_socket._upgraded, path, channel: _channel));
   Future<WsResult> put(String path, dynamic data) => _socket._sendRequest(WsMessage.put(_socket._upgraded, path, data, channel: _channel));
-  Future<WsResult> putStream(String path, Stream<List<int>> data) => _socket._sendRequest(WsMessage.putStream(_socket._upgraded, path, data, channel: _channel));
+  StreamSink<List<int>> putStream(String path) => _socket._sendPutStreamRequest(WsMessage.putStream(_socket._upgraded, path, channel: _channel));
   Future<void> flush() => _socket.flush();
 }
 
@@ -671,6 +720,20 @@ class WsHandlers {
       }
     }
     return null;
+  }
+
+  static WsHandlers? _from(
+      Map<String, WsGetHandler>? onGet,
+      Map<String, WsGetStreamHandler>? onGetStream,
+      Map<String, WsPutHandler>? onPut,
+      Map<String, WsPutStreamHandler>? onPutStream,
+  ) {
+    WsHandlers? on;
+    onGet?.entries.forEach((e) => (on ??= WsHandlers()).get(e.key, e.value));
+    onGetStream?.entries.forEach((e) => (on ??= WsHandlers()).getStream(e.key, e.value));
+    onPut?.entries.forEach((e) => (on ??= WsHandlers()).put(e.key, e.value));
+    onPutStream?.entries.forEach((e) => (on ??= WsHandlers()).putStream(e.key, e.value));
+    return on;
   }
 }
 class WsSubscription {

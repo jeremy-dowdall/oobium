@@ -4,11 +4,13 @@ import 'dart:io' show File, Directory, ContentType, HttpRequest, HttpResponse, H
 import 'dart:math';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium_server/src/server_settings.dart';
+import 'package:oobium_server/src/config/server_config.dart';
 import 'package:oobium_server/src/service.dart';
-import 'package:oobium_server/src/server_watcher.dart' as watcher;
 import 'package:oobium_websocket/oobium_websocket.dart';
 import 'package:xstring/xstring.dart';
+
+import 'watcher/watcher_.dart'
+  if (dart.library.developer) 'watcher/watcher_io.dart' as watcher;
 
 class Host {
 
@@ -19,7 +21,7 @@ class Host {
   ServiceRegistry? _registry;
   Host._(this.name, this._server);
 
-  ServerSettings get settings => _server.settings;
+  ServerConfig get settings => _server.config;
 
   Logger? _logger;
   Logger get logger => _logger ?? _server.logger;
@@ -27,8 +29,6 @@ class Host {
 
   RequestHandler? error404Handler;
   RequestHandler? error500Handler;
-
-  bool livePages = false;
 
   void addService(Service service) {
     _registry ??= ServiceRegistry();
@@ -53,14 +53,14 @@ class Host {
   void delete(String path, List<RequestHandler> handlers, {Logger? logger}) => _add('DELETE', path, handlers, logger: logger);
 
   /// directoryPath may be null to accommodate configurations being read in that may not include certain paths for certain environments
-  void static(String? directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, bool optional = false}) {
-    if(livePages) {
+  void static(String? directoryPath, {String? at, String Function(String path)? pathBuilder, Logger? logger, bool live = false, bool optional = false}) {
+    if(live) {
       final path = '/${at ?? directoryPath}/*'.replaceAll('//', '/');
       get(path, [(req) {
-        if(req.path.contains('..')) {
+        if(req.uri.path.contains('..')) {
           return 400;
         }
-        final filePath = '$directoryPath/${req.path.substring(path.length-1)}';
+        final filePath = '$directoryPath/${req.uri.path.substring(path.length-1)}';
         return File(filePath);
       }], logger: logger);
     } else {
@@ -122,7 +122,7 @@ class Host {
       host: this,
       routePath: routePath ?? '',
       method: httpRequest.method,
-      path: httpRequest.requestedUri.path,
+      uri: httpRequest.requestedUri,
       headers: RequestHeaders(httpRequest),
       query: httpRequest.uri.queryParameters
     );
@@ -181,25 +181,21 @@ class Host {
 
 class Server {
 
-  final ServerSettings settings;
+  final ServerConfig config;
   final _hosts = <String, Host>{};
   final _redirects = <String, Redirect>{};
   final _subdomains = <String, String>{};
   Server({
     String address='127.0.0.1',
     int port=8080,
-    String? certPath,
-    String? keyPath,
-    ServerSettings? settings
-  }) : settings = settings ?? ServerSettings() {
-    this.settings['server']['address'] ??= address;
-    this.settings['server']['port'] ??= port;
-    this.settings['server']['certPath'] ??= certPath;
-    this.settings['server']['keyPath'] ??= keyPath;
-  }
+  }) : config = ServerConfig(address: address, port: port);
+  Server.config(this.config);
+  static Future<Server> fromEnv() => ServerConfig.fromEnv()
+      .then((config) => Server.config(config));
 
   Logger logger = Logger();
 
+  var _started = false;
   HttpServer? http;
   HttpServer? https;
   StreamSubscription? httpSubscription;
@@ -235,25 +231,32 @@ class Server {
   }
 
   Future<void> start() async {
-    await _startServices();
-    if(http == null) {
-      await _createServers();
+    if(_started) {
+      return;
     }
-    await httpSubscription?.cancel();
-    await httpsSubscription?.cancel();
-    await watcherSubscription?.cancel();
-    if(https == null) {
-      httpSubscription = http!.listen((httpRequest) async => await _handle(httpRequest));
-      print('Listening on http://${http!.address.host}:${http!.port}/');
-    } else {
-      httpSubscription = http!.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
+    _started = true;
+    await _startServices();
+    if(config.isSecure) {
+      if(config.redirectHttp) {
+        http = await HttpServer.bind(config.address, 80);
+        httpSubscription = http!.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
+      }
+      https = await HttpServer.bindSecure(config.address, config.port, config.securityContext);
       httpsSubscription = https!.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on https://${https!.address.host}:${https!.port}/ with redirect from http on port 80');
+    } else {
+      http = await HttpServer.bind(config.address, config.port);
+      httpSubscription = http!.listen((httpRequest) async => await _handle(httpRequest));
+      print('Listening on http://${http!.address.host}:${http!.port}/');
     }
     watcherSubscription = await watcher.start();
   }
 
   Future<void> stop() async {
+    if(!_started) {
+      return;
+    }
+    _started = false;
     await _stopServices();
     await httpSubscription?.cancel();
     await httpsSubscription?.cancel();
@@ -269,16 +272,6 @@ class Server {
     await https?.close(force: force);
     http = null;
     https = null;
-  }
-
-  Future<void> _createServers() async {
-    final securityContext = settings.securityContext;
-    if(securityContext != null) {
-      http = await HttpServer.bind(settings.address, 80);
-      https = await HttpServer.bindSecure(settings.address, settings.port, securityContext);
-    } else {
-      http = await HttpServer.bind(settings.address, settings.port);
-    }
   }
 
   Future<void> _handle(HttpRequest request) async {
@@ -345,9 +338,6 @@ class Server {
 
   RequestHandler? get error500Handler => host().error500Handler;
   set error500Handler(RequestHandler? value) => host().error500Handler = value;
-
-  bool get livePages => host().livePages;
-  set livePages(bool value) => host().livePages = value;
 
   void addService(Service service) => host().addService(service);
   void addServices(List<Service> services) => host().addServices(services);
@@ -455,14 +445,14 @@ class Request {
   final Host host;
   final String routePath;
   final String method;
-  final String path;
+  final Uri uri;
   final RequestHeaders headers;
   final query = <String, String>{};
   Request({
     required this.host,
-    this.routePath='/',
-    this.method='GET',
-    this.path='/',
+    required this.routePath,
+    required this.method,
+    required this.uri,
     this.headers=const RequestHeaders.empty(),
     Map<String, String>? query
   }) {
@@ -477,7 +467,7 @@ class Request {
   String operator [](String name) => params[name] ?? query[name] ?? '';
   operator []=(String name, String value) => params[name] = value;
 
-  Map<String, String> get params => _params ??= '$method$path'.parseParams(routePath);
+  Map<String, String> get params => _params ??= '$method${uri.path}'.parseParams(routePath);
 
   bool get isHead => method == 'HEAD';
   bool get isNotHead => !isHead;

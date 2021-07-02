@@ -12,8 +12,10 @@ dependencies:
     path: ../../server
   oobium_websocket:
     path: ../../websocket
+  pubspec_parse: ^1.0.0
   tools_common:
     path: ../common
+  yaml: ^3.1.0
   xstring: ^1.2.0
 
 dev_dependencies:

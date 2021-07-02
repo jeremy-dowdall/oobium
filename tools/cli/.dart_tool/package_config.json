@@ -38,6 +38,12 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "checked_yaml",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/checked_yaml-2.0.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "cli_util",
       "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/cli_util-0.3.0",
       "packageUri": "lib/",
@@ -112,6 +118,12 @@
     {
       "name": "js",
       "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/js-0.6.3",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
+      "name": "json_annotation",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/json_annotation-4.0.1",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -196,6 +208,12 @@
     {
       "name": "pub_semver",
       "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/pub_semver-2.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
+      "name": "pubspec_parse",
+      "rootUri": "file:///Users/jdowdall/.pub-cache/hosted/pub.dartlang.org/pubspec_parse-1.0.0",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -338,7 +356,7 @@
       "languageVersion": "2.12"
     }
   ],
-  "generated": "2021-06-26T14:32:57.157960Z",
+  "generated": "2021-06-29T01:17:07.840051Z",
   "generator": "pub",
   "generatorVersion": "2.13.3"
 }

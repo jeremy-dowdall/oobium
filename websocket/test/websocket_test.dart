@@ -279,18 +279,19 @@ Future<void> main() async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket('client').connect(port: 8001);
       final data = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
-      final result = await client.putStream('/stream', Stream.fromIterable(data));
-      expect(result.code, 200);
+      final s = client.putStream('/stream');
+      await s.addStream(Stream.fromIterable(data));
+      await s.close();
       expect(await server.data, data);
     });
     test('put multiple data streams, await', () async {
       final server = await WsTestServerClient.start(8001);
       final client = await WebSocket('client').connect(port: 8001);
       final data = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
-      final result1 = await client.putStream('/stream', Stream.fromIterable(data));
-      final result2 = await client.putStream('/stream', Stream.fromIterable(data));
-      expect(result1.code, 200);
-      expect(result2.code, 200);
+      final s1 = client.putStream('/stream');
+      final s2 = client.putStream('/stream');
+      await s1.addStream(Stream.fromIterable(data)).then((_) => s1.close());
+      await s2.addStream(Stream.fromIterable(data)).then((_) => s2.close());
       expect(await server.data, data);
     });
     test('put multiple data streams, no await', () async {
@@ -298,8 +299,10 @@ Future<void> main() async {
       final client = await WebSocket('client').connect(port: 8001);
       final data1 = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0]];
       final data2 = [[255, 0xFF, 3, 4, 5, 6, 7, 8, 9, 0],[1, 2, 3, 4, 5, 6, 7, 8, 9, 0]];
-      client.putStream('/stream', Stream.fromIterable(data1));
-      client.putStream('/stream', Stream.fromIterable(data2));
+      final s1 = client.putStream('/stream');
+      final s2 = client.putStream('/stream');
+      s1.addStream(Stream.fromIterable(data1)).then((_) => s1.close());
+      s2.addStream(Stream.fromIterable(data2)).then((_) => s2.close());
       await client.flush();
       expect(await server.data, data2);
     });
@@ -326,10 +329,10 @@ Future<void> main() async {
         return req['msg'];
       });
       await client.get('/ping/hi',
-          WsHandlers()..get('/pong/<msg>', (req) {
+          onGet: {'/pong/<msg>': (req) {
             events.add(req['msg']);
             return req['msg'];
-          })
+          }}
       ).then((result) => events.add(result.data));
       expect(events, ['hi', 'hi']);
     });
@@ -339,17 +342,17 @@ Future<void> main() async {
       final client2 = await WebSocket('client2').connect(port: 8001);
       final events = [];
       client1.get('/ping/hi',
-          WsHandlers()..get('/pong/<msg>', (req) {
+          onGet: {'/pong/<msg>': (req) {
             events.add(req['msg']);
             return req['msg'];
-          })
+          }}
       ).then((result) => events.add(result.data));
       client2.get('/ping/bye',
-          WsHandlers()..get('/pong/<msg>', (req) async {
+          onGet: {'/pong/<msg>': (req) async {
             events.add(req['msg']);
             await Future.delayed(Duration(milliseconds: 100));
             return req['msg'];
-          })
+          }}
       ).then((result) => events.add(result.data));
       await client1.flush();
       await client2.flush();

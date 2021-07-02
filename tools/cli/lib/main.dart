@@ -1,5 +1,5 @@
 import 'package:args/command_runner.dart';
-import 'package:tools_cli/commands/host.dart';
+import 'package:tools_cli/commands/host.dart' show HostCommand;
 import 'package:tools_cli/commands/info.dart';
 import 'package:tools_cli/commands/init.dart';
 
