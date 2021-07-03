@@ -13,25 +13,22 @@ class InitCommand extends OobiumCommand {
   @override
   FutureOr<void> runWithOobiumProject(OobiumProject project) async {
     await ssh('147.182.168.19', [
-      installDartScript(),
-      // installHostScript(branch: 'server'),
-      // installPm2Script(),
-      // installCertbotScript(),
-      // installCertificatesScript(
-      //     host: 'aspencloud.com',
-      //     email: 'jeremyd@aspencloud.com',
-      // ),
+      'wget https://raw.githubusercontent.com/jeremy-dowdall/oobium-boot/master/bin/oobium_boot-linux\n'
+      'chmod +x oobium_boot-linux\n'
+      './oobium_boot-linux\n'
     ]);
   }
 }
 
-Future<void> ssh(String address, List<String> scripts) async {
+Future<void> ssh(String address, List<String> commands) async {
   final tmpDir = Directory('${Directory.systemTemp.path}/scripts');
   if(!tmpDir.existsSync()) {
     tmpDir.createSync(recursive: true);
   }
   final script = File('${tmpDir.path}/tmp-script.sh');
-  script.writeAsStringSync(sshScript(address, scripts));
+  script.writeAsStringSync(
+    'ssh root@$address << EOF\n${commands.join('\n')}\nEOF\n'
+  );
   final chmod = await Process.run('chmod', ['+x', script.path]);
   stdout.write(chmod.stdout);
   stderr.write(chmod.stderr);
@@ -46,10 +43,6 @@ Future<void> ssh(String address, List<String> scripts) async {
   } else {
     script.deleteSync();
   }
-}
-
-String sshScript(String address, List<String> scripts) {
-  return 'ssh root@$address << EOF\n${scripts.join('\n')}\nEOF\n';
 }
 
 String installDartScript() =>

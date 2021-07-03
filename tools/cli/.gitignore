@@ -27,7 +27,6 @@ build/
 # Directory created by dartdoc
 doc/api/
 
-bin/
 env/vars-prod.yaml
 keys/
 server-cache/

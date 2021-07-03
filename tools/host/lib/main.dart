@@ -1,10 +1,21 @@
+import 'dart:io';
+
 import 'package:tools_host/commands/deploy.dart';
 import 'package:tools_host/commands/status.dart';
 import 'package:oobium_server/oobium_server.dart';
 
 import 'commands/certbot.dart';
 
-main() async {
+main([List<String>? args]) async {
+  if(args?.contains('--version') == true) {
+    stdout.writeln(
+        'Oobium Host version:'
+        ' ${const String.fromEnvironment('version', defaultValue: '')}'
+        ' (${const String.fromEnvironment('channel', defaultValue: 'debug')})'
+    );
+    return;
+  }
+
   final server = await Server.fromEnv();
 
   server.get('/', [
@@ -22,5 +33,7 @@ main() async {
   })]);
 
   await server.start();
+
+  stdout.writeln('Oobium host started.');
 }
 
