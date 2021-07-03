@@ -8,13 +8,11 @@ import 'commands/certbot.dart';
 
 main([List<String>? args]) async {
   if(args?.contains('--version') == true) {
-    stdout.writeln(
-        'Oobium Host version:'
-        ' ${const String.fromEnvironment('version', defaultValue: '')}'
-        ' (${const String.fromEnvironment('channel', defaultValue: 'debug')})'
-    );
+    stdout.writeln('Oobium Host version: $version');
     return;
   }
+
+  stdout.writeln('Starting Oobium Host: $version');
 
   final server = await Server.fromEnv();
 
@@ -34,6 +32,9 @@ main([List<String>? args]) async {
 
   await server.start();
 
-  stdout.writeln('Oobium host started.');
+  stdout.writeln('Oobium Host started.');
 }
 
+const version =
+    '${const String.fromEnvironment('version', defaultValue: '-.-.-')}'
+    ' (${const String.fromEnvironment('channel', defaultValue: 'debug')})';

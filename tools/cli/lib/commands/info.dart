@@ -10,10 +10,10 @@ class InfoCommand extends OobiumCommand {
     print(
       'location: ${project.directory.absolute.uri}\n'
       'settings: {\n'
-      '  address:    ${project.config.address}\n'
-      '  host:       ${project.config.host}\n'
-      '  subdomains: ${project.config.subdomains}\n'
-      '  email:      ${project.config.email}\n'
+      '  address:    ${project.oobium.address}\n'
+      '  host:       ${project.oobium.host}\n'
+      '  subdomains: ${project.oobium.subdomains}\n'
+      '  email:      ${project.oobium.email}\n'
       '}'
     );
   }

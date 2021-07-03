@@ -3,10 +3,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:tar/tar.dart';
 
+
+late final bool prod;
+late final List<String> args;
 int? err;
 String? cmd;
 
-main([List<String> args=const[]]) async {
+main([List<String> a=const[]]) async {
+  args = a;
+  prod = const bool.fromEnvironment('dart.vm.product');
+  print('prod: $prod');
+
   final dartVersion = await getDartVersion();
   if(dartVersion != null) {
     print('dart version: $dartVersion');
@@ -14,23 +21,13 @@ main([List<String> args=const[]]) async {
     await installDart();
   }
 
-  final hostVersion = await getHostVersion();
+  final hostVersion = prod ? await getHostVersion() : null;
   if(hostVersion != null) {
     print('host version: $hostVersion');
   } else {
-    final exe = await installHost(parseBasePath(args));
+    final exe = await installHost();
     if(exe != null) {
-      err ??= await runUntil(exe, [], (pout, perr) {
-        final completer = Completer<int>();
-        pout.listen((e) {
-          stdout.write(e);
-          if(utf8.decode(e).trim() == 'Oobium host started.') {
-            completer.complete(0);
-          }
-        });
-        stderr.addStream(perr);
-        return completer.future;
-      });
+      err ??= await runUntil(exe, [], 'Oobium Host started.\n');
     }
   }
 
@@ -64,9 +61,25 @@ Future<String?> getDartVersion() async {
   }
 }
 
+Future<void> installDart() async {
+  if(Platform.isLinux) {
+    err ??= await run('apt-get', ['update']);
+    err ??= await run('apt-get', ['install', 'apt-transport-https']);
+    err ??= await run('sh', ['-c', 'wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -']);
+    err ??= await run('sh', ['-c', 'wget -qO- https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list']);
+    err ??= await run('apt-get', ['update']);
+    err ??= await run('apt-get', ['install', 'dart']);
+    // Directory('/usr/lib/dart/bin')..ensureExists()..addToPath();
+  } else {
+    cmd = 'install dart - platform not supported (${Platform.operatingSystem})';
+    err = -1;
+  }
+}
+
 Future<String?> getHostVersion() async {
   try {
-    final result = Process.runSync('oobium-host', ['--version']);
+    final exe = '${basePath}/oobium/host/bin/oobium-host';
+    final result = Process.runSync(exe, ['--version']);
     if(result.exitCode != 0) {
       stderr.writeln(result.stderr);
       return null;
@@ -84,31 +97,62 @@ Future<String?> getHostVersion() async {
   }
 }
 
-Future<void> installDart() async {
-  if(Platform.isLinux) {
-    err ??= await run('apt-get', ['update']);
-    err ??= await run('apt-get', ['install', 'apt-transport-https']);
-    err ??= await run('sh', ['-c', 'wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -']);
-    err ??= await run('sh', ['-c', 'wget -qO- https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list']);
-    err ??= await run('apt-get', ['update']);
-    err ??= await run('apt-get', ['install', 'dart']);
-    Directory('/usr/lib/dart/bin')..ensureExists()..addToPath();
-  } else {
-    cmd = 'install dart - platform not supported (${Platform.operatingSystem})';
-    err = -1;
-  }
-}
-
-Future<String?> installHost([String basePath='']) async {
+Future<String?> installHost() async {
   if(err != null) return null;
 
   final oobiumDir = Directory('${basePath}/oobium')..ensureExists();
   final hostDir = Directory('${oobiumDir.path}/host')..ensureExists();
   final binDir = Directory('${hostDir.path}/bin')..ensureExists();
   final envDir = Directory('${hostDir.path}/env')..ensureExists();
-  final bldDir = Directory('${hostDir.path}/build')..ensureExists()..clean();
-  final srcDir = Directory('${bldDir.path}/src')..ensureExists();
-  File('${envDir.path}/config.json').writeAsStringSync('{}');
+
+  final Directory srcDir;
+  final Directory prjDir;
+
+  if(source.isEmpty) {
+    srcDir = Directory('${hostDir.path}/source')..ensureExists();
+    final result = await installSource(srcDir);
+    if(result == null) {
+      return null;
+    } else {
+      prjDir = result;
+    }
+  } else {
+    if(prod) {
+      cmd = 'source option is not valid on prod';
+      err = -1;
+      return null;
+    }
+    srcDir = Directory(source);
+    prjDir = Directory('${srcDir.path}/tools/host');
+  }
+
+  final mainFile = File('${prjDir.path}/lib/main.dart');
+  final exeFile = File('${binDir.path}/oobium-host');
+  if(!mainFile.existsSync()) {
+    cmd = 'mainFile does not exist (${mainFile.absolute.path})';
+    err = -1;
+  }
+
+  err ??= await run('dart', ['pub', 'get'], wd: prjDir);
+  err ??= await run('dart', ['compile', 'exe', mainFile.path, '-o', exeFile.path]);
+
+  if(err == null) {
+    File('${envDir.path}/config.json').writeAsStringSync(config);
+    if(prod) {
+      stdout.write('\nhost installed, removing build files...');
+      srcDir.deleteSync(recursive: true);
+      stdout.writeln(' done.');
+    } else {
+      stdout.writeln('\nhost installed.');
+    }
+    return exeFile.path;
+  }
+}
+
+Future<Directory?> installSource(Directory srcDir) async {
+  stdout.write('\ncleaning source dir (${srcDir.absolute.path})...');
+  srcDir.clean();
+  stdout.writeln(' done.');
 
   final owner = 'jeremy-dowdall';
   final repo = 'oobium';
@@ -139,31 +183,23 @@ Future<String?> installHost([String basePath='']) async {
   client.close();
   stdout.writeln(' done.');
 
-  final prjDir = Directory('${srcDir.path}/oobium-$branch/tools/host');
-  final mainFile = File('${prjDir.path}/lib/main.dart');
-  final exeFile = File('${binDir.path}/oobium-host');
-  if(!mainFile.existsSync()) {
-    cmd = 'mainFile does not exist (${mainFile.absolute.path})';
-    err = -1;
-  }
-
-  err ??= await run('dart', ['pub', 'get'], wd: prjDir);
-  err ??= await run('dart', ['compile', 'exe', mainFile.path, '-o', exeFile.path]);
-
-  binDir.addToPath();
-
-  if(err == null) {
-    stdout.write('\nhost installed, removing build files...');
-    bldDir.deleteSync(recursive: true);
-    stdout.writeln(' done.');
-    return exeFile.path;
-  }
+  return Directory('${srcDir.path}/oobium-$branch/tools/host');
 }
 
-String parseBasePath(List<String> args) => args
+late final basePath = args
     .firstWhere((s) => s.startsWith('base-path='),
     orElse: () => 'base-path=')
     .substring(10);
+
+late final config = args
+    .firstWhere((s) => s.startsWith('config='),
+    orElse: () => 'config={}')
+    .substring(7);
+
+late final source = args
+    .firstWhere((s) => s.startsWith('source='),
+    orElse: () => 'source=')
+    .substring(7);
 
 Future<int?> run(String executable, List<String> args, {Directory? wd}) async {
   cmd = '$executable ${args.join(' ')}${wd != null ? ' (in ${wd.absolute.path})' : ''}';
@@ -183,14 +219,24 @@ Future<int?> run(String executable, List<String> args, {Directory? wd}) async {
 Future<int?> runUntil(
     String executable,
     List<String> args,
-    Future<int?> Function(Stream<List<int>> stdout, Stream<List<int>> stdin) until, {
+    String until, {
       Directory? wd,
     }) async {
   cmd = '$executable ${args.join(' ')}${wd != null ? ' (in ${wd.absolute.path})' : ''}';
   print('\n> $cmd\n');
   try {
     final process = await Process.start(executable, args, workingDirectory: wd?.path, mode: ProcessStartMode.detachedWithStdio);
-    final code = await until(process.stdout, process.stderr);
+    stdout.writeln(' -- pid: ${process.pid} -- \n');
+    final completer = Completer<int>();
+    final test = utf8.encode(until);
+    process.stdout.listen((e) {
+      stdout.add(e);
+      if(e.isSameAs(test)) {
+        completer.complete(0);
+      }
+    });
+    stderr.addStream(process.stderr);
+    final code = await completer.future;
     return (code != 0) ? code : null;
   } catch(e) {
     cmd = '$cmd\n  $e';
@@ -227,5 +273,19 @@ extension DirectoryX on Directory {
     if(!existsSync()) {
       createSync(recursive: recursive);
     }
+  }
+}
+
+extension ListIntX on List<int> {
+  bool isSameAs(List<int> other) {
+    if(length != other.length) {
+      return false;
+    }
+    for(var i = 0; i < length; i++) {
+      if(this[i] != other[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }

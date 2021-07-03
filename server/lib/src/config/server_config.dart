@@ -29,14 +29,19 @@ class ServerConfig {
   };
 
   static Future<ServerConfig> fromEnv() async {
-    final file = File('env/server.json');
-    if(!(await file.exists())) throw 'ServerConfig does not exist (${file.absolute.path})';
+    final path = File(Platform.script.path).parent.path;
+    final file = File('env/config.json').existsOrNull
+        ?? File('$path/../env/config.json').existsOrNull
+        ?? File('$path/env/config.json').existsOrNull;
+    if(file == null) {
+      throw 'cannot locate ServerConfig ($path)';
+    }
     final json = jsonDecode(await file.readAsString());
     final config = ServerConfig(
-      address:  json['address'],
-      port:     json['port'],
-      certPath: json['certPath'],
-      keyPath:  json['keyPath'],
+      address:  json['address'] ?? '127.0.0.1',
+      port:     json['port'] ?? 8080,
+      certPath: json['certPath'] ?? '',
+      keyPath:  json['keyPath'] ?? '',
     );
     if(config.isSecure) {
       if(!(await File(config.certPath).exists())) throw 'ServerConfig.certPath does not exist (${config.certPath})';
@@ -44,4 +49,8 @@ class ServerConfig {
     }
     return config;
   }
+}
+
+extension FileExistsX on File {
+  File? get existsOrNull => existsSync() ? this : null;
 }

@@ -22,8 +22,8 @@ class Project {
       directory: directory,
       pubspec: pubspec,
       pubspecFile: pubspecFile,
-      config: Settings(),
-      configFile: File('${directory.path}/oobium.yaml')
+      oobium: OobiumConfig(),
+      oobiumFile: File('${directory.path}/oobium.yaml')
   );
 
   @override
@@ -37,8 +37,8 @@ class Project {
         directory: dir,
         pubspec: Pubspec.parse(pubspecFile.readAsStringSync()),
         pubspecFile: pubspecFile,
-        config: Settings.parse(oobiumFile.readAsStringSync()),
-        configFile: oobiumFile,
+        oobium: OobiumConfig.parse(oobiumFile.readAsStringSync()),
+        oobiumFile: oobiumFile,
       );
     }
     return Project(
@@ -57,14 +57,14 @@ class Project {
 }
 
 class OobiumProject extends Project {
-  final Settings config;
-  final File configFile;
+  final OobiumConfig oobium;
+  final File oobiumFile;
   OobiumProject({
     required Directory directory,
     required Pubspec pubspec,
     required File pubspecFile,
-    required this.config,
-    required this.configFile,
+    required this.oobium,
+    required this.oobiumFile,
   }) : super(
     directory: directory,
     pubspec: pubspec,
@@ -83,8 +83,8 @@ class OobiumProject extends Project {
       directory: dir,
       pubspec: Pubspec.parse(pubspecFile.readAsStringSync()),
       pubspecFile: pubspecFile,
-      config: Settings.parse(oobiumFile.readAsStringSync()),
-      configFile: oobiumFile,
+      oobium: OobiumConfig.parse(oobiumFile.readAsStringSync()),
+      oobiumFile: oobiumFile,
     );
   }
   static List<OobiumProject> find(Directory dir, {bool recursive=false}) {
@@ -96,29 +96,36 @@ class OobiumProject extends Project {
   }
 }
 
-class Settings {
+class OobiumConfig {
   final String address; // ip address
   final String host;
   final List<String> subdomains;
   final String email;  // contact
-  Settings({
+  OobiumConfig({
     this.address='',
     this.host='',
     this.subdomains=const[],
     this.email=''
   });
 
-  Settings copyWith({
+  OobiumConfig copyWith({
     String? address,
     String? host,
     List<String>? subdomains,
     String? email
-  }) => Settings(
+  }) => OobiumConfig(
       address: address??this.address,
       host: host??this.host,
       subdomains: subdomains??this.subdomains,
       email: email??this.email
   );
+
+  Map<String, dynamic> toJson() => {
+    'address': address,
+    'host': host,
+    'subdomains': subdomains,
+    'email': email,
+  };
 
   @override
   String toString() =>
@@ -137,9 +144,9 @@ class Settings {
     'email: $email\n'
   ;
 
-  static Settings parse(String yaml) {
+  static OobiumConfig parse(String yaml) {
     final data = loadYaml(yaml);
-    return Settings(
+    return OobiumConfig(
       address: data['address'] ?? '',
       host: data['host'] ?? '',
       subdomains: (data['subdomains'])?.toList().cast<String>() ?? [],
