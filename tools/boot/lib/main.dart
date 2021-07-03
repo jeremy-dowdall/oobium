@@ -156,7 +156,7 @@ Future<Directory?> installSource(Directory srcDir) async {
 
   final owner = 'jeremy-dowdall';
   final repo = 'oobium';
-  final branch = 'server';
+  final branch = channel;
   final url = 'https://github.com/$owner/$repo/archive/$branch.tar.gz';
 
   cmd = 'download $repo@$branch from github';
@@ -190,6 +190,11 @@ late final basePath = args
     .firstWhere((s) => s.startsWith('base-path='),
     orElse: () => 'base-path=')
     .substring(10);
+
+late final channel = args
+    .firstWhere((s) => s.startsWith('channel='),
+    orElse: () => 'channel=master')
+    .substring(8);
 
 late final config = args
     .firstWhere((s) => s.startsWith('config='),
