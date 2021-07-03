@@ -27,7 +27,7 @@ main([List<String> a=const[]]) async {
   } else {
     final exe = await installHost();
     if(exe != null) {
-      err ??= await runUntil(exe, [], 'Oobium Host started.\n');
+      err ??= await runUntil(exe, [], 'Oobium Host started.');
     }
   }
 
@@ -219,7 +219,7 @@ Future<int?> run(String executable, List<String> args, {Directory? wd}) async {
 Future<int?> runUntil(
     String executable,
     List<String> args,
-    String until, {
+    String pattern, {
       Directory? wd,
     }) async {
   cmd = '$executable ${args.join(' ')}${wd != null ? ' (in ${wd.absolute.path})' : ''}';
@@ -228,10 +228,11 @@ Future<int?> runUntil(
     final process = await Process.start(executable, args, workingDirectory: wd?.path, mode: ProcessStartMode.detachedWithStdio);
     stdout.writeln(' -- pid: ${process.pid} -- \n');
     final completer = Completer<int>();
-    final test = utf8.encode(until);
+    final buff = StringBuffer();
     process.stdout.listen((e) {
       stdout.add(e);
-      if(e.isSameAs(test)) {
+      buff.write(utf8.decode(e));
+      if(buff.toString().contains(pattern)) {
         completer.complete(0);
       }
     });
@@ -273,19 +274,5 @@ extension DirectoryX on Directory {
     if(!existsSync()) {
       createSync(recursive: recursive);
     }
-  }
-}
-
-extension ListIntX on List<int> {
-  bool isSameAs(List<int> other) {
-    if(length != other.length) {
-      return false;
-    }
-    for(var i = 0; i < length; i++) {
-      if(this[i] != other[i]) {
-        return false;
-      }
-    }
-    return true;
   }
 }
