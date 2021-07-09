@@ -79,9 +79,9 @@
       <excludeFolder url="file://$MODULE_DIR$/string_x/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/.pub" />
-      <excludeFolder url="file://$MODULE_DIR$/tools/bootstrap/.dart_tool" />
-      <excludeFolder url="file://$MODULE_DIR$/tools/bootstrap/.pub" />
-      <excludeFolder url="file://$MODULE_DIR$/tools/bootstrap/build" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/boot/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/boot/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/boot/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/ci/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/ci/.pub" />
@@ -89,6 +89,9 @@
       <excludeFolder url="file://$MODULE_DIR$/tools/cli/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/cli/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/tools/cli/build" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/cli/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/cli/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/tools/cli/example/build" />
       <excludeFolder url="file://$MODULE_DIR$/tools/common/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/tools/common/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/tools/common/build" />

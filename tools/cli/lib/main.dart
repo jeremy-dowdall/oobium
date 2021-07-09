@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
+import 'package:oobium_server/oobium_server.dart';
 import 'package:tools_cli/commands/host.dart' show HostCommand;
 import 'package:tools_cli/commands/info.dart';
 import 'package:tools_cli/commands/init.dart';
+import 'package:tools_common/models.dart';
 
 ///
 /// - init new project
@@ -14,7 +18,7 @@ import 'package:tools_cli/commands/init.dart';
 /// - flutter builds (client/web)
 ///
 void main(List<String> args) async {
-  await CommandRunner('oobium', 'a cli for oobium based applications')
+  CommandRunner('oobium', 'a cli for oobium based applications')
     ..addCommand(InfoCommand())
     ..addCommand(InitCommand())
     ..addCommand(HostCommand())

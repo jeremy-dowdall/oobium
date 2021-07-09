@@ -9,12 +9,7 @@ class InfoCommand extends OobiumCommand {
   void runWithOobiumProject(OobiumProject project) {
     print(
       'location: ${project.directory.absolute.uri}\n'
-      'settings: {\n'
-      '  address:    ${project.oobium.address}\n'
-      '  host:       ${project.oobium.host}\n'
-      '  subdomains: ${project.oobium.subdomains}\n'
-      '  email:      ${project.oobium.email}\n'
-      '}'
+      'settings: ${project.config.toYaml()}'
     );
   }
 }

@@ -22,15 +22,15 @@ class InitCommand extends ProjectCommand {
       stdout.writeln('creating oobium configuration:');
       oobium = project.toOobium();
     }
-    final config = oobium.oobium.copyWith(
-        address:    promptFor('address', initial: oobium.oobium.address),
-        host:       promptFor('host', initial: oobium.oobium.host),
+    final config = oobium.config.copyWith(
+        address:    promptFor('address', initial: oobium.config.address),
+        host:       promptFor('host', initial: oobium.config.host),
         subdomains: ['www', 'api'],
-        email:      promptFor('email', initial: oobium.oobium.email)
+        email:      promptFor('email', initial: oobium.config.email)
     );
-    if(!oobium.oobiumFile.existsSync()) {
-      oobium.oobiumFile.createSync(recursive: true);
+    if(!oobium.configFile.existsSync()) {
+      oobium.configFile.createSync(recursive: true);
     }
-    oobium.oobiumFile.writeAsStringSync(config.toYaml());
+    oobium.configFile.writeAsStringSync(config.toYaml());
   }
 }

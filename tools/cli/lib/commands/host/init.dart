@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:tools_common/models.dart';
@@ -13,10 +12,13 @@ class InitCommand extends OobiumCommand {
 
   @override
   FutureOr<void> runWithOobiumProject(OobiumProject project) async {
-    await ssh(project.oobium.address, [
-      'wget https://raw.githubusercontent.com/jeremy-dowdall/oobium-boot/master/bin/oobium_boot-linux',
+    final address = project.config.address;
+    final channel = '';
+    final token = '';
+    await ssh(address, [
+      'wget https://oobium.download/oobium_boot-linux',
       'chmod +x oobium_boot-linux',
-      './oobium_boot-linux config=${jsonEncode(project.oobium.toJson())}',
+      './oobium_boot-linux a=$address c=$channel t=$token',
     ]);
   }
 }

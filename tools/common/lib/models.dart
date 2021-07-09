@@ -6,25 +6,18 @@ import 'package:yaml/yaml.dart';
 class Project {
   final Directory directory;
   final Pubspec pubspec;
-  final File pubspecFile;
 
   Project({
     required this.directory,
     required this.pubspec,
-    required this.pubspecFile,
   });
 
   bool get isOobium => false;
 
+  late final pubspecFile = File('${directory.path}/pubspec.yaml');
   late final buildDir = Directory('${directory.path}/build/host');
 
-  OobiumProject toOobium() => OobiumProject(
-      directory: directory,
-      pubspec: pubspec,
-      pubspecFile: pubspecFile,
-      oobium: OobiumConfig(),
-      oobiumFile: File('${directory.path}/oobium.yaml')
-  );
+  OobiumProject toOobium() => OobiumProject.load(directory);
 
   @override
   toString() => 'Project(${pubspec.name})';
@@ -36,15 +29,12 @@ class Project {
       return OobiumProject(
         directory: dir,
         pubspec: Pubspec.parse(pubspecFile.readAsStringSync()),
-        pubspecFile: pubspecFile,
-        oobium: OobiumConfig.parse(oobiumFile.readAsStringSync()),
-        oobiumFile: oobiumFile,
+        config: OobiumConfig.parse(oobiumFile.readAsStringSync()),
       );
     }
     return Project(
       directory: dir,
       pubspec: Pubspec.parse(pubspecFile.readAsStringSync()),
-      pubspecFile: pubspecFile,
     );
   }
   static List<Project> find(Directory dir, {bool recursive=false}) {
@@ -57,34 +47,35 @@ class Project {
 }
 
 class OobiumProject extends Project {
-  final OobiumConfig oobium;
-  final File oobiumFile;
+  final OobiumConfig config;
+  final OobiumHost host;
+  final OobiumSite site;
   OobiumProject({
     required Directory directory,
     required Pubspec pubspec,
-    required File pubspecFile,
-    required this.oobium,
-    required this.oobiumFile,
+    this.config=const OobiumConfig(),
+    this.host=const OobiumHost(),
+    this.site=const OobiumSite()
   }) : super(
     directory: directory,
-    pubspec: pubspec,
-    pubspecFile: pubspecFile,
+    pubspec: pubspec
   );
 
   bool get isOobium => true;
+
+  late final configFile = File('${directory.path}/oobium.yaml');
+  late final envDir = File('${directory.path}/env');
+  late final hostFile = File('${envDir.path}/host.json');
+  late final siteFile = File('${envDir.path}/site.json');
 
   @override
   toString() => 'Project(${pubspec.name})';
 
   static OobiumProject load(Directory dir) {
     final pubspecFile = File('${dir.path}/pubspec.yaml');
-    final oobiumFile = File('${dir.path}/oobium.yaml');
     return OobiumProject(
       directory: dir,
       pubspec: Pubspec.parse(pubspecFile.readAsStringSync()),
-      pubspecFile: pubspecFile,
-      oobium: OobiumConfig.parse(oobiumFile.readAsStringSync()),
-      oobiumFile: oobiumFile,
     );
   }
   static List<OobiumProject> find(Directory dir, {bool recursive=false}) {
@@ -97,62 +88,104 @@ class OobiumProject extends Project {
 }
 
 class OobiumConfig {
-  final String address; // ip address
+  final String email;  // contact
+  final String address;
   final String host;
   final List<String> subdomains;
-  final String email;  // contact
-  OobiumConfig({
+  const OobiumConfig({
+    this.email='',
     this.address='',
     this.host='',
     this.subdomains=const[],
-    this.email=''
   });
 
   OobiumConfig copyWith({
+    String? email,
     String? address,
     String? host,
     List<String>? subdomains,
-    String? email
   }) => OobiumConfig(
-      address: address??this.address,
-      host: host??this.host,
-      subdomains: subdomains??this.subdomains,
-      email: email??this.email
+    email: email??this.email,
+    address: address??this.address,
+    host: host??this.host,
+    subdomains: subdomains??this.subdomains,
   );
 
   Map<String, dynamic> toJson() => {
+    'email': email,
     'address': address,
     'host': host,
-    'subdomains': subdomains,
-    'email': email,
+    'subdomains': subdomains
   };
 
   @override
   String toString() =>
-      'OobiumConfig({\n'
-      '  address:    $address\n'
-      '  host:       $host\n'
-      '  subdomains: $subdomains\n'
-      '  email:      $email\n'
-      '})'
+    'OobiumConfig({\n'
+    '  email:      $email\n'
+    '  address:    $address\n'
+    '  host:       $host\n'
+    '  subdomains: $subdomains\n'
+    '})'
   ;
 
   String toYaml() =>
-    'address: $address\n'
-    'host: $host\n'
-    'subdomains:\n  - ${subdomains.join('\n  - ')}\n'
     'email: $email\n'
+    'host: $host\n'
+    'address: $address\n'
+    'subdomains:\n  - ${subdomains.join('\n  - ')}\n'
   ;
 
   static OobiumConfig parse(String yaml) {
     final data = loadYaml(yaml);
     return OobiumConfig(
-      address: data['address'] ?? '',
-      host: data['host'] ?? '',
-      subdomains: (data['subdomains'])?.toList().cast<String>() ?? [],
       email: data['email'] ?? '',
+      host: data['host'] ?? '',
+      address: data['address'] ?? '',
+      subdomains: (data['subdomains'])?.toList().cast<String>() ?? [],
     );
   }
+}
+
+class OobiumHost {
+  final String address;
+  final int port;
+  final String cert; // path to file
+  final String token;
+  const OobiumHost({
+    this.address='10.0.0.95', //'',
+    this.port=4430, //-1,
+    this.cert='env/oobium_host.cert',
+    this.token=''
+  });
+
+  OobiumHost copyWith({
+    String? address,
+    int? port,
+    String? cert,
+    String? token
+  }) => OobiumHost(
+    address: address??this.address,
+    port: port??this.port,
+    cert: cert??this.cert,
+    token: token??this.token
+  );
+}
+
+class OobiumSite {
+  final String host;    // public domain name
+  final List<String> subdomains;
+  const OobiumSite({
+    this.host='',
+    this.subdomains=const[],
+  });
+
+  OobiumSite copyWith({
+    String? host,
+    List<String>? subdomains,
+  }) => OobiumSite(
+    host: host??this.host,
+    subdomains: subdomains??this.subdomains,
+  );
 }
 
 class MetaData {

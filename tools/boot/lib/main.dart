@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:tar/tar.dart';
 
 
@@ -78,7 +79,7 @@ Future<void> installDart() async {
 
 Future<String?> getHostVersion() async {
   try {
-    final exe = '${basePath}/oobium/host/bin/oobium-host';
+    final exe = '$dir/oobium/host/bin/oobium-host';
     final result = Process.runSync(exe, ['--version']);
     if(result.exitCode != 0) {
       stderr.writeln(result.stderr);
@@ -100,7 +101,7 @@ Future<String?> getHostVersion() async {
 Future<String?> installHost() async {
   if(err != null) return null;
 
-  final oobiumDir = Directory('${basePath}/oobium')..ensureExists();
+  final oobiumDir = Directory('$dir/oobium')..ensureExists();
   final hostDir = Directory('${oobiumDir.path}/host')..ensureExists();
   final binDir = Directory('${hostDir.path}/bin')..ensureExists();
   final envDir = Directory('${hostDir.path}/env')..ensureExists();
@@ -126,6 +127,13 @@ Future<String?> installHost() async {
     prjDir = Directory('${srcDir.path}/tools/host');
   }
 
+  final pubFile = File('${prjDir.path}/pubspec.yaml');
+  if(!pubFile.existsSync()) {
+    cmd = 'pubspec.yaml does not exist (${pubFile.absolute.path})';
+    err = -1;
+  }
+  final version = Pubspec.parse(pubFile.readAsStringSync()).version;
+
   final mainFile = File('${prjDir.path}/lib/main.dart');
   final exeFile = File('${binDir.path}/oobium-host');
   if(!mainFile.existsSync()) {
@@ -134,10 +142,14 @@ Future<String?> installHost() async {
   }
 
   err ??= await run('dart', ['pub', 'get'], wd: prjDir);
-  err ??= await run('dart', ['compile', 'exe', mainFile.path, '-o', exeFile.path]);
+  err ??= await run('dart', ['compile', 'exe', '--define=version=$version', '-o', exeFile.path, mainFile.path]);
 
   if(err == null) {
-    File('${envDir.path}/config.json').writeAsStringSync(config);
+    File('${envDir.path}/config.json').writeAsStringSync(jsonEncode({
+      "address": address,
+      "channel": channel
+    }));
+    File('${envDir.path}/.token').writeAsStringSync(token);
     if(prod) {
       stdout.write('\nhost installed, removing build files...');
       srcDir.deleteSync(recursive: true);
@@ -186,25 +198,30 @@ Future<Directory?> installSource(Directory srcDir) async {
   return Directory('${srcDir.path}/oobium-$branch/tools/host');
 }
 
-late final basePath = args
-    .firstWhere((s) => s.startsWith('base-path='),
-    orElse: () => 'base-path=')
-    .substring(10);
+late final address = args
+    .firstWhere((s) => s.startsWith('a='),
+    orElse: () => 'a=')
+    .substring(2);
 
 late final channel = args
-    .firstWhere((s) => s.startsWith('channel='),
-    orElse: () => 'channel=master')
-    .substring(8);
+    .firstWhere((s) => s.startsWith('c='),
+    orElse: () => 'c=master')
+    .substring(2);
 
-late final config = args
-    .firstWhere((s) => s.startsWith('config='),
-    orElse: () => 'config={}')
-    .substring(7);
+late final dir = args
+    .firstWhere((s) => s.startsWith('d='),
+    orElse: () => 'd=')
+    .substring(2);
 
 late final source = args
-    .firstWhere((s) => s.startsWith('source='),
-    orElse: () => 'source=')
-    .substring(7);
+    .firstWhere((s) => s.startsWith('s='),
+    orElse: () => 's=')
+    .substring(2);
+
+late final token = args
+    .firstWhere((s) => s.startsWith('t='),
+    orElse: () => 't=')
+    .substring(2);
 
 Future<int?> run(String executable, List<String> args, {Directory? wd}) async {
   cmd = '$executable ${args.join(' ')}${wd != null ? ' (in ${wd.absolute.path})' : ''}';

@@ -237,13 +237,17 @@ class Server {
     _started = true;
     await _startServices();
     if(config.isSecure) {
-      if(config.redirectHttp) {
+      https = await HttpServer.bindSecure(config.address, config.port, config.securityContext,
+        requestClientCertificate: true
+      );
+      httpsSubscription = https!.listen((httpRequest) async => await _handle(httpRequest));
+      if(config.redirect) {
         http = await HttpServer.bind(config.address, 80);
         httpSubscription = http!.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
+        print('Listening on https://${https!.address.host}:${https!.port}/ with redirect from http on port 80');
+      } else {
+        print('Listening on https://${https!.address.host}:${https!.port}/');
       }
-      https = await HttpServer.bindSecure(config.address, config.port, config.securityContext);
-      httpsSubscription = https!.listen((httpRequest) async => await _handle(httpRequest));
-      print('Listening on https://${https!.address.host}:${https!.port}/ with redirect from http on port 80');
     } else {
       http = await HttpServer.bind(config.address, config.port);
       httpSubscription = http!.listen((httpRequest) async => await _handle(httpRequest));
@@ -672,6 +676,41 @@ class StringContent implements Content {
   @override int get length => _data.length;
   @override Stream<List<int>> get stream => Stream.fromIterable([_data]);
 }
+
+RequestHandler authorization({
+  FutureOr Function(String username, String password)? basic,
+  FutureOr Function(String token)? bearer,
+}) => (req) async {
+  if(basic != null) {
+    var header = req.headers[HttpHeaders.authorizationHeader]?.trim();
+    if(header != null && header.startsWith('Basic ')) {
+      final parts = utf8.decode(base64.decode(header.split(' ')[1])).split(':');
+      if(parts.length == 2) {
+        return basic(parts[0], parts[1]);
+      }
+    }
+    header = req.headers[WsProtocolHeader];
+    if(header != null && header.startsWith('Authorization, Basic, ')) {
+      final parts = utf8.decode(base64.decode(header.split(', ')[2])).split(':');
+      if(parts.length == 2) {
+        return basic(parts[0], parts[1]);
+      }
+    }
+  }
+  if(bearer != null) {
+    var header = req.headers[HttpHeaders.authorizationHeader]?.trim();
+    if(header != null && header.startsWith('Bearer ')) {
+      final token = utf8.decode(base64.decode(header.split(' ')[1]));
+      return bearer(token);
+    }
+    header = req.headers[WsProtocolHeader];
+    if(header != null && header.startsWith('Authorization, Bearer, ')) {
+      final token = utf8.decode(base64.decode(header.split(', ')[2]));
+      return bearer(token);
+    }
+  }
+  return 401;
+};
 
 class WebSocketResponse {
   final FutureOr Function(ServerWebSocket socket) f;

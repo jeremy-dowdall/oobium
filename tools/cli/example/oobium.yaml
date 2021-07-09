@@ -1,0 +1,6 @@
+address: 10.0.0.95
+host: oobium.com
+subdomains:
+  - www
+  - api
+email: jeremyd@aspencloud.com

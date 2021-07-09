@@ -9,6 +9,8 @@ import 'package:oobium_websocket/src/websocket/ws_socket.dart';
 
 final log = Logger('websocket');
 
+const WsProtocolHeader = 'sec-websocket-protocol';
+
 ///
 /// Get resource (String)
 ///   future = await client.get('/path')
@@ -80,10 +82,16 @@ class WebSocket {
     return this;
   }
 
-  Future<WebSocket> connect({String address='127.0.0.1', int port=8080, String path='', List<String>? protocols, bool autoStart = true}) async {
+  Future<WebSocket> connect({bool secure=false, String address='127.0.0.1', int port=8080, String path='', String? token, List<String>? protocols, bool autoStart = true}) async {
     assert(isNotStarted && isNotDone);
     _upgraded = false;
-    final url = 'ws://$address:$port$path';
+    if(token != null) {
+      protocols = [
+        'Authorization', 'Bearer', base64.encode(utf8.encode(token)),
+        ...?protocols
+      ];
+    }
+    final url = '${secure?'wss':'ws'}://$address:$port$path';
     _ws = await WsSocket.connect(url, protocols: protocols);
     if(autoStart == true) {
       start();

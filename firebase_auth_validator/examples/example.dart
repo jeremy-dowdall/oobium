@@ -8,7 +8,7 @@ void main() {
     return res.send(data: 'hello world!');
   }]);
 
-  server.get('/private', [auth, (req, res) {
+  server.get('/private', [authorization, (req, res) {
     return res.send(data: 'hello world!');
   }]);
 

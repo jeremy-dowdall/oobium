@@ -1,40 +1,18 @@
 import 'dart:io';
 
-import 'package:tools_host/commands/deploy.dart';
-import 'package:tools_host/commands/status.dart';
-import 'package:oobium_server/oobium_server.dart';
-
-import 'commands/certbot.dart';
+import 'server/server.dart' as server;
+import 'version.dart';
 
 main([List<String>? args]) async {
+  await checkVersion();
+
   if(args?.contains('--version') == true) {
-    stdout.writeln('Oobium Host version: $version');
+    stdout.writeln('Oobium Host version: $versionDisplayString');
     return;
   }
 
-  stdout.writeln('Starting Oobium Host: $version');
-
-  final server = await Server.fromEnv();
-
-  server.get('/', [
-    (req) {
-      return (req.uri.host != '127.0.0.1') ? 403 : null;
-    },
-    websocket((ws) {
-      ws.on.get('/acme-challenge/<file>', certbotHandler);
-    }),
-  ]);
-
-  server.get('/host', [websocket((ws) { // TODO use an AuthSocket?
-    ws.on.getStream('/status', statusHandler);
-    ws.on.put('/deploy', deployHandler);
-  })]);
-
+  stdout.writeln('Starting Oobium Host: $versionDisplayString');
+  checkVersion();
   await server.start();
-
   stdout.writeln('Oobium Host started.');
 }
-
-const version =
-    '${const String.fromEnvironment('version', defaultValue: '-.-.-')}'
-    ' (${const String.fromEnvironment('channel', defaultValue: 'debug')})';
