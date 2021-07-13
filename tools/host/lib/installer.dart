@@ -40,18 +40,18 @@ class Env {
   final Directory prj;
   final bool _source;
   Env(String root, {String source=''}) :
-        oobium = Directory('$root/oobium'),
-        certbot = Directory('$root/certbot'), // TODO ???
-        host = Directory('$root/oobium/host'),
-        bin = Directory('$root/oobium/host/bin'),
-        env = Directory('$root/oobium/host/env'),
-        src = source.isEmpty
-            ? Directory('$root/oobium/host/source')
-            : Directory(source),
-        prj = source.isEmpty
-            ? Directory('$root/oobium/host/source/tools/host')
-            : Directory('$source/tools/host'),
-        _source = source.isEmpty
+    oobium = Directory('$root/oobium'),
+    certbot = Directory('$root/certbot'), // TODO ???
+    host = Directory('$root/oobium/host'),
+    bin = Directory('$root/oobium/host/bin'),
+    env = Directory('$root/oobium/host/env'),
+    src = source.isEmpty
+        ? Directory('$root/oobium/host/source')
+        : Directory(source),
+    prj = source.isEmpty
+        ? Directory('$root/oobium/host/source/tools/host')
+        : Directory('$source/tools/host'),
+    _source = source.isEmpty
   ;
   factory Env.fromScript() {
     final root = File(Platform.script.path).parent.parent.path;
@@ -300,5 +300,5 @@ extension ArgListX on List<String> {
   String valueOf(String key) => firstWhere(
       (s) => s.startsWith('$key='),
       orElse: () => '$key='
-  ).substring(2);
+  ).substring('$key='.length);
 }
