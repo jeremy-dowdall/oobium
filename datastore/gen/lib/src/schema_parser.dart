@@ -12,15 +12,15 @@ class SchemaParser {
   }
 
   List<String> imports(SchemaElements elements) {
-    final imports = <String, List<String>>{};
+    final imports = <String, Set<String>>{};
     final fields = elements.models.expand((m) => m.fields.where((f) => f.isImportedType));
     for(var field in fields) {
       final importPackage = field.importPackage;
       if(importPackage != null) {
-        imports.putIfAbsent(importPackage, () => []).add(field.importTypeName);
+        imports.putIfAbsent(importPackage, () => {}).add(field.importTypeName);
       }
     }
-    return imports.entries.map((e) => "import '${e.key}' show ${e.value.join(', ')};").toList();
+    return imports.entries.map((e) => "import '${e.key}' show ${e.value.sorted((a,b) => a.compareTo(b)).join(', ')};").toList();
   }
 
   List<Model> models(SchemaElements elements) {

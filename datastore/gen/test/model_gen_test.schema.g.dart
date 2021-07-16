@@ -2,10 +2,10 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class ModelGenTestData {
   final DataStore _ds;
-  ModelGenTestData(String path)
-      : _ds = DataStore('$path/model_gen_test', builders: [
-          (data) => User.fromJson(data),
-          (data) => Message.fromJson(data)
+  ModelGenTestData(String path, {String? isolate})
+      : _ds = DataStore('$path/model_gen_test', isolate: isolate, builders: [
+          (data) => User._fromJson(data),
+          (data) => Message._fromJson(data)
         ], indexes: [
           DataIndex<User>(toKey: (m) => m.id)
         ]);
@@ -24,19 +24,23 @@ class ModelGenTestData {
       _ds.get<Message>(id, orElse: orElse);
   Iterable<User> getUsers() => _ds.getAll<User>();
   Iterable<Message> getMessages() => _ds.getAll<Message>();
-  Iterable<User> findUsers({int? id, String? name}) => _ds.getAll<User>().where(
-      (m) => (id == null || id == m.id) && (name == null || name == m.name));
+  Iterable<User> findUsers({String? name}) =>
+      _ds.getAll<User>().where((m) => (name == null || name == m.name));
   Iterable<Message> findMessages({User? from, User? to, String? message}) =>
       _ds.getAll<Message>().where((m) =>
           (from == null || from == m.from) &&
           (to == null || to == m.to) &&
           (message == null || message == m.message));
   T put<T extends ModelGenTestModel>(T model) => _ds.put<T>(model);
-  User putUser({required int id, String? name}) =>
-      _ds.put(User(id: id, name: name));
+  List<T> putAll<T extends ModelGenTestModel>(Iterable<T> models) =>
+      _ds.putAll<T>(models);
+  User putUser({required int id, String? name}) => _ds
+      .put(_ds.get<User>(id)?.copyWith(name: name) ?? User(id: id, name: name));
   Message putMessage({User? from, User? to, String? message}) =>
       _ds.put(Message(from: from, to: to, message: message));
   T remove<T extends ModelGenTestModel>(T model) => _ds.remove<T>(model);
+  List<T> removeAll<T extends ModelGenTestModel>(Iterable<T> models) =>
+      _ds.removeAll<T>(models);
   Stream<User?> streamUser(int id) => _ds.stream<User>(id);
   Stream<Message?> streamMessage(ObjectId id) => _ds.stream<Message>(id);
   Stream<DataModelEvent<User>> streamUsers(
@@ -55,9 +59,8 @@ abstract class ModelGenTestModel extends DataModel {
   ModelGenTestModel.copyWith(
       ModelGenTestModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  ModelGenTestModel.fromJson(
-      data, Set<String> fields, Set<String> modelFields, bool newId)
-      : super.fromJson(data, fields, modelFields, newId);
+  ModelGenTestModel.fromJson(data, Map<String, dynamic>? fields, bool newId)
+      : super.fromJson(data, fields, newId);
 }
 
 class User extends ModelGenTestModel {
@@ -66,20 +69,19 @@ class User extends ModelGenTestModel {
 
   User({required int id, String? name}) : super({'id': id, 'name': name});
 
-  User.copyNew(User original, {int? id, String? name})
+  User._copyNew(User original, {required int id, String? name})
       : super.copyNew(original, {'id': id, 'name': name});
 
-  User.copyWith(User original, {int? id, String? name})
-      : super.copyWith(original, {'id': id, 'name': name});
+  User._copyWith(User original, {String? name})
+      : super.copyWith(original, {'name': name});
 
-  User.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'id', 'name'}, {}, newId);
+  User._fromJson(data, {bool newId = false})
+      : super.fromJson(data, {'id': data['id'], 'name': data['name']}, newId);
 
-  User copyNew({int? id, String? name}) =>
-      User.copyNew(this, id: id, name: name);
+  User copyNew({required int id, String? name}) =>
+      User._copyNew(this, id: id, name: name);
 
-  User copyWith({int? id, String? name}) =>
-      User.copyWith(this, id: id, name: name);
+  User copyWith({String? name}) => User._copyWith(this, name: name);
 }
 
 class Message extends ModelGenTestModel {
@@ -91,18 +93,25 @@ class Message extends ModelGenTestModel {
   Message({User? from, User? to, String? message})
       : super({'from': from, 'to': to, 'message': message});
 
-  Message.copyNew(Message original, {User? from, User? to, String? message})
+  Message._copyNew(Message original, {User? from, User? to, String? message})
       : super.copyNew(original, {'from': from, 'to': to, 'message': message});
 
-  Message.copyWith(Message original, {User? from, User? to, String? message})
+  Message._copyWith(Message original, {User? from, User? to, String? message})
       : super.copyWith(original, {'from': from, 'to': to, 'message': message});
 
-  Message.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'message'}, {'from', 'to'}, newId);
+  Message._fromJson(data, {bool newId = false})
+      : super.fromJson(
+            data,
+            {
+              'from': DataId(data['from']),
+              'to': DataId(data['to']),
+              'message': data['message']
+            },
+            newId);
 
   Message copyNew({User? from, User? to, String? message}) =>
-      Message.copyNew(this, from: from, to: to, message: message);
+      Message._copyNew(this, from: from, to: to, message: message);
 
   Message copyWith({User? from, User? to, String? message}) =>
-      Message.copyWith(this, from: from, to: to, message: message);
+      Message._copyWith(this, from: from, to: to, message: message);
 }

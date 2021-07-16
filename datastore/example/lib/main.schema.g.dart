@@ -4,8 +4,8 @@ class MainData {
   final DataStore _ds;
   MainData(String path, {String? isolate})
       : _ds = DataStore('$path/main', isolate: isolate, builders: [
-          (data) => Author.fromJson(data),
-          (data) => Book.fromJson(data)
+          (data) => Author._fromJson(data),
+          (data) => Book._fromJson(data)
         ], indexes: []);
   Future<MainData> open(
           {int version = 1,
@@ -53,9 +53,8 @@ abstract class MainModel extends DataModel {
       : super.copyNew(original, fields);
   MainModel.copyWith(MainModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  MainModel.fromJson(
-      data, Set<String> fields, Set<String> modelFields, bool newId)
-      : super.fromJson(data, fields, modelFields, newId);
+  MainModel.fromJson(data, Map<String, dynamic>? fields, bool newId)
+      : super.fromJson(data, fields, newId);
 }
 
 class Author extends MainModel {
@@ -64,18 +63,18 @@ class Author extends MainModel {
 
   Author({required String name}) : super({'name': name});
 
-  Author.copyNew(Author original, {String? name})
+  Author._copyNew(Author original, {required String name})
       : super.copyNew(original, {'name': name});
 
-  Author.copyWith(Author original, {String? name})
+  Author._copyWith(Author original, {String? name})
       : super.copyWith(original, {'name': name});
 
-  Author.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name'}, {}, newId);
+  Author._fromJson(data, {bool newId = false})
+      : super.fromJson(data, {'name': data['name']}, newId);
 
-  Author copyNew({String? name}) => Author.copyNew(this, name: name);
+  Author copyNew({required String name}) => Author._copyNew(this, name: name);
 
-  Author copyWith({String? name}) => Author.copyWith(this, name: name);
+  Author copyWith({String? name}) => Author._copyWith(this, name: name);
 }
 
 class Book extends MainModel {
@@ -86,18 +85,19 @@ class Book extends MainModel {
   Book({required String title, required Author author})
       : super({'title': title, 'author': author});
 
-  Book.copyNew(Book original, {String? title, Author? author})
+  Book._copyNew(Book original, {required String title, required Author author})
       : super.copyNew(original, {'title': title, 'author': author});
 
-  Book.copyWith(Book original, {String? title, Author? author})
+  Book._copyWith(Book original, {String? title, Author? author})
       : super.copyWith(original, {'title': title, 'author': author});
 
-  Book.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'title'}, {'author'}, newId);
+  Book._fromJson(data, {bool newId = false})
+      : super.fromJson(data,
+            {'title': data['title'], 'author': DataId(data['author'])}, newId);
 
-  Book copyNew({String? title, Author? author}) =>
-      Book.copyNew(this, title: title, author: author);
+  Book copyNew({required String title, required Author author}) =>
+      Book._copyNew(this, title: title, author: author);
 
   Book copyWith({String? title, Author? author}) =>
-      Book.copyWith(this, title: title, author: author);
+      Book._copyWith(this, title: title, author: author);
 }

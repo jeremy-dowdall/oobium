@@ -151,8 +151,10 @@ class DataRecord {
   final String modelId;
   final String updateId;
   final String type;
-  final Map<String, dynamic>? _data;
-  DataRecord(this.modelId, this.updateId, this.type, [this._data]);
+  final String? _data;
+  DataRecord(this.modelId, this.updateId, this.type, [Map? data]) :
+    _data = jsonEncode(data);
+  DataRecord._(this.modelId, this.updateId, this.type, [this._data]);
 
   factory DataRecord.delete(DataModel model) => model.toDataRecord(delete: true);
   factory DataRecord.fromLine(String line) {
@@ -162,16 +164,20 @@ class DataRecord {
     final updateId = line.substring(25, 49);
     int ix = line.indexOf('{', 50);
     if(ix == -1) {
-      return DataRecord(modelId, updateId, line.substring(50));
+      return DataRecord._(modelId, updateId, line.substring(50));
     } else {
       final type = line.substring(50, ix);
-      final data = jsonDecode(line.substring(ix));
-      return DataRecord(modelId, updateId, type, data);
+      final data = line.substring(ix);
+      return DataRecord._(modelId, updateId, type, data);
     }
   }
   factory DataRecord.fromModel(DataModel model) => model.toDataRecord();
 
-  Map<String, dynamic> get data => {...?_data, '_modelId': modelId, '_updateId': updateId};
+  Map<String, dynamic> get data1 => {
+    '_modelId': modelId,
+    '_updateId': updateId,
+    if(_data != null) ...jsonDecode(_data!)
+  };
 
   bool get isDelete => (_data == null);
   bool get isNotDelete => !isDelete;
@@ -181,7 +187,7 @@ class DataRecord {
   @override
   toString() => isDelete
     ? '$modelId:$updateId:$type'
-    : '$modelId:$updateId:$type${jsonEncode(_data)}';
+    : '$modelId:$updateId:$type$_data';
 }
 
 class UpgradeEvent {

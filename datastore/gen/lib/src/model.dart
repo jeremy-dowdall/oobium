@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:xstring/xstring.dart';
 
 class Model {
 
@@ -51,9 +52,10 @@ class Model {
   bool get scaffold => isDeclarable ? _scaffold : throw UnsupportedError('tried calling scaffold getter of virtual model, $type');
   String get type => _type;
   String get name => _type.split('<')[0];
-  List<ModelField> get fields => _fields;
+  Iterable<ModelField> get fields => _fields.where((f) => f.isNotHasMany);
+  Iterable<ModelField> get dataFields => fields.where((f) => f.isNotId);
 
-  ModelField? get idField => _fields.firstWhereOrNull((f) => f.name == 'id');
+  ModelField? get idField => fields.firstWhereOrNull((f) => f.name == 'id');
   String get idType => idField?.type ?? 'ObjectId';
 
   List<Model>? _expanded;
@@ -86,50 +88,67 @@ class Model {
 
   String get constructorFields => fields.isEmpty ? '' :
     '{${fields.map((f) => '${f.isRequired ? 'required ${f.type}' : f.isNullable ? '${f.type}?' : f.type} ${f.name}${f._initializer??''}').join(',\n')}}';
-
   String get constructorParams => fields.isEmpty ? '' : '${fields.map((f) => "${f.name}: ${f.name}").join(',')}';
-  String get constructorMap => fields.isEmpty ? '' : '{${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}';
-  String get copyFields => '{${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}}';
+  String get constructorMap => '{${_fields.map((f) => "'${f.name}': ${_mapValue(f)}").join(',')}}';
 
-  String finderFields(String m) => fields.isEmpty ? 'false' :
-    '${fields.map((f) => '(${f.name} == null || ${f.name} == $m.${f.name})').join(' && ')}'
+  String get copyFields => dataFields.isEmpty ? '' : '{${dataFields.map((f) => '${f.type}? ${f.name}').join(',\n')}}';
+  String get copyParams => dataFields.isEmpty ? '' : '${dataFields.map((f) => "${f.name}: ${f.name}").join(',')}';
+  String get copyNewMap => '{${_fields.where((f) => f.isNotHasMany).map((f) => "'${f.name}': ${f.name}").join(',')}}';
+  String get copyWithMap => '{${dataFields.where((f) => f.isNotId).map((f) => "'${f.name}': ${f.name}").join(',')}}';
+
+  String get jsonMap => '{${_fields.map((f) => "'${f.name}': ${_jsonValue(f)}").join(',')}}';
+  
+  String finderFields(String m) => dataFields.isEmpty ? 'false' :
+    '${dataFields.map((f) => '(${f.name} == null || ${f.name} == $m.${f.name})').join(' && ')}'
   ;
 
   String compile(String dsType) => '''
     class $type extends $dsType {
       
       ${isNotIndexed ? 'ObjectId get id => this[\'_modelId\'];' : ''}
-      ${fields.map((f) => "${f.type}${f.isNullable ? '?' : ''} get ${f.name} => this['${f.name}'];").join('\n')}
+      ${_fields.map((f) => "${f.type}${f.isNullable ? '?' : ''} get ${f.name} => this['${f.name}'];").join('\n')}
       
       $name($constructorFields) : super($constructorMap);
       
-      $name.copyNew($type original, $copyFields) : super.copyNew(original,
-        {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
-      );
+      $name._copyNew($type original, $constructorFields) : super.copyNew(original, $copyNewMap);
       
-      $name.copyWith($type original, $copyFields) : super.copyWith(original,
-        {${fields.map((f) => "'${f.name}': ${f.name}").join(',')}}
-      );
+      $name._copyWith($type original, $copyFields) : super.copyWith(original, $copyWithMap);
       
-      $name.fromJson(data, {bool newId=false}) : super.fromJson(data,
-        {${fields.where((f) => f.isNotModel).map((f) => "'${f.name}'").join(',')}},
-        {${fields.where((f) => f.isModel).map((f) => "'${f.name}'").join(',')}},
-        newId
-      );
+      $name._fromJson(data, {bool newId=false}) : super.fromJson(data, $jsonMap, newId);
       
-      $type copyNew({
-        ${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}
-      }) => $type.copyNew(this,
-        ${fields.map((f) => '${f.name}: ${f.name}').join(',\n')}
-      );
+      $type copyNew($constructorFields) => $type._copyNew(this, $constructorParams);
       
-      $type copyWith({
-        ${fields.map((f) => '${f.type}? ${f.name}').join(',\n')}
-      }) => $type.copyWith(this,
-        ${fields.map((f) => '${f.name}: ${f.name}').join(',\n')}
-      );
+      $type copyWith($copyFields) => $type._copyWith(this, $copyParams);
     }
   ''';
+
+  String _mapValue(ModelField f) {
+    if(f.isHasMany) {
+      return "${f.type}(key: '${f.hasManyKey}')";
+    }
+    return f.name;
+  }
+  
+  String _jsonValue(ModelField f) {
+    if(f.isModel) {
+      return "DataId(data['${f.name}'])";
+    }
+    if(f.isDateTime) {
+      if(f.isNullable) {
+        return "(data['${f.name}'] is int) ? DateTime.fromMillisecondsSinceEpoch(data['${f.name}']) : null";
+      } else {
+        return "DateTime.fromMillisecondsSinceEpoch(data['${f.name}'])";
+      }
+    }
+    if(f.isHasMany) {
+      return "${f.type}(key: '${f.hasManyKey}')";
+    }
+    final fromJson = f.fromJson;
+    if(fromJson != null) {
+      return "${f.type}.$fromJson(data['${f.name}'])";
+    }
+    return "data['${f.name}']";
+  }
 }
 
 class ModelField {
@@ -152,6 +171,8 @@ class ModelField {
 
   late Model model;
 
+  bool get isId => name == 'id';
+  bool get isNotId => !isId;
   bool get isDateTime => _type == 'DateTime';
   bool get isNotDateTime => !isDateTime;
   bool get isNullable => _nullable;
@@ -172,6 +193,8 @@ class ModelField {
   bool get isNotDouble => !isDouble;
   bool get isModel => _isModel;
   bool get isNotModel => !isModel;
+  bool get isHasMany => _type == 'HasMany' || _type.startsWith('HasMany<');
+  bool get isNotHasMany => !isHasMany;
 
   bool get isResolve => metadata.contains('resolve');
   bool get isNotResolve => !isResolve;
@@ -188,6 +211,13 @@ class ModelField {
 
   bool get isParameterized => isNotGeneric && _type.contains('<');
   bool get isNotParameterized => !isParameterized;
+
+  String? meta(String key) => metadata.firstWhereOrNull((m) => m.startsWith('$key:'))?.substring('$key:'.length).trim();
+
+  String? get fromJson => meta('fromJson');
+  String? get toJson => meta('toJson');
+
+  String get hasManyKey => meta('key') ?? model.name.varName;
 
   String get rawType => _type.split('<')[0];
   String? get rawTypeArgument {

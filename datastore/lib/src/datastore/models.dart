@@ -25,7 +25,6 @@ class Models {
   var _recordCount = 0;
 
   Models(List<Function(Map data)> builders, List<DataIndex> indexes) {
-    _builders['DataModel'] = (data) => DataModel.fromJson(data, data.keys.map((k) => '$k').toSet(), {}, false);
     for(var builder in builders) {
       final type = builder.runtimeType.toString().split(' => ')[1];
       _builders[type] = builder;
@@ -218,34 +217,37 @@ class DataModelEvent<T extends DataModel> {
 ///   they won't be equal, but will be the same
 ///   the existing object should be returned from the put
 class DataModel {
-  ObjectId _modelId;
-  late ObjectId _updateId;
+  final ObjectId _modelId;
+  final ObjectId _updateId;
   final DataFields _fields;
 
   DataModel([Map<String, dynamic>? fields]) :
     _modelId = ObjectId(),
     _updateId = ObjectId(),
-    _fields = DataFields(fields ?? {});
+    _fields = DataFields(fields ?? {}) {
+    _fields._parent = this;
+  }
 
   DataModel.copyNew(DataModel original, Map<String, dynamic>? fields) :
     _modelId = ObjectId(),
     _updateId = ObjectId(),
-    _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null)));
+    _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))) {
+    _fields._parent = this;
+  }
 
   DataModel.copyWith(DataModel original, Map<String, dynamic>? fields) :
     _modelId = original._modelId,
     _updateId = ObjectId(),
-    _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null)));
+    _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))) {
+    _fields._parent = this;
+  }
 
-  DataModel.fromJson(data, Set<String> fields, Set<String> modelFields, bool newId) :
+  DataModel.fromJson(data, Map<String, dynamic>? fields, bool newId) :
     _modelId = newId ? ObjectId() : ObjectId.fromHexString(data['_modelId']),
     _updateId = newId ? ObjectId() : ObjectId.fromHexString(data['_updateId']),
-    _fields = DataFields({
-      for(final k in fields.where((k) => k != '_modelId' && k != '_updateId'))
-        k: data[k],
-      for(final k in modelFields)
-        k: DataId.fromJson(data[k])
-    });
+    _fields = DataFields((fields??{})..removeWhere((k,v) => v == null)) {
+    _fields._parent = this;
+  }
 
   dynamic operator [](String key) {
     switch(key) {
@@ -272,33 +274,26 @@ class DataModel {
   bool isNotSameAs(other) => !isSameAs(other);
 
   DataRecord toDataRecord({bool delete=false}) {
-    final data = delete ? null : toJson();
-    data?.removeWhere((k,v) => (k == '_modelId') || (k == '_updateId') || (v == null) || (v is String && v.isEmpty) || (v is Iterable && v.isEmpty) || (v is Map && v.isEmpty));
+    final data = delete ? null : _fields.toJson();
     return DataRecord('$_modelId', '$_updateId', '$runtimeType', data);
   }
 
   Map<String, dynamic> toJson() => {
     '_modelId': '$_modelId',
     '_updateId': '$_updateId',
-    for(var e in _fields._map.entries) e.key: e.value
+    ..._fields.toJson()
   };
 
   @override
   String toString() => '$runtimeType($_modelId)';
 }
 
-class DataId {
-  final ObjectId? id;
-  DataId(this.id);
-  DataId.fromJson(String? id) : id = (id != null) ? ObjectId.fromHexString(id) : null;
-  String toJson() => '$id';
-}
-
 class DataFields {
   final Map<String, dynamic> _map;
   DataFields(this._map);
 
-  late Models _context;
+  late final dynamic _parent;
+  late final Models _context;
 
   Iterable<DataModel> get models => _map.values.whereType<DataModel>();
 
@@ -306,6 +301,7 @@ class DataFields {
     final value = _map[key];
     if(value is DataModel) return value;
     if(value is DataId) return _context.get(value.id);
+    if(value is HasMany) return value._attached(_context, _parent);
     return value;
   }
 
@@ -315,5 +311,65 @@ class DataFields {
     final obj = _map[key];
     if(obj is DataId) return obj.id;
     return obj;
+  }
+
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{};
+    for(final e in _map.entries) {
+      final v = jsonValueOf(e.value);
+      if(v != null) {
+        data[e.key] = v;
+      }
+    }
+    return data;
+  }
+
+  dynamic jsonValueOf(v) {
+    if(v == null)      return null;
+    if(v is HasMany)   return null;
+    if(v is DataModel) return v._modelId.hexString;
+    if(v is DateTime)  return v.millisecondsSinceEpoch;
+    if(v is String)    return v.isNotEmpty ? v : null;
+    if(v is Map)       return v.isNotEmpty ? v : null;
+    if(v is Iterable)  return v.isNotEmpty ? v : null;
+    if(v is num)       return v;
+    if(v is bool)      return v;
+    try {
+      return v.toJson();
+    } catch(e) {
+      return  v.toString();
+    }
+  }
+}
+
+class DataId {
+  final ObjectId? id;
+  DataId(id) : id = (id is ObjectId) ? id
+      : (id != null) ? ObjectId.fromHexString('$id') : null;
+  String toJson() => '$id';
+}
+
+class HasMany<C extends DataModel> {
+  final String key;
+  Models? _context;
+  DataModel? _parent;
+  HasMany({required this.key}) : _context = null, _parent = null;
+  HasMany._(this.key, this._context, this._parent);
+
+  HasMany<C> _attached(Models context, DataModel parent) {
+    _context = context;
+    _parent = parent;
+    return this;
+  }
+
+  C firstWhere(bool test(C element), {C orElse()?}) {
+    return _context!.getAll<C>().firstWhere(
+      (c) => (c[key] == _parent) && test(c),
+      orElse: orElse
+    );
+  }
+
+  List<C> toList() {
+    return _context!.getAll<C>().where((c) => c[key] == _parent).toList();
   }
 }
