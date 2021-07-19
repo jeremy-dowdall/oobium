@@ -1,15 +1,18 @@
 import 'package:collection/collection.dart';
+import 'package:oobium_datastore_gen/src/schema_parser.dart';
 import 'package:xstring/xstring.dart';
 
 class Model {
 
+  final List<SchemaImport> _imports;
   final bool _scaffold;
   final String _type;
   final List<ModelField> _fields;
 
   final bool _concrete;
 
-  Model({bool? scaffold, required String type, List<ModelField>? fields}) :
+  Model({required List<SchemaImport> imports, bool? scaffold, required String type, List<ModelField>? fields}) :
+    _imports = imports,
     _scaffold = scaffold ?? false,
     _type = type,
     _fields = fields ?? [],
@@ -18,6 +21,7 @@ class Model {
     _fields.forEach((field) => field.model = this);
   }
   Model._parameterized(Model base, String typeArgument) :
+    _imports = base._imports,
     _scaffold = false,
     _type = '${base.name}<$typeArgument>',
     _fields = base.fields.map((f) => ModelField(
@@ -96,8 +100,6 @@ class Model {
   String get copyNewMap => '{${_fields.where((f) => f.isNotHasMany).map((f) => "'${f.name}': ${f.name}").join(',')}}';
   String get copyWithMap => '{${dataFields.where((f) => f.isNotId).map((f) => "'${f.name}': ${f.name}").join(',')}}';
 
-  String get jsonMap => '{${_fields.map((f) => "'${f.name}': ${_jsonValue(f)}").join(',')}}';
-  
   String finderFields(String m) => dataFields.isEmpty ? 'false' :
     '${dataFields.map((f) => '(${f.name} == null || ${f.name} == $m.${f.name})').join(' && ')}'
   ;
@@ -110,11 +112,11 @@ class Model {
       
       $name($constructorFields) : super($constructorMap);
       
+      $name._(map) : super(map);
+      
       $name._copyNew($type original, $constructorFields) : super.copyNew(original, $copyNewMap);
       
       $name._copyWith($type original, $copyFields) : super.copyWith(original, $copyWithMap);
-      
-      $name._fromJson(data, {bool newId=false}) : super.fromJson(data, $jsonMap, newId);
       
       $type copyNew($constructorFields) => $type._copyNew(this, $constructorParams);
       
@@ -122,32 +124,66 @@ class Model {
     }
   ''';
 
+  String compileAdapter() => '''
+    Adapter<$name>(
+      decode: $_decoder,
+      encode: $_encoder,
+      fields: [${_fields.map((f) => "'${f.name}'").join(',')}]
+    )
+  ''';
+
+  String get _decoder {
+    final decoders = _fields.map((f) => _decode(f)).whereType<String>();
+    return decoders.isEmpty
+      ? '(m) => $name._(m)'
+      : '(m) {'
+          '${decoders.join()}'
+          'return $name._(m);'
+        '}';
+  }
+
+  String? _decode(ModelField f) {
+    String? decoder;
+    decoder ??= _imports.firstWhereOrNull((i) => i.decodes(f.type))?.decoder?.replaceAll('\$', "m['${f.name}']");
+    decoder ??= f.isModel ? "DataId(m['${f.name}'])" : null;
+    decoder ??= f.isHasMany ? "${f.type}(key: '${f.hasManyKey}')" : null;
+    decoder ??= f.isDateTime ? "DateTime.fromMillisecondsSinceEpoch(m['${f.name}'])" : null;
+    decoder ??= f.jsonDecode?.replaceAll('\$', "m['${f.name}']");
+    if(decoder != null) {
+      if(f.isNullable) {
+        return "if(m['${f.name}'] != null) { m['${f.name}'] = $decoder; }\n";
+      } else {
+        return "m['${f.name}'] = $decoder;\n";
+      }
+    }
+    return null;
+  }
+
+  String get _encoder {
+    final encoders = _fields.map((f) => _encode(f)).whereType<String>();
+    return encoders.isEmpty
+      ? '(k,v) => v'
+      : '(k,v) {'
+          '${encoders.join()}'
+          'return v;'
+        '}';
+  }
+
+  String? _encode(ModelField f) {
+    String? encoder;
+    encoder ??= f.jsonEncode?.replaceAll('\$', 'v');
+    encoder ??= _imports.firstWhereOrNull((i) => i.encodes(f.type))?.encoder?.replaceAll('\$', 'v');
+    if(encoder != null) {
+      return "if(k == '${f.name}' && v is ${f.type}) return $encoder;\n";
+    }
+    return null;
+  }
+
   String _mapValue(ModelField f) {
     if(f.isHasMany) {
       return "${f.type}(key: '${f.hasManyKey}')";
     }
     return f.name;
-  }
-  
-  String _jsonValue(ModelField f) {
-    if(f.isModel) {
-      return "DataId(data['${f.name}'])";
-    }
-    if(f.isDateTime) {
-      if(f.isNullable) {
-        return "(data['${f.name}'] is int) ? DateTime.fromMillisecondsSinceEpoch(data['${f.name}']) : null";
-      } else {
-        return "DateTime.fromMillisecondsSinceEpoch(data['${f.name}'])";
-      }
-    }
-    if(f.isHasMany) {
-      return "${f.type}(key: '${f.hasManyKey}')";
-    }
-    final fromJson = f.fromJson;
-    if(fromJson != null) {
-      return "${f.type}.$fromJson(data['${f.name}'])";
-    }
-    return "data['${f.name}']";
   }
 }
 
@@ -214,8 +250,8 @@ class ModelField {
 
   String? meta(String key) => metadata.firstWhereOrNull((m) => m.startsWith('$key:'))?.substring('$key:'.length).trim();
 
-  String? get fromJson => meta('fromJson');
-  String? get toJson => meta('toJson');
+  String? get jsonDecode => meta('jsonDecode');
+  String? get jsonEncode => meta('jsonEncode');
 
   String get hasManyKey => meta('key') ?? model.name.varName;
 

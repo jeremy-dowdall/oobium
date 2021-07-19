@@ -3,10 +3,19 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 class MainData {
   final DataStore _ds;
   MainData(String path, {String? isolate})
-      : _ds = DataStore('$path/main', isolate: isolate, builders: [
-          (data) => Author._fromJson(data),
-          (data) => Book._fromJson(data)
-        ], indexes: []);
+      : _ds = DataStore('$path/main', isolate: isolate, adapters: {
+          'Author': Adapter<Author>(
+              decode: (m) => Author._(m),
+              encode: (k, v) => v,
+              fields: ['name']),
+          'Book': Adapter<Book>(
+              decode: (m) {
+                m['author'] = DataId(m['author']);
+                return Book._(m);
+              },
+              encode: (k, v) => v,
+              fields: ['title', 'author'])
+        }, indexes: []);
   Future<MainData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -53,8 +62,6 @@ abstract class MainModel extends DataModel {
       : super.copyNew(original, fields);
   MainModel.copyWith(MainModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  MainModel.fromJson(data, Map<String, dynamic>? fields, bool newId)
-      : super.fromJson(data, fields, newId);
 }
 
 class Author extends MainModel {
@@ -63,14 +70,13 @@ class Author extends MainModel {
 
   Author({required String name}) : super({'name': name});
 
+  Author._(map) : super(map);
+
   Author._copyNew(Author original, {required String name})
       : super.copyNew(original, {'name': name});
 
   Author._copyWith(Author original, {String? name})
       : super.copyWith(original, {'name': name});
-
-  Author._fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name': data['name']}, newId);
 
   Author copyNew({required String name}) => Author._copyNew(this, name: name);
 
@@ -85,15 +91,13 @@ class Book extends MainModel {
   Book({required String title, required Author author})
       : super({'title': title, 'author': author});
 
+  Book._(map) : super(map);
+
   Book._copyNew(Book original, {required String title, required Author author})
       : super.copyNew(original, {'title': title, 'author': author});
 
   Book._copyWith(Book original, {String? title, Author? author})
       : super.copyWith(original, {'title': title, 'author': author});
-
-  Book._fromJson(data, {bool newId = false})
-      : super.fromJson(data,
-            {'title': data['title'], 'author': DataId(data['author'])}, newId);
 
   Book copyNew({required String title, required Author author}) =>
       Book._copyNew(this, title: title, author: author);

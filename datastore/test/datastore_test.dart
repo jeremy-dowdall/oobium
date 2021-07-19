@@ -68,21 +68,21 @@ Future<void> main() async {
 
   test('test fromJson with nested model, context not set', () {
     final m1 = TestType1(name: 'test01');
-    final m2 = TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}, newId: true);
+    final m2 = TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'});
     expect(() => m2.type1, throwsA(isA<Error>()));
   });
 
   test('test fromJson with nested model, context set', () async {
     final ds = await createDatastore(testFile).open();
     final m1 = ds.put(TestType1(name: 'test01'));
-    final m2 = ds.put(TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}, newId: true));
+    final m2 = ds.put(TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}));
     expect(m2.type1, m1);
   });
 
   test('test toJson with nested model, context set', () async {
     final ds = await createDatastore(testFile).open();
     final m1 = ds.put(TestType1(name: 'test01'));
-    final m2 = ds.put(TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}, newId: true));
+    final m2 = ds.put(TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}));
     expect(jsonEncode(m2), isNotEmpty);
   });
 
@@ -102,7 +102,7 @@ Future<void> main() async {
   test('test data initialization', () async {
     final model = TestType1();
     final ds = await createDatastore(testFile).open(onUpgrade: (event) {
-      return Stream.value(model.toDataRecord());
+      return Stream.value(model);
     });
     expect(ds.size, 1);
     expect(ds.get<TestType1>(model.id)?.isSameAs(model), isTrue);

@@ -3,10 +3,16 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 class ModelGenTestData {
   final DataStore _ds;
   ModelGenTestData(String path, {String? isolate})
-      : _ds = DataStore('$path/model_gen_test', isolate: isolate, builders: [
-          (data) => User._fromJson(data),
-          (data) => Message._fromJson(data)
-        ], indexes: [
+      : _ds = DataStore('$path/model_gen_test', isolate: isolate, adapters: {
+          'User': Adapter<User>(
+              decode: (m) => User._(m),
+              encode: (k, v) => v,
+              fields: ['id', 'name']),
+          'Message': Adapter<Message>(
+              decode: (m) => Message._(m),
+              encode: (k, v) => v,
+              fields: ['from', 'to', 'message'])
+        }, indexes: [
           DataIndex<User>(toKey: (m) => m.id)
         ]);
   Future<ModelGenTestData> open(
@@ -59,8 +65,6 @@ abstract class ModelGenTestModel extends DataModel {
   ModelGenTestModel.copyWith(
       ModelGenTestModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  ModelGenTestModel.fromJson(data, Map<String, dynamic>? fields, bool newId)
-      : super.fromJson(data, fields, newId);
 }
 
 class User extends ModelGenTestModel {
@@ -69,14 +73,13 @@ class User extends ModelGenTestModel {
 
   User({required int id, String? name}) : super({'id': id, 'name': name});
 
+  User._(map) : super(map);
+
   User._copyNew(User original, {required int id, String? name})
       : super.copyNew(original, {'id': id, 'name': name});
 
   User._copyWith(User original, {String? name})
       : super.copyWith(original, {'name': name});
-
-  User._fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'id': data['id'], 'name': data['name']}, newId);
 
   User copyNew({required int id, String? name}) =>
       User._copyNew(this, id: id, name: name);
@@ -93,21 +96,13 @@ class Message extends ModelGenTestModel {
   Message({User? from, User? to, String? message})
       : super({'from': from, 'to': to, 'message': message});
 
+  Message._(map) : super(map);
+
   Message._copyNew(Message original, {User? from, User? to, String? message})
       : super.copyNew(original, {'from': from, 'to': to, 'message': message});
 
   Message._copyWith(Message original, {User? from, User? to, String? message})
       : super.copyWith(original, {'from': from, 'to': to, 'message': message});
-
-  Message._fromJson(data, {bool newId = false})
-      : super.fromJson(
-            data,
-            {
-              'from': DataId(data['from']),
-              'to': DataId(data['to']),
-              'message': data['message']
-            },
-            newId);
 
   Message copyNew({User? from, User? to, String? message}) =>
       Message._copyNew(this, from: from, to: to, message: message);

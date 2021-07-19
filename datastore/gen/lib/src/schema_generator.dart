@@ -26,7 +26,7 @@ class SchemaGenerator {
         '$dsName(String path, {String? isolate}) : _ds = DataStore('
           '\'\$path/$dsPath\','
           'isolate: isolate,'
-          'builders: [${models.map((m) => '(data) => ${m.name}._fromJson(data)').join(',')}],'
+          'adapters: {${models.map((m) => '\'${m.name}\': ${m.compileAdapter()}').join(',')}},'
           'indexes: [${models.where((m) => m.isIndexed).map((m) => 'DataIndex<${m.name}>(toKey: (m) => m.id)').join(',')}]'
         ');'
         'Future<$dsName> open({'
@@ -56,7 +56,7 @@ class SchemaGenerator {
         '$dsType([Map<String, dynamic>? fields]) : super(fields);'
         '$dsType.copyNew($dsType original, Map<String, dynamic>? fields) : super.copyNew(original, fields);'
         '$dsType.copyWith($dsType original, Map<String, dynamic>? fields) : super.copyWith(original, fields);'
-        '$dsType.fromJson(data, Map<String, dynamic>? fields, bool newId) : super.fromJson(data, fields, newId);'
+        // '$dsType.fromJson(data, Map<String, dynamic>? fields, bool newId) : super.fromJson(data, fields, newId);'
       '}'
       '${models.map((m) => m.compile(dsType)).join('\n')}'
     ;

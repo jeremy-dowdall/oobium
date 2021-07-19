@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium_datastore/src/datastore.dart';
 
 import 'utils.dart' as utils;
 
@@ -18,17 +17,12 @@ class DataIndex<T extends DataModel> {
 
 class Models {
 
-  final _builders = <String, Function(Map data)>{};
   final _models = <ObjectId, DataModel>{};
   final _indexes = <Type, DataIndex>{};
   StreamController<Batch>? _controller;
   var _recordCount = 0;
 
-  Models(List<Function(Map data)> builders, List<DataIndex> indexes) {
-    for(var builder in builders) {
-      final type = builder.runtimeType.toString().split(' => ')[1];
-      _builders[type] = builder;
-    }
+  Models(List<DataIndex> indexes) {
     for(final index in indexes) {
       _indexes[index.type] = index;
     }
@@ -39,10 +33,9 @@ class Models {
     return _controller!.stream;
   }
 
-  Future<Models> load(Stream<DataRecord> records) async {
-    await for(var record in records) {
-      final model = _build(record);
-      if(record.isDelete) {
+  Future<Models> load(Stream<DataModel> models) async {
+    await for(final model in models) {
+      if(model.isDeleted) {
         _remove(model);
       } else {
         _put(model);
@@ -50,11 +43,6 @@ class Models {
     }
     return this;
   }
-
-  void loadAll(Iterable<DataRecord> records) => batch(
-    put: records.where((r) => r.isNotDelete).map((r) => _build(r)),
-    remove: records.where((r) => r.isDelete).map((r) => _build(r)),
-  );
 
   Future<void> close() {
     _models.clear();
@@ -118,7 +106,7 @@ class Models {
     if(remove != null) for(var model in remove) {
       final removed = _remove(model);
       if(removed != null) {
-        batch.removes.add(removed);
+        batch.removes.add(removed.deleted());
         batch.results.add(removed);
       } else {
         batch.results.add(model);
@@ -126,7 +114,7 @@ class Models {
     }
 
     for(var model in batch.puts) {
-      model._fields._context = this;
+      model._context = this;
     }
 
     if(batch.isNotEmpty) {
@@ -134,14 +122,6 @@ class Models {
     }
 
     return batch;
-  }
-
-  DataModel _build(DataRecord record) {
-    final builder = _builders[record.type] ?? _builders['DataModel'];
-    assert(builder != null, 'no builder registered for ${record.type}');
-    final value = builder!(record.data);
-    assert(value is DataModel, 'builder did not return a DataModel: $value');
-    return (value as DataModel).._fields._context = this;
   }
 
   T _put<T extends DataModel>(T model) {
@@ -172,7 +152,6 @@ class Batch<T extends DataModel> {
   final removes = <DataModel>[];
   bool get isEmpty => puts.isEmpty && removes.isEmpty;
   bool get isNotEmpty => !isEmpty;
-  Iterable<DataRecord> get records => [...puts.map((m) => m.toDataRecord()), ...removes.map((m) => m.toDataRecord(delete: true))];
   Iterable<DataModel> get updates => [...puts, ...removes];
 }
 
@@ -207,47 +186,41 @@ class DataModelEvent<T extends DataModel> {
   }
 }
 
-///
-/// remove JsonModel
-/// implement == and hashCode
-///   models are equal if same: id, modCount(?)
-///     this would be locally unique, how to do global sync?
-///     modCount could be another ObjectId... it would be a globally unique updateId... hmmm...
-/// isSame/isNotSame are used during a put: if they have the same id and same data, don't bother
-///   they won't be equal, but will be the same
-///   the existing object should be returned from the put
 class DataModel {
   final ObjectId _modelId;
   final ObjectId _updateId;
   final DataFields _fields;
+  final bool _deleted;
 
   DataModel([Map<String, dynamic>? fields]) :
-    _modelId = ObjectId(),
-    _updateId = ObjectId(),
-    _fields = DataFields(fields ?? {}) {
-    _fields._parent = this;
+    _deleted = false,
+    _modelId = _modelIdFrom(fields),
+    _updateId = _updateIdFrom(fields),
+    _fields = _dataFrom(fields) {
+    _fields._model = this;
   }
 
   DataModel.copyNew(DataModel original, Map<String, dynamic>? fields) :
+    _deleted = false,
     _modelId = ObjectId(),
     _updateId = ObjectId(),
     _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))) {
-    _fields._parent = this;
+    _fields._model = this;
   }
 
   DataModel.copyWith(DataModel original, Map<String, dynamic>? fields) :
+    _deleted = false,
     _modelId = original._modelId,
     _updateId = ObjectId(),
     _fields = DataFields({...original._fields._map}..addAll((fields??{})..removeWhere((k,v) => v == null))) {
-    _fields._parent = this;
+    _fields._model = this;
   }
 
-  DataModel.fromJson(data, Map<String, dynamic>? fields, bool newId) :
-    _modelId = newId ? ObjectId() : ObjectId.fromHexString(data['_modelId']),
-    _updateId = newId ? ObjectId() : ObjectId.fromHexString(data['_updateId']),
-    _fields = DataFields((fields??{})..removeWhere((k,v) => v == null)) {
-    _fields._parent = this;
-  }
+  DataModel.deleted(String modelId, String updateId) :
+    _deleted = true,
+    _modelId = ObjectId.fromHexString(modelId),
+    _updateId = ObjectId.fromHexString(updateId),
+    _fields = DataFields({});
 
   dynamic operator [](String key) {
     switch(key) {
@@ -256,6 +229,15 @@ class DataModel {
       default: return _fields[key];
     }
   }
+
+  Models? _context;
+  void attach(Models context) => _context = context;
+  bool get isAttached => _context != null;
+  bool get isNotAttached => !isAttached;
+
+  DataModel deleted() => DataModel.deleted('$_modelId', '$_updateId');
+  bool get isDeleted => _deleted;
+  bool get isNotDeleted => !isDeleted;
 
   DateTime get createdAt => _modelId.timestamp;
   DateTime get updatedAt => _updateId.timestamp;
@@ -273,27 +255,33 @@ class DataModel {
 
   bool isNotSameAs(other) => !isSameAs(other);
 
-  DataRecord toDataRecord({bool delete=false}) {
-    final data = delete ? null : _fields.toJson();
-    return DataRecord('$_modelId', '$_updateId', '$runtimeType', data);
-  }
-
-  Map<String, dynamic> toJson() => {
-    '_modelId': '$_modelId',
-    '_updateId': '$_updateId',
-    ..._fields.toJson()
-  };
-
   @override
   String toString() => '$runtimeType($_modelId)';
+
+  static ObjectId _modelIdFrom(Map<String, dynamic>? fields) {
+    final v = fields?['_modelId'];
+    return (v != null) ? ObjectId.fromHexString(v) : ObjectId();
+  }
+  static ObjectId _updateIdFrom(Map<String, dynamic>? fields) {
+    final v = fields?['_updateId'];
+    return (v != null) ? ObjectId.fromHexString(v) : ObjectId();
+  }
+  static DataFields _dataFrom(Map<String, dynamic>? fields) {
+    return DataFields({
+      ...?(fields?..removeWhere((k,v) => k == '_modelId' || k == '_updateId'))
+    });
+  }
 }
 
 class DataFields {
   final Map<String, dynamic> _map;
   DataFields(this._map);
 
-  late final dynamic _parent;
-  late final Models _context;
+  late final DataModel _model;
+  Models get _context {
+    assert(_model._context != null, 'attempted to access context before it was set');
+    return _model._context!;
+  }
 
   Iterable<DataModel> get models => _map.values.whereType<DataModel>();
 
@@ -301,7 +289,7 @@ class DataFields {
     final value = _map[key];
     if(value is DataModel) return value;
     if(value is DataId) return _context.get(value.id);
-    if(value is HasMany) return value._attached(_context, _parent);
+    if(value is HasMany) return value._attached(_context, _model);
     return value;
   }
 
@@ -312,41 +300,12 @@ class DataFields {
     if(obj is DataId) return obj.id;
     return obj;
   }
-
-  Map<String, dynamic> toJson() {
-    final data = <String, dynamic>{};
-    for(final e in _map.entries) {
-      final v = jsonValueOf(e.value);
-      if(v != null) {
-        data[e.key] = v;
-      }
-    }
-    return data;
-  }
-
-  dynamic jsonValueOf(v) {
-    if(v == null)      return null;
-    if(v is HasMany)   return null;
-    if(v is DataModel) return v._modelId.hexString;
-    if(v is DateTime)  return v.millisecondsSinceEpoch;
-    if(v is String)    return v.isNotEmpty ? v : null;
-    if(v is Map)       return v.isNotEmpty ? v : null;
-    if(v is Iterable)  return v.isNotEmpty ? v : null;
-    if(v is num)       return v;
-    if(v is bool)      return v;
-    try {
-      return v.toJson();
-    } catch(e) {
-      return  v.toString();
-    }
-  }
 }
 
 class DataId {
   final ObjectId? id;
   DataId(id) : id = (id is ObjectId) ? id
       : (id != null) ? ObjectId.fromHexString('$id') : null;
-  String toJson() => '$id';
 }
 
 class HasMany<C extends DataModel> {
@@ -354,7 +313,6 @@ class HasMany<C extends DataModel> {
   Models? _context;
   DataModel? _parent;
   HasMany({required this.key}) : _context = null, _parent = null;
-  HasMany._(this.key, this._context, this._parent);
 
   HasMany<C> _attached(Models context, DataModel parent) {
     _context = context;
