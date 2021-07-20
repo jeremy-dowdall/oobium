@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:objectid/objectid.dart';
 import 'package:oobium_datastore/src/datastore/data.dart';
@@ -7,7 +6,7 @@ import 'package:oobium_datastore/src/datastore/workers.dart';
 import 'package:oobium_datastore/src/datastore/models.dart';
 import 'package:xstring/xstring.dart';
 
-import 'adapter.dart';
+import 'adapters.dart';
 
 class DataStore {
 
@@ -15,13 +14,13 @@ class DataStore {
 
   final String path;
   final String? isolate;
-  final Map<String, Adapter> _adapters;
+  final Adapters _adapters;
   final List<DataIndex> _indexes;
   final CompactionStrategy? _compactionStrategy;
   final bool _persist;
   DataStore(this.path, {
     this.isolate,
-    Map<String, Adapter> adapters = const{},
+    required Adapters adapters,
     List<DataIndex> indexes = const[],
     CompactionStrategy compactionStrategy = const DefaultCompactionStrategy()
   }) :
@@ -32,7 +31,7 @@ class DataStore {
     _persist = true
   ;
   DataStore.memory({
-    Map<String, Adapter> adapters = const{},
+    required Adapters adapters,
     List<DataIndex> indexes = const[],
   }) :
     path = '',
@@ -64,7 +63,7 @@ class DataStore {
           ? await DataWorker(path, isolate: isolate).open(version: version, onUpgrade: onUpgrade)
           : null;
       if(worker != null) {
-        _models = await _models!.load(worker.getData().map(decodeRecord));
+        _models = await _models!.load(worker.getData().map(_adapters.decodeRecord));
         _worker = worker;
       }
     }
@@ -99,65 +98,6 @@ class DataStore {
   bool any(ObjectId? id) => _models?.any(id) == true;
   bool none(ObjectId? id) => _models?.none(id) == true;
 
-  Adapter adapterFor(String type) {
-    final converter = _adapters[type];
-    if(converter != null) {
-      return converter;
-    }
-    throw 'no converter registered for $type';
-  }
-
-  DataModel decodeRecord(DataRecord record) {
-    if(record.isDelete) {
-      return DataModel.deleted(record.modelId, record.updateId);
-    } else {
-      final value = adapterFor(record.type).decode({
-        '_modelId': record.modelId,
-        '_updateId': record.updateId,
-        ...jsonDecode(record.data!)
-      });
-      assert(value is DataModel, 'converter did not return a DataModel: $value');
-      return (value as DataModel)..attach(_models!); // TODO close notification
-    }
-  }
-
-  DataRecord encodeRecord(DataModel model) {
-    final type = model.runtimeType.toString();
-    final modelId = model['_modelId'].toString();
-    final updateId = model['_updateId'].toString();
-    if(model.isDeleted) {
-      return DataRecord(modelId, updateId, type);
-    }
-    final adapter = adapterFor(type);
-    final map = adapter.fields.fold<Map<String, dynamic>>({}, (a,f) {
-      final v = encodeValue(adapter.encode(f, model[f]));
-      if(v != null) {
-        a[f] = v;
-      }
-      return a;
-    });
-    return DataRecord(modelId, updateId, type, jsonEncode(map));
-  }
-
-  dynamic encodeValue(v) {
-    if(v == null)      return null;
-    if(v is HasMany)   return null;
-    if(v is DataModel) return v['_modelId'].hexString;
-    if(v is DataId)    return v.id?.hexString;
-    if(v is ObjectId)  return v.hexString;
-    if(v is DateTime)  return v.millisecondsSinceEpoch;
-    if(v is String)    return v.isNotEmpty ? v : null;
-    if(v is Map)       return v.isNotEmpty ? v : null;
-    if(v is Iterable)  return v.isNotEmpty ? v : null;
-    if(v is num)       return v;
-    if(v is bool)      return v;
-    try {
-      return v.toJson();
-    } catch(e) {
-      return  v.toString();
-    }
-  }
-
   List<T> batch<T extends DataModel>({Iterable<T>? put, Iterable<T>? remove}) => _batch(put: put, remove: remove);
 
   T? get<T extends DataModel>(Object? id, {T? Function()? orElse}) => _models!.get<T>(id, orElse: orElse);
@@ -176,7 +116,7 @@ class DataStore {
     final models = _models, worker = _worker;
     if(models != null && worker != null) {
       models.resetRecordCount();
-      final records = models.getAll().map(encodeRecord).toList();
+      final records = models.getAll().map(_adapters.encodeRecord).toList();
       return worker.putData(reset: records);
     } else {
       return Future.value();
@@ -193,7 +133,7 @@ class DataStore {
         compact();
         print('batch w/compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       } else {
-        _worker?.putData(update: batch.updates.map(encodeRecord));
+        _worker?.putData(update: batch.updates.map(_adapters.encodeRecord));
         print('batch w/out compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       }
     }

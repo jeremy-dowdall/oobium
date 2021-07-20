@@ -8,8 +8,6 @@ class RoutesGenerator {
     final sections = primary.sections;
     final routesLibrary =
       'part of \'$name\';'
-      'typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);'
-      'typedef Watch = List<Listenable> Function();'
       '${sections.map((section) => section.compile()).join()}'
     ;
     final providerLibrary =
@@ -133,6 +131,9 @@ class RoutesClass {
   String get builderVar => parent?.varName ?? '';
 
   bool parseLine(String line) {
+    if(line == ');') {
+      return false;
+    }
     final eol = line.indexOf(';');
     final str = (eol != -1) ? line.substring(0, eol) : line;
     final route = RegExp(r"\s*\.?\.?[page|view]<([\w_]+)>\(\s*'([^']*)'").firstMatch(str);
@@ -144,7 +145,9 @@ class RoutesClass {
             this,
             routeClass,
             routePath,
-            RegExp(r'\<([\w_]+)\>').allMatches(routePath).map((matches) => _Field(matches.group(1)!)),
+            RegExp(varPattern).allMatches(routePath).map((matches) {
+              return _Field(matches.group(1)!, matches.group(3) ?? 'String');
+            }),
             homeRoute
         ));
       }
@@ -158,7 +161,7 @@ class RoutesClass {
         ));
       }
     }
-    return (eol == -1);
+    return true;
   }
 
   String compile() {
@@ -168,16 +171,23 @@ class RoutesClass {
           'final Build<HomeRoute> _build;'
           'final Watch? _watch;'
           '_$name(this._build, {Watch? watch}) : _watch = watch;'
-          '$name call() => $name(_build, _watch);'
+          '$name call({List<RouteDefinition>? route, List? watch}) => $name('
+            '_build,'
+            '[...?route],'
+            '[...?_watch?.call(), ...?watch]'
+          ');'
           '${compileAtRoutes()}'
         '}'
         'class $name {'
           'final AppRoutes<HomeRoute> _routes;'
           'late final AppRouterState _state;'
-          '$name(Build<HomeRoute> build, Watch? watch) :'
+          '$name(Build<HomeRoute> build, List route, List watch) :'
             '_routes = AppRoutes<HomeRoute>({${compileParsers()}}) {'
               'build(_routes);'
-              '_state = AppRouterState(\'$name\', _routes, watch?.call() ?? []);'
+              'for(final def in route) {'
+                '_routes.definitions.add(def);'
+              '}'
+              '_state = AppRouterState(\'$name\', _routes, watch);'
           '}'
           'AppRouteParser createRouteParser() => AppRouteParser(_routes);'
           'AppRouterDelegate createRouterDelegate() => AppRouterDelegate(_routes, _state, primary: true);'
@@ -215,7 +225,7 @@ class RoutesClass {
 
   String compileAtRoutes() => routes.map((r) => r.child
     ? '_RoutesAt${r.name} at${r.name}(Build<${r.name}> build) => _RoutesAt${r.name}(build);'
-    : 'Object at${r.name}(Build build) => Object();'
+    : 'Object at${r.name}(Build build) => const Object();'
   ).join();
 
   String compileOrdinals() => routes.every((r) => r.isConstant)
@@ -231,7 +241,7 @@ class RoutesClass {
     : '';
 
   String compileNewRoute(RouteClass r) =>
-    '${r.name}(${r.vars.map((v) => '$v: $v').join(',')})';
+    '${r.isConstant?'const ':''}${r.name}(${r.vars.map((v) => '$v: $v').join(',')})';
 
   String compileParams(RouteClass r) => r.vars.isNotEmpty
     ? '{${r.vars.map((v) => 'required ${v.type} $v').join(',')}}'
@@ -252,6 +262,7 @@ class RoutesClass {
 abstract class ParserClass {
   String compileParser();
 }
+const varPattern = r'\<([\w_]+)(:(int|bool))?\>';
 
 class RedirectClass implements ParserClass {
   final RoutesClass section;
@@ -262,11 +273,11 @@ class RedirectClass implements ParserClass {
   @override
   String compileParser() {
     final key = compileParserKey();
-    final dstFields = RegExp(r'(\<[\w_]+\>)').allMatches(dst).map((matches) => matches.group(1)!);
+    final dstFields = RegExp(varPattern).allMatches(dst).map((matches) => matches.group(1)!);
     if(dstFields.isEmpty) {
       return '\'$key\': (_) => $dst';
     } else {
-      final srcFields = RegExp(r'(\<[\w_]+\>)').allMatches(src).map((matches) => matches.group(1)!).toList();
+      final srcFields = RegExp(varPattern).allMatches(src).map((matches) => matches.group(1)!).toList();
       final result = dst.split('/').toList().map((s) {
         final index = srcFields.indexOf(s);
         return (index == -1) ? s : '\$\{data[$index]\}';
@@ -275,7 +286,7 @@ class RedirectClass implements ParserClass {
     }
   }
 
-  String compileParserKey() => src.replaceAllMapped(RegExp(r'\<([\w_]+)\>'), (match) => '<>');
+  String compileParserKey() => src.replaceAllMapped(RegExp(varPattern), (match) => '<${match.group(3) ?? ''}>');
 }
 
 class Count {
@@ -324,7 +335,7 @@ class RouteClass implements ParserClass {
       'class $name extends AppRoute {',
         if(vars.isEmpty)
           'const $name();'
-          '@override bool operator ==(Object? other) => identical(this, other) || (runtimeType == other?.runtimeType);'
+          '@override bool operator ==(Object? other) => identical(this, other) || (other is $name);'
           '@override int get hashCode => runtimeType.hashCode;',
         for(final v in vars)
           'final ${v.type} $v;',
@@ -332,14 +343,14 @@ class RouteClass implements ParserClass {
           'final $parentVar = const ${parentVar.type}();',
         if(vars.isNotEmpty)
           'const $name({${vars.map((v) => 'required this.$v').join(',')}});'
-          '@override bool operator ==(Object? other) => identical(this, other) || (runtimeType == other?.runtimeType && other is $name && ${vars.map((v) => '$v == other.$v').join('&&')});'
+          '@override bool operator ==(Object? other) => identical(this, other) || (other is $name && ${vars.map((v) => '$v == other.$v').join('&&')});'
           '@override int get hashCode => hashValues(runtimeType, ${vars.join(',')});',
         '@override int toOrdinal() => $ordinal;',
         if(parentVar == null)
-          '@override String toString() => \'${path.replaceAllMapped(RegExp(r'\<([\w_]+)\>'), (m) => '\$${m.group(1)}')}\';'
+          '@override String toString() => \'${path.replaceAllMapped(RegExp(varPattern), (m) => '\$${m.group(1)}')}\';'
         else
           '@override List<AppRoute> toStack() => [...$parentVar.toStack(), this];'
-          '@override String toString() => \'\$$parentVar${path.replaceAllMapped(RegExp(r'\<([\w_]+)\>'), (m) => '\$${m.group(1)}')}\';',
+          '@override String toString() => \'\$$parentVar${path.replaceAllMapped(RegExp(varPattern), (m) => '\$${m.group(1)}')}\';',
       '}'
     ].join();
   }
@@ -348,14 +359,14 @@ class RouteClass implements ParserClass {
   String compileParser() {
     final key = compileParserKey();
     if(fields.isEmpty) {
-      return '\'$key\': (_) => $name()';
+      return '\'$key\': (_) => const $name()';
     } else {
       return '\'$key\': (data) => ${compileParserValue(Count())}';
     }
   }
 
   String compileParserKey() {
-    final lookup = path.replaceAllMapped(RegExp(r'\<([\w_]+)\>'), (match) => '<>');
+    final lookup = path.replaceAllMapped(RegExp(varPattern), (match) => '<${match.group(3) ?? ''}>');
     return (parent != null) ? '${parent!.compileParserKey()}$lookup' : lookup;
   }
 

@@ -3,18 +3,27 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 class ModelGenTestData {
   final DataStore _ds;
   ModelGenTestData(String path, {String? isolate})
-      : _ds = DataStore('$path/model_gen_test', isolate: isolate, adapters: {
-          'User': Adapter<User>(
-              decode: (m) => User._(m),
-              encode: (k, v) => v,
-              fields: ['id', 'name']),
-          'Message': Adapter<Message>(
-              decode: (m) => Message._(m),
-              encode: (k, v) => v,
-              fields: ['from', 'to', 'message'])
-        }, indexes: [
-          DataIndex<User>(toKey: (m) => m.id)
-        ]);
+      : _ds = DataStore('$path/model_gen_test',
+            isolate: isolate,
+            adapters: Adapters([
+              Adapter<User>(
+                  decode: (m) => User._(m),
+                  encode: (k, v) => v,
+                  fields: ['id', 'name']),
+              Adapter<Message>(
+                  decode: (m) {
+                    if (m['from'] != null) {
+                      m['from'] = DataId(m['from']);
+                    }
+                    if (m['to'] != null) {
+                      m['to'] = DataId(m['to']);
+                    }
+                    return Message._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['from', 'to', 'message'])
+            ]),
+            indexes: [DataIndex<User>(toKey: (m) => m.id)]);
   Future<ModelGenTestData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>

@@ -3,19 +3,22 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 class MainData {
   final DataStore _ds;
   MainData(String path, {String? isolate})
-      : _ds = DataStore('$path/main', isolate: isolate, adapters: {
-          'Author': Adapter<Author>(
-              decode: (m) => Author._(m),
-              encode: (k, v) => v,
-              fields: ['name']),
-          'Book': Adapter<Book>(
-              decode: (m) {
-                m['author'] = DataId(m['author']);
-                return Book._(m);
-              },
-              encode: (k, v) => v,
-              fields: ['title', 'author'])
-        }, indexes: []);
+      : _ds = DataStore('$path/main',
+            isolate: isolate,
+            adapters: Adapters([
+              Adapter<Author>(
+                  decode: (m) => Author._(m),
+                  encode: (k, v) => v,
+                  fields: ['name']),
+              Adapter<Book>(
+                  decode: (m) {
+                    m['author'] = DataId(m['author']);
+                    return Book._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['title', 'author'])
+            ]),
+            indexes: []);
   Future<MainData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>

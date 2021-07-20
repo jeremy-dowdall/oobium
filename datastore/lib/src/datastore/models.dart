@@ -113,10 +113,6 @@ class Models {
       }
     }
 
-    for(var model in batch.puts) {
-      model._context = this;
-    }
-
     if(batch.isNotEmpty) {
       _controller?.add(batch);
     }
@@ -130,6 +126,7 @@ class Models {
     if(_indexes.containsKey(model.runtimeType)) {
       _indexes[model.runtimeType]!.put(model);
     }
+    model._context = this;
     return model;
   }
 
@@ -142,6 +139,7 @@ class Models {
       }
       return current as T;
     }
+    model._context = null;
     return null;
   }
 }
@@ -231,7 +229,6 @@ class DataModel {
   }
 
   Models? _context;
-  void attach(Models context) => _context = context;
   bool get isAttached => _context != null;
   bool get isNotAttached => !isAttached;
 

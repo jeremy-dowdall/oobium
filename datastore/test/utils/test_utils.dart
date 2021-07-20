@@ -1,4 +1,4 @@
-import 'package:oobium_datastore/src/adapter.dart';
+import 'package:oobium_datastore/src/adapters.dart';
 import 'package:oobium_datastore/src/datastore.dart';
 import 'package:oobium_datastore/src/datastore/data.dart';
 import 'package:oobium_datastore/src/datastore/models.dart';
@@ -20,18 +20,18 @@ DataStore createDatastore(String testFile, {
   final path = clone?.path ?? 'test-data/$testFile/test-ds-${datastores.length}';
   final ds = DataStore(path,
     isolate: isolate,
-    adapters: {
-      'TestType1': Adapter<TestType1>(
+    adapters: Adapters([
+      Adapter<TestType1>(
         decode: (map) => TestType1.fromJson(map),
         encode: (k,v) => v,
         fields: ['name']
       ),
-      'TestType2': Adapter<TestType2>(
+      Adapter<TestType2>(
         decode: (map) => TestType2.fromJson(map),
         encode: (k,v) => v,
         fields: ['name','type1']
-      ),
-    },
+      )
+    ]),
     indexes: indexes,
     compactionStrategy: compactionStrategy
   );

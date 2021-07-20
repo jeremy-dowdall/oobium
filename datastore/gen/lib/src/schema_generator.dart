@@ -26,7 +26,7 @@ class SchemaGenerator {
         '$dsName(String path, {String? isolate}) : _ds = DataStore('
           '\'\$path/$dsPath\','
           'isolate: isolate,'
-          'adapters: {${models.map((m) => '\'${m.name}\': ${m.compileAdapter()}').join(',')}},'
+          'adapters: Adapters([${models.map((m) => m.compileAdapter()).join(',')}]),'
           'indexes: [${models.where((m) => m.isIndexed).map((m) => 'DataIndex<${m.name}>(toKey: (m) => m.id)').join(',')}]'
         ');'
         'Future<$dsName> open({'

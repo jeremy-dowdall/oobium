@@ -12,6 +12,9 @@ extension BuildContextX on BuildContext {
   // set newRoutePath(AppRoute value) => router.routerDelegate.setNewRoutePath(value);
 }
 
+typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);
+typedef Watch = List Function();
+
 typedef HomeRedirect = AppRoute Function(AppRouterState state);
 typedef GuardFunction<T extends AppRoute> = AppRoute? Function(RouteState<T> state);
 typedef PopFunction<T extends AppRoute> = void Function(RouteState<T> state);
@@ -29,9 +32,9 @@ class AppRoutes<H extends AppRoute> {
 
   Type get _homeType => H;
   HomeRedirect? _homeRedirect;
-  var _homeDefinition = RouteDefinition<H>();
-  var _notFoundDefinition = RouteDefinition<NotFoundRoute>();
-  var _errorDefinition = RouteDefinition<ErrorRoute>();
+  late RouteDefinition<H> _homeDefinition;
+  late RouteDefinition<NotFoundRoute> _notFoundDefinition;
+  late RouteDefinition<ErrorRoute> _errorDefinition;
 
   void home({
     HomeRedirect? show,
@@ -39,31 +42,28 @@ class AppRoutes<H extends AppRoute> {
     ViewBuilder<H>? view,
   }) {
     if(show != null) _homeRedirect = show;
-    if(page != null) _homeDefinition = RouteDefinition<H>(onPage: page);
-    if(view != null) _homeDefinition = RouteDefinition<H>(onView: view);
+    else _homeDefinition = RouteDefinition<H>._(onPage: page, onView: view);
   }
 
   void notFound({
     PageBuilder<NotFoundRoute>? page,
     ViewBuilder<NotFoundRoute>? view,
   }) {
-    if(page != null) _notFoundDefinition = RouteDefinition<NotFoundRoute>(onPage: page);
-    if(view != null) _notFoundDefinition = RouteDefinition<NotFoundRoute>(onView: view);
+    _notFoundDefinition = RouteDefinition<NotFoundRoute>._(onPage: page, onView: view);
   }
 
   void error({
     PageBuilder<ErrorRoute>? page,
     ViewBuilder<ErrorRoute>? view,
   }) {
-    if(page != null) _errorDefinition = RouteDefinition<ErrorRoute>(onPage: page);
-    if(view != null) _errorDefinition = RouteDefinition<ErrorRoute>(onView: view);
+    _errorDefinition = RouteDefinition<ErrorRoute>._(onPage: page, onView: view);
   }
 
   void page<T extends AppRoute>(String path, PageBuilder<T> onBuild, {
     GuardFunction<T>? onGuard,
     PopFunction? onPop,
   }) {
-    definitions.add<T>(onPage: onBuild, onGuard: onGuard, onPop: onPop);
+    definitions.add(RouteDefinition<T>._(onPage: onBuild, onGuard: onGuard, onPop: onPop));
   }
 
   void redirect(String from, String to) {
@@ -71,18 +71,18 @@ class AppRoutes<H extends AppRoute> {
   }
 
   void orElse(ViewBuilder<NotFoundRoute> onBuild) {
-    definitions.add<NotFoundRoute>(onView: onBuild);
+    definitions.add(RouteDefinition<NotFoundRoute>._(onView: onBuild));
   }
 
   void orError(ViewBuilder<ErrorRoute> onBuild) {
-    definitions.add<ErrorRoute>(onView: onBuild);
+    definitions.add(RouteDefinition<ErrorRoute>._(onView: onBuild));
   }
 
   void view<T extends AppRoute>(String path, ViewBuilder<T> onBuild, {
     GuardFunction<T>? onGuard,
     PopFunction<T>? onPop
   }) {
-    definitions.add<T>(onView: onBuild, onGuard: onGuard, onPop: onPop);
+    definitions.add(RouteDefinition<T>._(onView: onBuild, onGuard: onGuard, onPop: onPop));
   }
 
   GuardedRoutes guard({
@@ -114,6 +114,17 @@ class GuardedRoutes {
   final AppRoute? Function(RouteState state) onGuard;
   GuardedRoutes(this.routes, this.onGuard);
 
+  GuardedRoutes guard({
+    required GuardFunction onGuard,
+    Function(GuardedRoutes routes)? guarded
+  }) {
+    final guardedRoutes = GuardedRoutes(routes, (state) {
+      return this.onGuard(state) ?? onGuard(state);
+    });
+    guarded?.call(guardedRoutes);
+    return guardedRoutes;
+  }
+
   void page<T extends AppRoute>(String path, PageBuilder<T> onBuild, {
     GuardFunction<T>? onGuard
   }) {
@@ -135,25 +146,10 @@ class RouteDefinitions {
 
   final definitions = <Type, RouteDefinition>{};
 
-  void add<T extends AppRoute>({
-    PageBuilder<T>? onPage,
-    ViewBuilder<T>? onView,
-    GuardFunction<T>? onGuard,
-    PopFunction<T>? onPop
-  }) {
-    assert(isNotSet(T), 'duplicate route: $T');
-    definitions[T] = RouteDefinition<T>(onPage: onPage, onView: onView, onGuard: onGuard, onPop: onPop);
-  }
-
-  void addIfNotSet<T extends AppRoute>({
-    PageBuilder<T>? onPage,
-    ViewBuilder<T>? onView,
-    GuardFunction<T>? onGuard,
-    PopFunction<T>? onPop
-  }) {
-    if(isNotSet(T)) {
-      definitions[T] = RouteDefinition<T>(onPage: onPage, onView: onView, onGuard: onGuard, onPop: onPop);
-    }
+  void add(RouteDefinition definition) {
+    final type = definition._type;
+    assert(isNotSet(type), 'duplicate route: $type');
+    definitions[type] = definition;
   }
 
   bool isSet(Type type) => definitions.containsKey(type);
@@ -167,8 +163,8 @@ class GuardException implements Exception {
   GuardException(this.guardRoute);
 }
 
-typedef RedirectParser = String Function(List<String> data);
-typedef RouteParser = AppRoute Function(List<String> data);
+typedef RedirectParser = String Function(List data);
+typedef RouteParser = AppRoute Function(List data);
 
 class RouteDefinition<T extends AppRoute> {
 
@@ -176,12 +172,26 @@ class RouteDefinition<T extends AppRoute> {
   final ViewBuilder<T>? onView;
   final GuardFunction<T>? onGuard;
   final PopFunction<T>? onPop;
-  RouteDefinition({
+  RouteDefinition._({
     this.onPage,
     this.onView,
     this.onGuard,
     this.onPop
-  });
+  }) {
+    assert(onPage != null || onView != null,
+      'RouteDefinition must contain either a page builder or a view build'
+    );
+  }
+  RouteDefinition.page(PageBuilder<T> onPage, {
+    this.onGuard,
+    this.onPop
+  }) : onPage = onPage, onView = null;
+  RouteDefinition.view(ViewBuilder<T> onView, {
+    this.onGuard,
+    this.onPop
+  }) : onView = onView, onPage = null;
+
+  Type get _type => T;
 
   Page build(AppRouterState state, AppRoute route, {bool cupertino = false}) {
     final page = onPage?.call(RouteState(state, route as T));
@@ -269,7 +279,7 @@ class AppRouterState extends ChangeNotifier {
 
   final String name;
   final AppRoutes _routes;
-  final List<Listenable> _watch;
+  final List _watch;
   final AppRouterState? parent;
   final _children = <AppRouterState>[];
   AppRouterState(this.name, this._routes, this._watch, {this.parent}) {
@@ -277,14 +287,16 @@ class AppRouterState extends ChangeNotifier {
       parent!._children.add(this);
       _setNewRoutePath(_root._current);
     }
-    _watch.forEach((w) => w.addListener(notifyListeners));
+    _watch.forEach((w) => w.addListener(_notifyListeners));
   }
 
   @override
   void dispose() {
-    _watch.forEach((w) => w.removeListener(notifyListeners));
+    _watch.forEach((w) => w.removeListener(_notifyListeners));
     super.dispose();
   }
+
+  void _notifyListeners([state]) => notifyListeners();
 
   int get _depth => (parent?._depth ?? -1) + 1;
   AppRouterState get _root => parent?._root ?? this;
@@ -349,6 +361,56 @@ class AppRouterState extends ChangeNotifier {
       _changed();
     }
   }
+
+  /// add the given route to the end of the stack.
+  /// if the given route is already present further up the stack,
+  /// then the stack is trimmed to that position instead.
+  void add(AppRoute value) {
+    final resolved = _resolved(value);
+    if(resolved != null && resolved != currentLocal) {
+      int i = _stack.indexOf(resolved);
+      if(i != -1) {
+        _stack.removeRange(i + 1, _stack.length);
+      } else {
+        _stack.add(resolved);
+      }
+      _changed();
+    }
+  }
+
+  /// put the given route into the stack as the last route,
+  /// replacing the route currently in that position.
+  /// if the given route is already present further up the stack,
+  /// then the stack is trimmed to that position instead.
+  /// Note that this operation does not increase the stack depth.
+  void put(AppRoute value) {
+    final resolved = _resolved(value);
+    if(resolved != null) {
+      if(_stack.isEmpty) {
+        _stack = [resolved];
+        _changed();
+      }
+      else if(_stack.last != resolved) {
+        int i = _stack.indexOf(resolved);
+        if(i != -1) {
+          _stack.removeRange(i + 1, _stack.length);
+        } else {
+          _stack.last = resolved;
+        }
+        _changed();
+      }
+    }
+  }
+
+  /// set the stack to the given route
+  void set(AppRoute value) {
+    final resolved = _resolved(value);
+    if(resolved != null && (_stack.length != 1 || _stack[0] != resolved)) {
+      _stack = [resolved];
+      _changed();
+    }
+  }
+
   void _clear() {
     _stack = [];
     for(final child in _children) {
@@ -357,46 +419,6 @@ class AppRouterState extends ChangeNotifier {
         _activeChild = null;
       }
       child._clear();
-    }
-  }
-
-  void add(AppRoute value) {
-    final resolved = _resolved(value);
-    if(resolved != null && resolved != currentLocal) {
-      int i = _stack.indexOf(resolved);
-      if(i != -1) {
-        _stack.removeRange(i, _stack.length);
-      }
-      _stack.add(value);
-      _changed();
-    }
-  }
-
-  void put(AppRoute value) {
-    final resolved = _resolved(value);
-    if(resolved != null) {
-      if(_stack.isEmpty) {
-        _stack = [value];
-        _changed();
-      }
-      else if(_stack.last != resolved) {
-        int i = _stack.indexOf(resolved);
-        if(i != -1) {
-          _stack.removeRange(i, _stack.length);
-          _stack.add(value);
-        } else {
-          _stack.last = value;
-        }
-        _changed();
-      }
-    }
-  }
-
-  void set(AppRoute value) {
-    final resolved = _resolved(value);
-    if(resolved != null && (_stack.length != 1 || _stack[0] != resolved)) {
-      _stack = [resolved];
-      _changed();
     }
   }
 
@@ -456,23 +478,10 @@ class PagesBuilder {
         pages.add(page);
       }
     } on GuardException catch(e) {
-      pages.add(getPage(e.guardRoute, cupertino: cupertino));
-
-    //  TODO get rid of ErrorRoute... ?
-    // } catch(e, st) {
-    //   print('error: $e\n$st');
-    //   pages.add(getPage(ErrorRoute(location: '${state.currentLocal}', message: '$e')));
-
+      // TODO message?
+      return [getPage(e.guardRoute, cupertino: cupertino)];
+      // TODO get rid of ErrorRoute... ?
     }
-
-    /// TODO: how to handle duplicate keys? (will crash the navigator)
-    ///   1. let it crash, cause we shouldn't be adding routes in a way that causes this
-    ///   2. let it crash, but print a decent message so the developer knows what went wrong
-    ///   3. crash here, with a better message so the developer knows what went wrong
-    ///   4. only show the latest page, so it doesn't crash but the routes remain in the back-stack
-    ///       was this is the intent?
-    ///       or did the developer just forget to use 'set' instead of 'add'? in which case, crashing would be better
-
     return pages;
   }
 
@@ -532,21 +541,31 @@ class AppRouteParser extends RouteInformationParser<AppRoute> {
       return false;
     }
     for(var i = 0; i < parts.length && i < segments.length; i++) {
-      if(parts[i] != '<>' && parts[i] != segments[i]) {
-        return false;
-      }
+      if(parts[i] == segments[i]) continue;
+      if(parts[i] == '<>') continue;
+      if(parts[i] == '<bool>' && (segments[i] == 'true' || segments[i] == 'false')) continue;
+      if(parts[i] == '<int>' && int.tryParse(segments[i]) != null) continue;
     }
     return true;
   }
 
-  List<String> parseData(List<String> parts, List<String> segments) {
-    final data = <String>[];
+  List parseData(List<String> parts, List<String> segments) {
+    final data = [];
     for(var i = 0; i < parts.length && i < segments.length; i++) {
-      if(parts[i] == '<>') {
-        data.add(segments[i]);
+      final value = parseDataValue(parts[i], segments[i]);
+      if(value != null) {
+        data.add(value);
       }
     }
     return data;
+  }
+
+  Object? parseDataValue(String part, String segment) {
+    switch(part) {
+      case '<>': return segment;
+      case '<int>': return int.tryParse(segment);
+      case '<bool>': return (segment == 'true') ? true : (segment == 'false') ? false : null;
+    }
   }
 
   @override

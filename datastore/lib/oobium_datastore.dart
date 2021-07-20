@@ -1,4 +1,4 @@
-export 'package:oobium_datastore/src/adapter.dart';
+export 'package:oobium_datastore/src/adapters.dart';
 export 'package:oobium_datastore/src/datastore.dart';
 export 'package:oobium_datastore/src/datastore/models.dart' show DataModel, DataId, HasMany, DataIndex, DataModelEvent;
 
