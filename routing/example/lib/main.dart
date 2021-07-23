@@ -1,140 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:oobium_routing/oobium_routing.dart';
+import 'package:oobium_routing_example/main_routes.g.provider.dart';
 
-void main() => runApp(MaterialApp.router(
-    title: 'NavDemo',
-    routeInformationParser: routes.createRouteParser(),
-    routerDelegate: routes.createRouterDelegate()
-));
+import 'main_routes.dart';
 
-///
-/// Routes
-///
-class AuthorsRoute extends AppRoute { }
-class AuthorsListRoute extends AppRoute { }
-class AuthorsDetailRoute extends AppRoute { AuthorsDetailRoute(String id) : super(RouteData({'id': id})); }
-class BooksRoute extends AppRoute { }
-class BooksListRoute extends AppRoute { }
-class BooksDetailRoute extends AppRoute { BooksDetailRoute(String id) : super(RouteData({'id': id})); }
-class SettingsRoute extends AppRoute { }
-
-final routes = AppRoutes()
-  ..add<AuthorsRoute>(
-      path: '/authors',
-      onParse: (data) => AuthorsRoute(),
-      onBuild: (ref) => [HomePage()],
-      children: AppRoutes()
-        ..add<AuthorsListRoute>(
-            path: '/',
-            onParse: (data) => AuthorsListRoute(),
-            onBuild: (ref) => [AuthorsListPage()]
-        )
-        ..add<AuthorsDetailRoute>(
-            path: '/<id>',
-            onParse: (data) => AuthorsDetailRoute(data['id']),
-            onBuild: (ref) => [AuthorsListPage(), AuthorsDetailPage(ref.route['id'])]
-        )
+void main() => runApp(
+  RoutesProvider(
+    builder: (_, mainRoutes) => MaterialApp.router(
+      title: 'NavDemo',
+      routeInformationParser: mainRoutes.createRouteParser(),
+      routerDelegate: mainRoutes.createRouterDelegate()
+    ),
   )
-  ..add<BooksRoute>(
-      path: '/books',
-      onParse: (data) => BooksRoute(),
-      onBuild: (ref) => [HomePage()],
-      children: AppRoutes()
-        ..add<BooksListRoute>(
-            path: '/',
-            onParse: (data) => BooksListRoute(),
-            onBuild: (ref) => [BooksListPage()]
-        )
-        ..add<BooksDetailRoute>(
-            path: '/<id>',
-            onParse: (data) => BooksDetailRoute(data['id']),
-            onBuild: (ref) => [BooksListPage(), BooksDetailPage(ref.route['id'])]
-        )
-  )
-  ..add<SettingsRoute>(
-      path: '/settings',
-      onParse: (data) => SettingsRoute(),
-      onBuild: (route) => [HomePage()]
-  )
-;
-
+);
 
 ///
 /// UI
 ///
-class HomePage extends Page {
-
-  HomePage() : super(key: ValueKey('/'));
-
-  @override
-  Route createRoute(BuildContext context) {
-    return MaterialPageRoute(
-        settings: this,
-        builder: (context) => HomeScreen()
-    );
-  }
-}
-
 class HomeScreen extends StatelessWidget {
+
+  const HomeScreen();
 
   @override
   Widget build(BuildContext context) {
-    final index = getIndex(context.route!);
+    final routeIndex = context.mainRoutes.current.toOrdinal();
     return Scaffold(
       appBar: AppBar(title: Text('Home'),),
-      body: IndexedStack(
-        index: index,
-        children: [
-          ChildRouter<AuthorsRoute>(),
-          ChildRouter<BooksRoute>(),
-          SettingsView()
-        ],
-      ),
+      body:
+        (routeIndex == 0) ? context.authorRoutes() :
+        (routeIndex == 1) ? context.bookRoutes()
+        : SettingsView(),
       bottomNavigationBar: BottomNavigationBar(
           items: [
             BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Authors'),
             BottomNavigationBarItem(icon: Icon(Icons.local_library), label: 'Books'),
             BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
           ],
-          currentIndex: index,
-          onTap: (index) => context.route = getRoute(index)
+          currentIndex: routeIndex,
+          onTap: (index) => context.mainRoutes.setFromOrdinal(index)
       ),
     );
   }
-
-  int getIndex(AppRoute route) {
-    switch(route.runtimeType) {
-      case AuthorsRoute: return 0;
-      case BooksRoute: return 1;
-      case SettingsRoute: return 2;
-    }
-    throw Exception('unhandled route: $route');
-  }
-
-  AppRoute getRoute(int index) {
-    switch(index) {
-      case 0: return AuthorsRoute();
-      case 1: return BooksRoute();
-      case 2: return SettingsRoute();
-    }
-    throw Exception('unhandled index: $index');
-  }
 }
 
-class AuthorsListPage extends Page {
+class AuthorsView extends StatelessWidget {
 
-  AuthorsListPage() : super(key: ValueKey('/authors'));
-
-  @override
-  Route createRoute(BuildContext context) {
-    return MaterialPageRoute(
-        settings: this,
-        builder: (context) => AuthorsListView()
-    );
-  }
-}
-
-class AuthorsListView extends StatelessWidget {
+  const AuthorsView();
 
   @override
   Widget build(BuildContext context) {
@@ -143,31 +53,17 @@ class AuthorsListView extends StatelessWidget {
           final author = authors[id]!;
           return ListTile(
             title: Text(author.name),
-            onTap: () => context.route = AuthorsDetailRoute(id),
+            onTap: () => context.authorRoutes.addAuthor(id: id),
           );
         }).toList()
     );
   }
 }
 
-class AuthorsDetailPage extends Page {
+class AuthorView extends StatelessWidget {
 
   final String id;
-  AuthorsDetailPage(this.id) : super(key: ValueKey('/authors/$id'));
-
-  @override
-  Route createRoute(BuildContext context) {
-    return MaterialPageRoute(
-        settings: this,
-        builder: (context) => AuthorsDetailView(id)
-    );
-  }
-}
-
-class AuthorsDetailView extends StatelessWidget {
-
-  final String id;
-  AuthorsDetailView(this.id);
+  const AuthorView(this.id);
 
   @override
   Widget build(BuildContext context) {
@@ -177,26 +73,15 @@ class AuthorsDetailView extends StatelessWidget {
       ElevatedButton.icon(
         icon: Icon(Icons.arrow_back),
         label: Text('Back'),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => context.authorRoutes.pop(),
       ),
     ],),);
   }
 }
 
-class BooksListPage extends Page {
+class BooksView extends StatelessWidget {
 
-  BooksListPage() : super(key: ValueKey('/books'));
-
-  @override
-  Route createRoute(BuildContext context) {
-    return MaterialPageRoute(
-        settings: this,
-        builder: (context) => BooksListView()
-    );
-  }
-}
-
-class BooksListView extends StatelessWidget {
+  const BooksView();
 
   @override
   Widget build(BuildContext context) {
@@ -206,31 +91,17 @@ class BooksListView extends StatelessWidget {
           return ListTile(
             title: Text(book.title),
             subtitle: Text(book.author),
-            onTap: () => context.route = BooksDetailRoute(id),
+            onTap: () => context.bookRoutes.addBook(id: id),
           );
         }).toList()
     );
   }
 }
 
-class BooksDetailPage extends Page {
+class BookView extends StatelessWidget {
 
   final String id;
-  BooksDetailPage(this.id) : super(key: ValueKey('/books/$id'));
-
-  @override
-  Route createRoute(BuildContext context) {
-    return MaterialPageRoute(
-        settings: this,
-        builder: (context) => BooksDetailView(id)
-    );
-  }
-}
-
-class BooksDetailView extends StatelessWidget {
-
-  final String id;
-  BooksDetailView(this.id);
+  const BookView(this.id);
 
   @override
   Widget build(BuildContext context) {
@@ -241,30 +112,36 @@ class BooksDetailView extends StatelessWidget {
       ElevatedButton.icon(
         icon: Icon(Icons.arrow_back),
         label: Text('Back'),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => context.bookRoutes.pop(),
       ),
     ],),);
   }
 }
 
-class SettingsPage extends Page {
-
-  SettingsPage() : super(key: ValueKey('/settings'));
-
-  @override
-  Route createRoute(BuildContext context) {
-    return MaterialPageRoute(
-        settings: this,
-        builder: (context) => SettingsView()
-    );
-  }
-}
-
 class SettingsView extends StatelessWidget {
+
+  const SettingsView();
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text('Settings Screen'));
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Settings Screen'),
+          ElevatedButton.icon(
+            icon: Icon(Icons.person),
+            label: Text(authors['1']!.name),
+            onPressed: () => context.mainRoutes.setNewRoutePath(AuthorRoute(id: '1')),
+          ),
+          ElevatedButton.icon(
+            icon: Icon(Icons.local_library),
+            label: Text(books['1']!.title),
+            onPressed: () => context.mainRoutes.setNewRoutePath(BookRoute(id: '1')),
+          ),
+        ],
+      )
+    );
   }
 }
 

@@ -1,3 +1,7 @@
+## 1.0.0-dev.1
+
+* full generation of route classes, guaranteeing compile-time safety of urls and deep links
+
 ## 0.1.2
 
 * implement RouteReference to pass route, state and build context.

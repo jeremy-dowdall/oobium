@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:oobium_routing/oobium_routing2.dart';
+import 'package:oobium_routing/oobium_routing.dart';
 
 import 'app/routes.dart';
 

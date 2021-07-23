@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:oobium_routing/oobium_routing2.dart';
+import 'package:oobium_routing/oobium_routing.dart';
 
 import 'main.dart';
 

@@ -1,22 +1,139 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:oobium_routing/src/routing.dart';
+import 'package:oobium_routing/oobium_routing.dart';
+
+import 'app/main.dart';
+import 'app/routes.dart';
 
 void main() {
-  group('parseRouteInformation', () {
-    test('masked path runtimeType', () async {
-      final routes = AppRoutes()..add<TestRoute>(path: '/paths/<id>', onParse: (_) => TestRoute(), onBuild: (_) => []);
-      final routeInformation = RouteInformation(location: '/paths/1');
-      final route = await routes.parseRouteInformation(routeInformation);
-      expect(route.runtimeType, TestRoute);
+  testWidgets('initial state - uninitialized', (tester) async {
+    final app = createMaterialApp();
+    await tester.pumpWidget(app);
+    expect(find.text('TODO authors'), findsNothing);
+  });
+
+  group('setNewPath', () {
+    testWidgets('home', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
     });
-    test('masked path data', () async {
-      final routes = AppRoutes()..add<TestRoute>(path: '/paths/<id>', onParse: (data) => TestRoute(data), onBuild: (_) => []);
-      final routeInformation = RouteInformation(location: '/paths/1');
-      final route = await routes.parseRouteInformation(routeInformation);
-      expect(route['id'], '1');
+
+    testWidgets('Authors', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(AuthorsRoute());
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
+    });
+
+    testWidgets('Author(1)', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(AuthorRoute(id: '1'));
+      await tester.pump();
+      expect(find.text(authors['0']!.name), findsNothing);
+      expect(find.text(authors['1']!.name), findsOneWidget);
+      expect(find.text(authors['0']!.name), findsNothing);
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
+      expect(find.text('Back'), findsOneWidget);
+    });
+
+    testWidgets('Books', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(BooksRoute());
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsNothing);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsOneWidget);
+      }
+    });
+
+    testWidgets('Book(1)', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(BookRoute(id: '1'));
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsNothing);
+      }
+      expect(find.text(books['0']!.title), findsNothing);
+      expect(find.text(books['1']!.title), findsOneWidget);
+      expect(find.text(books['0']!.title), findsNothing);
+      expect(find.text('Back'), findsOneWidget);
+    });
+  });
+
+  group('add route', () {
+    testWidgets('home -> addAuthors', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.addAuthors();
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
+    });
+    testWidgets('home -> addBooks', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.addBooks();
+      await tester.pump();
+      expect(tester.takeException(), isA<DuplicateKeyException>());
+    });
+  });
+
+  group('set route', () {
+    testWidgets('home -> setAuthors', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.setAuthors();
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsOneWidget);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsNothing);
+      }
+    });
+    testWidgets('home -> setBooks', (tester) async {
+      final app = createMaterialApp();
+      await tester.pumpWidget(app);
+      app.mainRoutes.setNewRoutePath(HomeRoute());
+      await tester.pump();
+      app.mainRoutes.setBooks();
+      await tester.pump();
+      for(final author in authors.values) {
+        expect(find.text(author.name), findsNothing);
+      }
+      for(final book in books.values) {
+        expect(find.text(book.title), findsOneWidget);
+      }
     });
   });
 }
-
-class TestRoute extends AppRoute { TestRoute([RouteData? data]) : super(data); }

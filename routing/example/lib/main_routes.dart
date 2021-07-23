@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:oobium_routing/oobium_routing2.dart';
-import 'package:oobium_routing_example/main2.dart';
+import 'package:oobium_routing/oobium_routing.dart';
+import 'package:oobium_routing_example/main.dart';
 
-part 'main2_routes.g.dart';
+part 'main_routes.g.dart';
 
 const genProvider = true;
 

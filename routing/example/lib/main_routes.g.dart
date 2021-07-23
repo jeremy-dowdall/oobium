@@ -1,28 +1,26 @@
-part of 'main2_routes.dart';
-
-typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);
-typedef Watch = List<Listenable> Function();
+part of 'main_routes.dart';
 
 class _Routes {
   final Build<HomeRoute> _build;
   final Watch? _watch;
   _Routes(this._build, {Watch? watch}) : _watch = watch;
-  Routes call() => Routes(_build, _watch);
+  Routes call({List<RouteDefinition>? route, List? watch}) =>
+      Routes(_build, [...?route], [...?_watch?.call(), ...?watch]);
   _RoutesAtAuthorsRoute atAuthorsRoute(Build<AuthorsRoute> build) =>
       _RoutesAtAuthorsRoute(build);
   _RoutesAtBooksRoute atBooksRoute(Build<BooksRoute> build) =>
       _RoutesAtBooksRoute(build);
-  Object atSettingsRoute(Build build) => Object();
+  Object atSettingsRoute(Build build) => const Object();
 }
 
 class Routes {
   final AppRoutes<HomeRoute> _routes;
   late final AppRouterState _state;
-  Routes(Build<HomeRoute> build, Watch? watch)
+  Routes(Build<HomeRoute> build, List route, List watch)
       : _routes = AppRoutes<HomeRoute>({
-          '/authors': (_) => AuthorsRoute(),
-          '/books': (_) => BooksRoute(),
-          '/settings': (_) => SettingsRoute(),
+          '/authors': (_) => const AuthorsRoute(),
+          '/books': (_) => const BooksRoute(),
+          '/settings': (_) => const SettingsRoute(),
           '/authors/<>': (data) => AuthorRoute(
                 id: data[0],
               ),
@@ -31,7 +29,10 @@ class Routes {
               )
         }) {
     build(_routes);
-    _state = AppRouterState('Routes', _routes, watch?.call() ?? []);
+    for (final def in route) {
+      _routes.definitions.add(def);
+    }
+    _state = AppRouterState('Routes', _routes, watch);
   }
   AppRouteParser createRouteParser() => AppRouteParser(_routes);
   AppRouterDelegate createRouterDelegate() =>
@@ -55,22 +56,22 @@ class Routes {
   void setNewRoutePath(AppRoute route) => _state.setNewRoutePath(route);
   AppRoute get current => _state.currentLocal;
   void pop() => _state.pop();
-  void addAuthors() => _state.add(AuthorsRoute());
-  void putAuthors() => _state.put(AuthorsRoute());
-  void setAuthors() => _state.set(AuthorsRoute());
-  void addBooks() => _state.add(BooksRoute());
-  void putBooks() => _state.put(BooksRoute());
-  void setBooks() => _state.set(BooksRoute());
-  void addSettings() => _state.add(SettingsRoute());
-  void putSettings() => _state.put(SettingsRoute());
-  void setSettings() => _state.set(SettingsRoute());
+  void addAuthors() => _state.add(const AuthorsRoute());
+  void putAuthors() => _state.put(const AuthorsRoute());
+  void setAuthors() => _state.set(const AuthorsRoute());
+  void addBooks() => _state.add(const BooksRoute());
+  void putBooks() => _state.put(const BooksRoute());
+  void setBooks() => _state.set(const BooksRoute());
+  void addSettings() => _state.add(const SettingsRoute());
+  void putSettings() => _state.put(const SettingsRoute());
+  void setSettings() => _state.set(const SettingsRoute());
 }
 
 class AuthorsRoute extends AppRoute {
   const AuthorsRoute();
   @override
   bool operator ==(Object? other) =>
-      identical(this, other) || (runtimeType == other?.runtimeType);
+      identical(this, other) || (other is AuthorsRoute);
   @override
   int get hashCode => runtimeType.hashCode;
   @override
@@ -83,7 +84,7 @@ class BooksRoute extends AppRoute {
   const BooksRoute();
   @override
   bool operator ==(Object? other) =>
-      identical(this, other) || (runtimeType == other?.runtimeType);
+      identical(this, other) || (other is BooksRoute);
   @override
   int get hashCode => runtimeType.hashCode;
   @override
@@ -96,7 +97,7 @@ class SettingsRoute extends AppRoute {
   const SettingsRoute();
   @override
   bool operator ==(Object? other) =>
-      identical(this, other) || (runtimeType == other?.runtimeType);
+      identical(this, other) || (other is SettingsRoute);
   @override
   int get hashCode => runtimeType.hashCode;
   @override
@@ -112,7 +113,7 @@ class _RoutesAtAuthorsRoute {
       : _watch = watch ?? [];
   RoutesAtAuthorsRoute call(Routes parent) =>
       RoutesAtAuthorsRoute(parent._state, _build, _watch);
-  Object atAuthorRoute(Build build) => Object();
+  Object atAuthorRoute(Build build) => const Object();
 }
 
 class RoutesAtAuthorsRoute {
@@ -140,10 +141,7 @@ class AuthorRoute extends AppRoute {
   const AuthorRoute({required this.id});
   @override
   bool operator ==(Object? other) =>
-      identical(this, other) ||
-      (runtimeType == other?.runtimeType &&
-          other is AuthorRoute &&
-          id == other.id);
+      identical(this, other) || (other is AuthorRoute && id == other.id);
   @override
   int get hashCode => hashValues(runtimeType, id);
   @override
@@ -161,7 +159,7 @@ class _RoutesAtBooksRoute {
       : _watch = watch ?? [];
   RoutesAtBooksRoute call(Routes parent) =>
       RoutesAtBooksRoute(parent._state, _build, _watch);
-  Object atBookRoute(Build build) => Object();
+  Object atBookRoute(Build build) => const Object();
 }
 
 class RoutesAtBooksRoute {
@@ -189,10 +187,7 @@ class BookRoute extends AppRoute {
   const BookRoute({required this.id});
   @override
   bool operator ==(Object? other) =>
-      identical(this, other) ||
-      (runtimeType == other?.runtimeType &&
-          other is BookRoute &&
-          id == other.id);
+      identical(this, other) || (other is BookRoute && id == other.id);
   @override
   int get hashCode => hashValues(runtimeType, id);
   @override
