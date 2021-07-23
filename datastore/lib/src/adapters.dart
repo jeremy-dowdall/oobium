@@ -21,7 +21,7 @@ class Adapters {
     if(converter != null) {
       return converter;
     }
-    throw 'no converter registered for $type';
+    throw 'no adapter registered for $type';
   }
 
   DataModel decodeRecord(DataRecord record) {

@@ -133,7 +133,7 @@ class DataStore {
         compact();
         print('batch w/compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       } else {
-        _worker?.putData(update: batch.updates.map(_adapters.encodeRecord));
+        _worker?.putData(update: batch.updates.map(_adapters.encodeRecord).toList());
         // print('batch w/out compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       }
     }

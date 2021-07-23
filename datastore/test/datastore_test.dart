@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:core';
 
 import 'package:objectid/objectid.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 import 'package:oobium_datastore/src/datastore/data.dart';
 import 'package:oobium_datastore/src/datastore/models.dart';
 import 'package:oobium_datastore/src/datastore.dart';
@@ -99,17 +100,19 @@ Future<void> main() async {
   //   expect(ds.put(m2).type1, m1);
   // });
 
-  test('test data initialization', () async {
-    final model = TestType1();
-    final ds = await createDatastore(testFile).open(onUpgrade: (event) {
-      return Stream.value(model);
-    });
-    expect(ds.size, 1);
-    expect(ds.get<TestType1>(model.id)?.isSameAs(model), isTrue);
-  });
+  // test('test data initialization', () async {
+  //   final model = TestType1();
+  //   final ds = await createDatastore(testFile).open(onUpgrade: (event) {
+  //     return Stream.value(model);
+  //   });
+  //   expect(ds.size, 1);
+  //   expect(ds.get<TestType1>(model.id)?.isSameAs(model), isTrue);
+  // });
 
-  test('test DataModel without builders', () async {
-    final ds = DataStore('test-data/no-builders');
+  test('test DataModel without adapters', () async {
+    final ds = DataStore('test-data/no-adapters',
+      adapters: Adapters([])
+    );
     await ds.open();
     final model = ds.put(DataModel({'name': 'test 01'}));
     expect(ds.get(model['_modelId']), model);
@@ -123,17 +126,19 @@ Future<void> main() async {
     expect(identical(ds.get(model['_modelId']), model), isFalse);
   });
 
-  test('test custom model without builders', () async {
-    final ds = DataStore('test-data/custom-model_no-builders');
-    await ds.open();
-    final model = ds.put(TestType1(name: 'test 01'));
-    expect(ds.get(model.id), model);
-
-    await ds.close();
-    await ds.open();
-
-    expect(ds.get(model.id), isNotNull);
-    expect(ds.get(model.id)?.isSameAs(model), isTrue); // runtimeType is different, but id and contents are the same
+  test('test custom model without adapter', () async {
+    final ds = await DataStore('test-data/custom-model_no-adapter',
+      adapters: Adapters([])
+    ).open();
+    expect(() => ds.put(TestType1(name: 'test 01')), throwsA(isA<Error>()));
+    // final model = ds.put(TestType1(name: 'test 01'));
+    // expect(ds.get(model.id), model);
+    //
+    // await ds.close();
+    // await ds.open();
+    //
+    // expect(ds.get(model.id), isNotNull);
+    // expect(ds.get(model.id)?.isSameAs(model), isTrue); // runtimeType is different, but id and contents are the same
   });
 
   test('test data stored in memory', () async {
@@ -369,9 +374,10 @@ Future<void> main() async {
   });
 
   test('test indexes', () async {
-    final ds = DataStore('test-data/test-${datastores.length}', indexes: [
-      DataIndex<TestType1>(toKey: (model) => model.name)
-    ]);
+    final ds = DataStore('test-data/test-${datastores.length}',
+      adapters: Adapters([]),
+      indexes: [DataIndex<TestType1>(toKey: (model) => model.name)]
+    );
     await ds.reset();
     final model = ds.put(TestType1(name: 'test-with-index'));
     expect(ds.get<TestType1>('test-with-index')?.id, model.id);
