@@ -4,6 +4,8 @@ import 'package:oobium_routing_example/main2.dart';
 
 part 'main2_routes.g.dart';
 
+const genProvider = true;
+
 final mainBuilder = _Routes((r) => r
   ..home(show: (_) => const AuthorsRoute())
   ..page<AuthorsRoute>('/authors', (_) => const AppPage('/', HomeScreen()))

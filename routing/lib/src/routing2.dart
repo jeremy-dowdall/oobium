@@ -21,7 +21,6 @@ typedef PopFunction<T extends AppRoute> = void Function(RouteState<T> state);
 typedef PageBuilder<T extends AppRoute> = Page Function(RouteState<T> state);
 typedef ViewBuilder<T extends AppRoute> = Widget Function(RouteState<T> state);
 
-// TODO this is mostly a builder... need to separate logical components
 class AppRoutes<H extends AppRoute> {
 
   final RouteDefinitions definitions;

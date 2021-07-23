@@ -18,10 +18,12 @@ class RoutesBuilder implements Builder {
         inputId.replace('routes.dart', 'routes.g.dart'),
         formatter.format(gen.routesLibrary)
       );
-      await buildStep.writeAsString(
-        inputId.replace('routes.dart', 'routes.g.provider.dart'),
-        formatter.format(gen.providerLibrary)
-      );
+      if(lines.contains('const genProvider = true;')) {
+        await buildStep.writeAsString(
+          inputId.replace('routes.dart', 'routes.g.provider.dart'),
+          formatter.format(gen.providerLibrary)
+        );
+      }
     }
   }
 

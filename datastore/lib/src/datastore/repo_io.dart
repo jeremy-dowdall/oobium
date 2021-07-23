@@ -23,7 +23,15 @@ class Repo extends base.Repo {
   Stream<DataRecord> get([int? timestamp]) async* {
     // TODO timestamp unused
     for(var line in await file.readAsLines()) {
-      yield(DataRecord.fromLine(line));
+      DataRecord? record;
+      try {
+        record = DataRecord.fromLine(line);
+      } catch(e,s) {
+        print('error decoding $line: $e\n$s');
+      }
+      if(record != null) {
+        yield(record);
+      }
     }
   }
 
@@ -43,13 +51,19 @@ class Repo extends base.Repo {
   @override
   Future<void> putAll(Iterable<DataRecord> records) {
     return executor.add((e) async {
-      final sink = file.openWrite(mode: FileMode.append);
-      for(var record in records) {
-        if(e.isCanceled) break;
-        sink.writeln(record);
+      IOSink? sink;
+      try {
+        sink = file.openWrite(mode: FileMode.append);
+        for(var record in records) {
+          if(e.isCanceled) break;
+          sink.writeln(record);
+        }
+        if(e.isNotCanceled) await sink.flush();
+      } catch(e) {
+        throw e;
+      } finally {
+        await sink?.close();
       }
-      if(e.isNotCanceled) await sink.flush();
-      await sink.close();
     });
   }
 

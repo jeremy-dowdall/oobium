@@ -26,7 +26,8 @@ Future<void> main(List<String> args) async {
       final gen = RoutesGenerator.generate('$name.dart', routes);
       final outputs = <File>[
         await File('${directory.path}/${path.replaceAll('.dart', '.g.dart')}').writeAsString(gen.routesLibrary),
-        await File('${directory.path}/${path.replaceAll('.dart', '.g.provider.dart')}').writeAsString(gen.providerLibrary),
+        if(lines.contains('const genProvider = true;'))
+          await File('${directory.path}/${path.replaceAll('.dart', '.g.provider.dart')}').writeAsString(gen.providerLibrary),
       ];
       print('  $path processed. formatting...');
 

@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:oobium_datastore_gen/src/model.dart';
-import 'package:xstring/xstring.dart';
 
 class SchemaParser {
   Iterable<String> lines;
@@ -8,7 +7,7 @@ class SchemaParser {
 
   Schema? parse() {
     final elements = SchemaElements.load(lines);
-    return Schema(imports(elements), models(elements));
+    return Schema(imports(elements), parts(elements), models(elements));
   }
 
   List<String> imports(SchemaElements elements) {
@@ -29,10 +28,16 @@ class SchemaParser {
     return imports.entries.map((e) => "import '${e.key}' show ${e.value.sorted((a,b) => a.compareTo(b)).join(', ')};").toList();
   }
 
+  List<String> parts(SchemaElements elements) {
+    return elements._parts.map((p) {
+      return 'part \'${p.name}\';';
+    }).toList();
+  }
+
   List<Model> models(SchemaElements elements) {
     return elements.models.map((m) => Model(
         imports: elements._imports,
-        scaffold: m.isScaffold,
+        options: m.options,
         type: m.type,
         fields: m.fields.map((f) => ModelField(
             metadata: f.options,
@@ -48,13 +53,15 @@ class SchemaParser {
 
 class Schema {
   final List<String> imports;
+  final List<String> parts;
   final List<Model> models;
-  Schema(this.imports, this.models);
+  Schema(this.imports, this.parts, this.models);
 }
 
 class SchemaElements {
 
   final _imports = <SchemaImport>[];
+  final _parts = <SchemaPart>[];
   final _models = <SchemaModel>[];
   SchemaElements();
 
@@ -78,21 +85,32 @@ class SchemaElements {
       }
       else if(start == 0) { // new element
         indents = [0];
+        model = null;
+        import = null;
+        fields = null;
+        options = null;
         if(line.startsWith('import ')) {
           final name = line.substring(7).trim();
-          import = SchemaImport(library, name);
-          model = null;
-        } else {
+          library._imports.add(
+            import = SchemaImport(library, name)
+          );
+        }
+        else if(line.startsWith('part ')) {
+          final name = line.substring(5).trim();
+          library._parts.add(
+            SchemaPart(library, name)
+          );
+        }
+        else {
           final parts = line.split(RegExp(r'[\(\)]'));
           final name = parts[0].split('<')[0];
           final type = parts[0].split('(')[0];
-          model = SchemaModel(library, name, type,
-            (parts.length > 1) ? parts[1].split(RegExp(r',\s*')) : []
+          library._models.add(
+            model = SchemaModel(library, name, type,
+              (parts.length > 1) ? parts[1].split(RegExp(r',\s*')) : []
+            )
           );
-          import = null;
         }
-        fields = null;
-        options = null;
       }
       else if(start == indents.last) { // another of whatever the last was
         if(options != null) {
@@ -164,9 +182,7 @@ class SchemaImport {
   final String name;
   final options = <String>[];
 
-  SchemaImport(this.library, this.name) {
-    library._imports.add(this);
-  }
+  SchemaImport(this.library, this.name);
 
   String? get from => value('from');
   String? get decoder => value('decode');
@@ -182,6 +198,12 @@ class SchemaImport {
   bool encodes(String type) => (name == type) && has('encode');
 }
 
+class SchemaPart {
+  final SchemaElements library;
+  final String name;
+  SchemaPart(this.library, this.name);
+}
+
 class SchemaModel {
 
   final SchemaElements library;
@@ -190,9 +212,7 @@ class SchemaModel {
   final List<String> options;
   final _fields = <SchemaField>[];
 
-  SchemaModel(this.library, this.name, this.type, this.options) {
-    library._models.add(this);
-  }
+  SchemaModel(this.library, this.name, this.type, this.options);
 
   List<SchemaField> get fields {
     List<SchemaField> fields = [];
@@ -211,9 +231,6 @@ class SchemaModel {
 
   bool get isModel => RegExp(r'^[A-Z].*$').hasMatch(name);
   bool get isNotModel => !isModel;
-
-  bool get isScaffold => options.contains('scaffold');
-  bool get isNotScaffold => !isScaffold;
 
   @override
   String toString() => '$type(${options.join(', ')})${fields.isNotEmpty ? '\n  ${fields.join('\n ')}' : ''}';

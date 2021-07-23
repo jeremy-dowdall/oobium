@@ -134,7 +134,7 @@ class DataStore {
         print('batch w/compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       } else {
         _worker?.putData(update: batch.updates.map(_adapters.encodeRecord));
-        print('batch w/out compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
+        // print('batch w/out compact executed in: ${DateTime.now().millisecondsSinceEpoch - start.millisecondsSinceEpoch} ms');
       }
     }
 

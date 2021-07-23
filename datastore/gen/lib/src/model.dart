@@ -5,24 +5,24 @@ import 'package:xstring/xstring.dart';
 class Model {
 
   final List<SchemaImport> _imports;
-  final bool _scaffold;
+  final List<String> _options;
   final String _type;
   final List<ModelField> _fields;
 
   final bool _concrete;
 
-  Model({required List<SchemaImport> imports, bool? scaffold, required String type, List<ModelField>? fields}) :
+  Model({required List<SchemaImport> imports, List<String>? options, required String type, List<ModelField>? fields}) :
     _imports = imports,
-    _scaffold = scaffold ?? false,
+    _options = [...?options],
     _type = type,
-    _fields = fields ?? [],
+    _fields = [...?fields],
     _expanded = null,
     _concrete = false {
     _fields.forEach((field) => field.model = this);
   }
   Model._parameterized(Model base, String typeArgument) :
     _imports = base._imports,
-    _scaffold = false,
+    _options = base._options,
     _type = '${base.name}<$typeArgument>',
     _fields = base.fields.map((f) => ModelField(
       metadata: f.metadata.toList(),
@@ -53,11 +53,20 @@ class Model {
   bool get isIndexed => _fields.any((f) => f.name == 'id');
   bool get isNotIndexed => !isIndexed;
 
-  bool get scaffold => isDeclarable ? _scaffold : throw UnsupportedError('tried calling scaffold getter of virtual model, $type');
   String get type => _type;
   String get name => _type.split('<')[0];
   Iterable<ModelField> get fields => _fields.where((f) => f.isNotHasMany);
   Iterable<ModelField> get dataFields => fields.where((f) => f.isNotId);
+
+  String get namePlural {
+    if(_options.any((o) => o.startsWith('plural:'))) {
+      return _options
+          .firstWhere((o) => o.startsWith('plural:'))
+          .substring(7).trim();
+    }
+    if(name.endsWith('y')) return '${name.substring(0, name.length - 1)}ies';
+    return '${this}s';
+  }
 
   ModelField? get idField => fields.firstWhereOrNull((f) => f.name == 'id');
   String get idType => idField?.type ?? 'ObjectId';
