@@ -297,14 +297,14 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.0"
+    version: "1.0.0-dev.1"
   oobium_datastore_gen:
     dependency: "direct dev"
     description:
-      path: "../gen"
-      relative: true
-    source: path
-    version: "0.1.0+1"
+      name: oobium_datastore_gen
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "1.0.0-dev.1"
   package_config:
     dependency: transitive
     description:

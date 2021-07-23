@@ -1,7 +1,7 @@
 # Oobium DataStore
 [![pub package](https://img.shields.io/pub/v/oobium_datastore.svg)](https://pub.dev/packages/oobium_datastore)
 
-Data for Flutter...
+Data for Dart...
 
 # Usage
 To use this plugin, add `oobium_datastore` as a [dependency in your pubspec.yaml file](https://flutter.dev/platform-plugins/).

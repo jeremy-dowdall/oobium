@@ -1,9 +1,7 @@
 name: oobium_datastore_gen
-description: Generators for Oobium
-version: 0.1.0+1
+description: Generators for Oobium Datastore, enabling custom schema development
+version: 1.0.0-dev.1
 repository: https://github.com/jeremy-dowdall/oobium
-
-publish_to: 'none'
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
@@ -18,4 +16,4 @@ dev_dependencies:
   test: ^1.15.3
   build_runner: ^2.0.4
   oobium_datastore:
-    path: ../
+    path: ../datastore

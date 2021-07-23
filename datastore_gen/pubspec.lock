@@ -270,7 +270,7 @@ packages:
   oobium_datastore:
     dependency: "direct dev"
     description:
-      path: ".."
+      path: "../datastore"
       relative: true
     source: path
     version: "1.0.0"
