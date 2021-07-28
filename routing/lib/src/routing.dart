@@ -2,20 +2,10 @@ import 'package:collection/collection.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-extension BuildContextX on BuildContext {
-
-  // Router get router => Router.of(this);
-  // AppRoute get route => (router.routerDelegate as AppRouterDelegate).state.last;
-  // set route(AppRoute value) => (router.routerDelegate as AppRouterDelegate).state.set(value);
-  // void pushRoute(AppRoute value) => (router.routerDelegate as AppRouterDelegate).state.push(value);
-  // void popRoute() => (router.routerDelegate as AppRouterDelegate).state.pop();
-  // set newRoutePath(AppRoute value) => router.routerDelegate.setNewRoutePath(value);
-}
-
 typedef Build<T extends AppRoute> = void Function(AppRoutes<T> r);
 typedef Watch = List Function();
 
-typedef HomeRedirect = AppRoute Function(AppRouterState state);
+typedef HomeRedirect = AppRoute Function();
 typedef GuardFunction<T extends AppRoute> = AppRoute? Function(RouteState<T> state);
 typedef PopFunction<T extends AppRoute> = void Function(RouteState<T> state);
 typedef PageBuilder<T extends AppRoute> = Page Function(RouteState<T> state);
@@ -106,6 +96,13 @@ class AppRoutes<H extends AppRoute> {
     assert(definitions.isSet(type), '$type not found');
     return definitions.get(type);
   }
+
+  AppRoute resolvedRouteOf(AppRoute route) {
+    if(route is HomeRoute) {
+      return _homeRedirect?.call() ?? route;
+    }
+    return route;
+  }
 }
 
 class GuardedRoutes {
@@ -158,8 +155,9 @@ class RouteDefinitions {
 }
 
 class GuardException implements Exception {
+  final AppRoute route;
   final AppRoute guardRoute;
-  GuardException(this.guardRoute);
+  GuardException(this.route, this.guardRoute);
 }
 
 typedef RedirectParser = String Function(List data);
@@ -270,10 +268,6 @@ class RouteState<T extends AppRoute> {
   T get route => _route;
 }
 
-/// TODO this is the router engine... don't want push/pop/etc exposed to onPage/onView...
-///      state passed to route handlers should be an immutable data class
-///      extendable? composable?
-///      AppRouterState combines the state, the engine and the notifier
 class AppRouterState extends ChangeNotifier {
 
   final String name;
@@ -306,7 +300,7 @@ class AppRouterState extends ChangeNotifier {
   void setNewRoutePath(AppRoute value) {
     if(this == _root) {
       if(value is HomeRoute) {
-        value = _routes._homeRedirect?.call(this) ?? value;
+        value = _routes._homeRedirect?.call() ?? value;
       }
       if(_current != value) {
         _current = value;
@@ -461,8 +455,8 @@ class PagesBuilder {
     final keys = <LocalKey?, AppRoute>{};
     final pages = <Page>[];
     final stack = state.stack;
+    print('${state.name} stack: ${state._stack} -> $stack');
     try {
-      print('${state.name}: stack${state._stack} -> pages$stack');
       for(final route in state.stack) {
         final page = getPage(route, guard: true, cupertino: cupertino);
         if(keys.containsKey(page.key)) {
@@ -476,23 +470,32 @@ class PagesBuilder {
         keys[page.key] = route;
         pages.add(page);
       }
+      print('pages$pages');
+      return pages;
     } on GuardException catch(e) {
-      // TODO message?
-      return [getPage(e.guardRoute, cupertino: cupertino)];
-      // TODO get rid of ErrorRoute... ?
+      final page = getPage(e.guardRoute, cupertino: cupertino);
+      print('${e.route} guarded by ${e.guardRoute} -> page($page)');
+      return [page];
     }
-    return pages;
   }
 
   Page getPage(AppRoute route, {bool guard=false, bool cupertino=false}) {
-    final routeDef = routes.definitionOf(route);
+    final resolved = routes.resolvedRouteOf(route);
+    final routeDef = routes.definitionOf(resolved);
     if(guard) {
-      final guardRoute = routeDef.guard(state, route);
-      if(guardRoute != null) {
-        throw GuardException(guardRoute);
-      }
+      checkGuard(route, route, resolved, routeDef);
     }
-    return routeDef.build(state, route, cupertino: cupertino);
+    return routeDef.build(state, resolved, cupertino: cupertino);
+  }
+
+  void checkGuard(AppRoute original, AppRoute route, [AppRoute? resolved, RouteDefinition? routeDef]) {
+    resolved ??= routes.resolvedRouteOf(route);
+    routeDef ??= routes.definitionOf(resolved);
+    final guardRoute = routeDef.guard(state, resolved);
+    if(guardRoute != null) {
+      checkGuard(original, guardRoute);
+      throw GuardException(original, guardRoute);
+    }
   }
 }
 

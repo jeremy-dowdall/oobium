@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import 'utils/test_utils.dart';
-import 'utils/test_models.dart';
 
 final testFile = 'datastore_compact_test';
 

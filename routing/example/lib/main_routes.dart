@@ -7,7 +7,7 @@ part 'main_routes.g.dart';
 const genProvider = true;
 
 final mainBuilder = _Routes((r) => r
-  ..home(show: (_) => const AuthorsRoute())
+  ..home(show: () => const AuthorsRoute())
   ..page<AuthorsRoute>('/authors', (_) => const AppPage('/', HomeScreen()))
   ..page<BooksRoute>('/books', (_) => const AppPage('/', HomeScreen()))
   ..page<SettingsRoute>('/settings', (_) => const AppPage('/', HomeScreen()))

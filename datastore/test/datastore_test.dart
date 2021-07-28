@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:core';
 
 import 'package:objectid/objectid.dart';
@@ -9,7 +8,6 @@ import 'package:oobium_datastore/src/datastore.dart';
 import 'package:test/test.dart';
 
 import 'utils/test_utils.dart';
-import 'utils/test_models.dart';
 
 final testFile = 'datastore_test';
 
@@ -67,78 +65,11 @@ Future<void> main() async {
     expect(m1['_updateId'], isNot(m2['_updateId']));
   });
 
-  test('test fromJson with nested model, context not set', () {
-    final m1 = TestType1(name: 'test01');
-    final m2 = TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'});
-    expect(() => m2.type1, throwsA(isA<Error>()));
-  });
-
-  test('test fromJson with nested model, context set', () async {
-    final ds = await createDatastore(testFile).open();
-    final m1 = ds.put(TestType1(name: 'test01'));
-    final m2 = ds.put(TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}));
-    expect(m2.type1, m1);
-  });
-
-  test('test toJson with nested model, context set', () async {
-    final ds = await createDatastore(testFile).open();
-    final m1 = ds.put(TestType1(name: 'test01'));
-    final m2 = ds.put(TestType2.fromJson({'name': 'test02', 'type1': '${m1.id}'}));
-    expect(jsonEncode(m2), isNotEmpty);
-  });
-
-  // test('test fromJson put nested model, context not set', () async {
-  //   final m1 = TestType1(name: 'test01');
-  //   final m2 = TestType2.fromJson({'name': 'test02', 'type1': m1}, newId: true);
-  //   expect(() => m2.type1, throwsNoSuchMethodError);
-  // });
-
-  // test('test fromJson put nested model, context set', () async {
-  //   final ds = await create().open();
-  //   final m1 = TestType1(name: 'test01');
-  //   final m2 = TestType2.fromJson({'name': 'test02', 'type1': m1}, newId: true);
-  //   expect(ds.put(m2).type1, m1);
-  // });
-
-  // test('test data initialization', () async {
-  //   final model = TestType1();
-  //   final ds = await createDatastore(testFile).open(onUpgrade: (event) {
-  //     return Stream.value(model);
-  //   });
-  //   expect(ds.size, 1);
-  //   expect(ds.get<TestType1>(model.id)?.isSameAs(model), isTrue);
-  // });
-
-  test('test DataModel without adapters', () async {
-    final ds = DataStore('test-data/no-adapters',
-      adapters: Adapters([])
-    );
-    await ds.open();
-    final model = ds.put(DataModel({'name': 'test 01'}));
-    expect(ds.get(model['_modelId']), model);
-
-    await ds.close();
-    await ds.open();
-
-    expect(ds.get(model['_modelId']), isNotNull);
-    expect(ds.get(model['_modelId'])?.isSameAs(model), isTrue);
-    expect(ds.get(model['_modelId']), model); // == method
-    expect(identical(ds.get(model['_modelId']), model), isFalse);
-  });
-
   test('test custom model without adapter', () async {
     final ds = await DataStore('test-data/custom-model_no-adapter',
       adapters: Adapters([])
     ).open();
     expect(() => ds.put(TestType1(name: 'test 01')), throwsA(isA<Error>()));
-    // final model = ds.put(TestType1(name: 'test 01'));
-    // expect(ds.get(model.id), model);
-    //
-    // await ds.close();
-    // await ds.open();
-    //
-    // expect(ds.get(model.id), isNotNull);
-    // expect(ds.get(model.id)?.isSameAs(model), isTrue); // runtimeType is different, but id and contents are the same
   });
 
   test('test data stored in memory', () async {
@@ -348,8 +279,8 @@ Future<void> main() async {
     ds.streamAll<TestType1>().listen(expectAsync1<void, DataModelEvent<TestType1>>((results) {
       expect(results.all.length, 1);
     }, count: 1));
-    ds.put(DataModel({'name': 'test-02'}));
-    ds.put(TestType1(name: 'test-02'));
+    ds.put(TestType2(name: 'test-02'));
+    ds.put(TestType1(name: 'test-01'));
   });
 
   test('test streamAll accepting types', () async {
@@ -358,8 +289,8 @@ Future<void> main() async {
     ds.streamAll().listen(expectAsync1<void, DataModelEvent>((results) {
       expect(results.all.length, 2);
     }, count: 2));
-    ds.put(DataModel({'name': 'test-02'}));
-    ds.put(TestType1(name: 'test-02'));
+    ds.put(TestType2(name: 'test-02'));
+    ds.put(TestType1(name: 'test-01'));
   });
 
   test('test streamAll with where function', () async {

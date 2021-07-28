@@ -67,7 +67,12 @@ class Models {
     return (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
   }
 
-  Iterable<T> getAll<T extends DataModel>() => (T == DataModel) ? (_models.values as Iterable<T>) : _models.values.whereType<T>();
+  List<T> getAll<T extends DataModel>({bool Function(T model)? where}) {
+    final v = _models.values;
+    final i = (T == DataModel) ? (v as Iterable<T>) : v.whereType<T>();
+    final w = (where != null) ? i.where(where) : i;
+    return w.toList();
+  }
 
   Stream<T?> stream<T extends DataModel>(Object? id) {
     id = _resolve<T>(id);
@@ -159,39 +164,39 @@ class DataModelEvent<T extends DataModel> {
   final bool Function(T model)? _where;
   DataModelEvent._(this._models, this._batch, this._where);
 
-  Iterable<T> get all {
+  List<T> get all {
     if(_where == null) {
-      return _models._models.values.whereType<T>();
+      return _models._models.values.whereType<T>().toList();
     } else {
-      return _models._models.values.whereType<T>().where(_where!);
+      return _models._models.values.whereType<T>().where(_where!).toList();
     }
   }
 
-  Iterable<T> get puts {
+  List<T> get puts {
     if(_where == null) {
-      return _batch.puts.whereType<T>();
+      return _batch.puts.whereType<T>().toList();
     } else {
-      return _batch.puts.whereType<T>().where(_where!);
+      return _batch.puts.whereType<T>().where(_where!).toList();
     }
   }
 
-  Iterable<T> get removes {
+  List<T> get removes {
     if(_where == null) {
-      return _batch.removes.whereType<T>();
+      return _batch.removes.whereType<T>().toList();
     } else {
-      return _batch.removes.whereType<T>().where(_where!);
+      return _batch.removes.whereType<T>().where(_where!).toList();
     }
   }
 }
 
-class DataModel {
+abstract class DataModel {
   final ObjectId _modelId;
   final ObjectId _updateId;
   final DataFields _fields;
   final bool _deleted;
 
   DataModel([Map<String, dynamic>? fields]) :
-    _deleted = false,
+    _deleted = fields?['_deleted'] == true,
     _modelId = _modelIdFrom(fields),
     _updateId = _updateIdFrom(fields),
     _fields = _dataFrom(fields) {
@@ -214,10 +219,10 @@ class DataModel {
     _fields._model = this;
   }
 
-  DataModel.deleted(String modelId, String updateId) :
+  DataModel.deleted(DataModel original) :
     _deleted = true,
-    _modelId = ObjectId.fromHexString(modelId),
-    _updateId = ObjectId.fromHexString(updateId),
+    _modelId = original._modelId,
+    _updateId = original._updateId,
     _fields = DataFields({});
 
   dynamic operator [](String key) {
@@ -232,7 +237,7 @@ class DataModel {
   bool get isAttached => _context != null;
   bool get isNotAttached => !isAttached;
 
-  DataModel deleted() => DataModel.deleted('$_modelId', '$_updateId');
+  DataModel deleted();
   bool get isDeleted => _deleted;
   bool get isNotDeleted => !isDeleted;
 

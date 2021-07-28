@@ -1,0 +1,17 @@
+Inventory
+  id int
+  description String
+  date DateTime
+  sections HasMany<InventorySection>
+
+InventorySection
+  id int
+  name String
+  inventory Inventory
+  items HasMany<InventoryItem>
+    key section
+
+InventoryItem
+  id int
+  name String
+  section InventorySection

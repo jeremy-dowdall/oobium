@@ -7,7 +7,7 @@ import 'main.dart';
 part 'routes.g.dart';
 
 final mainBuilder = _Routes((r) => r
-  ..home(show: (_) => const AuthorsRoute())
+  ..home(show: () => const AuthorsRoute())
   ..page<AuthorsRoute>('/authors', (_) => AppPage('/', const HomeScreen()))
   ..page<BooksRoute>('/books', (_) => AppPage('/', const HomeScreen()))
   ..page<SettingsRoute>('/settings', (_) => AppPage('/', const HomeScreen()),

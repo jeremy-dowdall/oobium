@@ -127,9 +127,13 @@ class Model {
       
       $name._copyWith($type original, $copyFields) : super.copyWith(original, $copyWithMap);
       
+      $name._deleted($type original) : super.deleted(original);
+      
       $type copyNew($constructorFields) => $type._copyNew(this, $constructorParams);
       
       $type copyWith($copyFields) => $type._copyWith(this, $copyParams);
+      
+      $type deleted() => $type._deleted(this);
     }
   ''';
 

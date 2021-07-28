@@ -25,17 +25,14 @@ class Adapters {
   }
 
   DataModel decodeRecord(DataRecord record) {
-    if(record.isDelete) {
-      return DataModel.deleted(record.modelId, record.updateId);
-    } else {
-      final value = adapterFor(record.type).decode({
-        '_modelId': record.modelId,
-        '_updateId': record.updateId,
-        ...jsonDecode(record.data!)
-      });
-      assert(value is DataModel, 'converter did not return a DataModel: $value');
-      return (value as DataModel);
-    }
+    final value = adapterFor(record.type).decode({
+      '_modelId': record.modelId,
+      '_updateId': record.updateId,
+      if(record.isDelete) '_deleted': true
+      else                ...jsonDecode(record.data!)
+    });
+    assert(value is DataModel, 'converter did not return a DataModel: $value');
+    return (value as DataModel);
   }
 
   DataRecord encodeRecord(DataModel model) {

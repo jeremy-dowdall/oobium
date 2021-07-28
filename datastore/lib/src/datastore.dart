@@ -101,7 +101,7 @@ class DataStore {
   List<T> batch<T extends DataModel>({Iterable<T>? put, Iterable<T>? remove}) => _batch(put: put, remove: remove);
 
   T? get<T extends DataModel>(Object? id, {T? Function()? orElse}) => _models!.get<T>(id, orElse: orElse);
-  Iterable<T> getAll<T extends DataModel>() => _models!.getAll<T>();
+  List<T> getAll<T extends DataModel>({bool Function(T model)? where}) => _models!.getAll<T>(where: where);
 
   T put<T extends DataModel>(T model) => batch(put: [model])[0];
   List<T> putAll<T extends DataModel>(Iterable<T> models) => _batch(put: models).whereType<T>().toList();

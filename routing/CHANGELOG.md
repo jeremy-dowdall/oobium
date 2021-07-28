@@ -1,3 +1,10 @@
+## 1.0.0-dev.2
+
+* cleanup
+* fixes for home routing
+* remove state from show home route
+* recursive guard checking
+
 ## 1.0.0-dev.1
 
 * full generation of route classes, guaranteeing compile-time safety of urls and deep links

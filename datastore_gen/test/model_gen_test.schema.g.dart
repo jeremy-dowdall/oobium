@@ -33,6 +33,8 @@ class ModelGenTestData {
   Future<void> destroy() => _ds.destroy();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
   User? getUser(int? id, {User? Function()? orElse}) =>
       _ds.get<User>(id, orElse: orElse);
   Message? getMessage(ObjectId? id, {Message? Function()? orElse}) =>
@@ -74,6 +76,8 @@ abstract class ModelGenTestModel extends DataModel {
   ModelGenTestModel.copyWith(
       ModelGenTestModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
+  ModelGenTestModel.deleted(ModelGenTestModel original)
+      : super.deleted(original);
 }
 
 class User extends ModelGenTestModel {
@@ -90,10 +94,14 @@ class User extends ModelGenTestModel {
   User._copyWith(User original, {String? name})
       : super.copyWith(original, {'name': name});
 
+  User._deleted(User original) : super.deleted(original);
+
   User copyNew({required int id, String? name}) =>
       User._copyNew(this, id: id, name: name);
 
   User copyWith({String? name}) => User._copyWith(this, name: name);
+
+  User deleted() => User._deleted(this);
 }
 
 class Message extends ModelGenTestModel {
@@ -113,9 +121,13 @@ class Message extends ModelGenTestModel {
   Message._copyWith(Message original, {User? from, User? to, String? message})
       : super.copyWith(original, {'from': from, 'to': to, 'message': message});
 
+  Message._deleted(Message original) : super.deleted(original);
+
   Message copyNew({User? from, User? to, String? message}) =>
       Message._copyNew(this, from: from, to: to, message: message);
 
   Message copyWith({User? from, User? to, String? message}) =>
       Message._copyWith(this, from: from, to: to, message: message);
+
+  Message deleted() => Message._deleted(this);
 }

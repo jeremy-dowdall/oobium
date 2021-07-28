@@ -18,6 +18,9 @@
       <excludeFolder url="file://$MODULE_DIR$/datastore/gen/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/datastore/gen/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/datastore/gen/build" />
+      <excludeFolder url="file://$MODULE_DIR$/datastore_gen/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/datastore_gen/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/datastore_gen/build" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_auth_validator/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_auth_validator/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/firebase_auth_validator/build" />
@@ -71,6 +74,9 @@
       <excludeFolder url="file://$MODULE_DIR$/routing/gen/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/routing/gen/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/routing/gen/build" />
+      <excludeFolder url="file://$MODULE_DIR$/routing_gen/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/routing_gen/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/routing_gen/build" />
       <excludeFolder url="file://$MODULE_DIR$/server/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/server/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/server/build" />
