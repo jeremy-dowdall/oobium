@@ -36,6 +36,7 @@ class SchemaGenerator {
         'Future<void> flush() => _ds.flush();'
         'Future<void> close() => _ds.close();'
         'Future<void> destroy() => _ds.destroy();'
+        'Future<void> reset() => _ds.reset();'
         'bool get isEmpty => _ds.isEmpty;'
         'bool get isNotEmpty => _ds.isNotEmpty;'
         'bool get isOpen => _ds.isOpen;'
