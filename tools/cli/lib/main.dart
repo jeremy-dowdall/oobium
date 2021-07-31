@@ -1,11 +1,7 @@
-import 'dart:io';
-
 import 'package:args/command_runner.dart';
-import 'package:oobium_server/oobium_server.dart';
 import 'package:tools_cli/commands/host.dart' show HostCommand;
 import 'package:tools_cli/commands/info.dart';
 import 'package:tools_cli/commands/init.dart';
-import 'package:tools_common/models.dart';
 
 ///
 /// - init new project

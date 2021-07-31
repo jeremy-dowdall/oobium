@@ -4,31 +4,6 @@ import 'dart:io';
 import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:tar/tar.dart';
 
-main([List<String> args=const[]]) async {
-  final env = Env(args.dir, source: args.source);
-  try {
-    final dartVersion = await getDartVersion();
-    if(dartVersion != null) {
-      print('dart already installed: $dartVersion');
-    } else {
-      await installDart();
-    }
-    final hostVersion = env.isProd ? await getHostVersion(env) : null;
-    if(hostVersion != null) {
-      print('host already installed: $hostVersion');
-    } else {
-      await installHostSource(env, args.channel);
-      await installHost(env, args.address, args.channel, args.token);
-      await installCert(env, args.address);
-      clean(env);
-      await runUntil(env.exe.path, [], 'Oobium Host started.');
-    }
-  } catch(e) {
-    print('build failed\n$e');
-    exitCode = (e is InstallException ? e.code : -1);
-  }
-}
-
 class Env {
   final _prod = const bool.fromEnvironment('dart.vm.product');
   final Directory oobium;
@@ -82,6 +57,8 @@ class InstallException implements Exception {
   final String message;
   final int code;
   InstallException(this.message, [int? code]) : code = code ?? -1;
+  @override
+  String toString() => 'exit($code): $message';
 }
 
 Future<String?> getDartVersion() async {
@@ -106,6 +83,10 @@ Future<String?> getDartVersion() async {
   } on ProcessException {
     return null;
   }
+}
+
+Future<String> testInstall() {
+  return Future.delayed(Duration(seconds: 2)).then((value) => 'done');
 }
 
 Future<void> installDart() async {
