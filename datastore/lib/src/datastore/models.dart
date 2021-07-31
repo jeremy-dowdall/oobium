@@ -50,7 +50,7 @@ class Models {
     return _controller?.close() ?? Future.value();
   }
 
-  bool any(Object? id) => _models.containsKey(_resolve(id));
+  bool any(Object? id) => (id != null) && _models.containsKey(_getId(id));
   bool none(Object? id) => !any(id);
 
   int get modelCount => _models.length;
@@ -60,10 +60,29 @@ class Models {
   int get recordCount => _recordCount;
   void resetRecordCount() => _recordCount = modelCount;
 
-  Object? _resolve<T>(Object? o) => (o is ObjectId) ? o : (o is DataModel) ? o._modelId : _indexes[T]?.getModelId(o);
+  void _resolveId(DataModel m) {
+    final type = m.runtimeType;
+    if(_indexes.containsKey(type) && m._fields._map.containsKey('id')) {
+      final id = _indexes[m.runtimeType]?.getModelId(m._fields._map['id']);
+      if(id != null && m._modelId != id) {
+        m._modelId = id;
+      }
+    }
+  }
+
+  ObjectId? _getId<T>(Object o) {
+    if(o is ObjectId) return o;
+    if(o is DataModel) {
+      final key = o['id'];
+      return (key == null) ? o._modelId
+          : _indexes[o.runtimeType]?.getModelId(key) ?? o._modelId;
+    }
+    return _indexes[T]?.getModelId(o);
+  }
 
   T? get<T extends DataModel>(Object? id, {T? Function()? orElse}) {
-    id = _resolve<T>(id);
+    if(id == null) return null;
+    id = _getId<T>(id);
     return (_models.containsKey(id)) ? (_models[id] as T) : orElse?.call();
   }
 
@@ -75,9 +94,8 @@ class Models {
   }
 
   Stream<T?> stream<T extends DataModel>(Object? id) {
-    id = _resolve<T>(id);
-    return _stream
-      .where((batch) => batch.updates.any((model) => (model is T) && (model._modelId == id)))
+    return (id == null) ? Stream<T>.empty() : _stream
+      .where((batch) => batch.updates.any((model) => (model is T) && (model._modelId == _getId<T>(id))))
       .map((_) => (_models[id] is T) ? (_models[id] as T) : null);
   }
 
@@ -91,6 +109,7 @@ class Models {
     final batch = Batch<T>();
 
     if(put != null) for(var model in put) {
+      _resolveId(model);
       final current = _models[model._modelId];
       if(current is T && current.isSameAs(model)) {
         batch.results.add(current);
@@ -99,16 +118,21 @@ class Models {
         batch.results.add(model);
         batch.puts.add(model);
       }
-      for(var member in model._fields.models) {
-        // TODO deep child search; this only handles 1 layer
-        if(member.isNotSameAs(_models[member._modelId])) {
-          _put(member);
-          batch.puts.add(member);
+      putChildren(DataModel model) {
+        for(var child in model._fields.models) {
+          _resolveId(child);
+          if(child.isNotSameAs(_models[child._modelId])) {
+            _put(child);
+            batch.puts.add(child);
+          }
+          putChildren(child);
         }
-      }
+      };
+      putChildren(model);
     }
 
     if(remove != null) for(var model in remove) {
+      _resolveId(model);
       final removed = _remove(model);
       if(removed != null) {
         batch.removes.add(removed.deleted());
@@ -190,7 +214,7 @@ class DataModelEvent<T extends DataModel> {
 }
 
 abstract class DataModel {
-  final ObjectId _modelId;
+  ObjectId _modelId;
   final ObjectId _updateId;
   final DataFields _fields;
   final bool _deleted;

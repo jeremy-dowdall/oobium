@@ -2,9 +2,8 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class ModelGenTestData {
   final DataStore _ds;
-  ModelGenTestData(String path, {String? isolate})
+  ModelGenTestData(String path, {DataStoreObserver? observer})
       : _ds = DataStore('$path/model_gen_test',
-            isolate: isolate,
             adapters: Adapters([
               Adapter<User>(
                   decode: (m) => User._(m),
@@ -23,7 +22,8 @@ class ModelGenTestData {
                   encode: (k, v) => v,
                   fields: ['from', 'to', 'message'])
             ]),
-            indexes: [DataIndex<User>(toKey: (m) => m.id)]);
+            indexes: [DataIndex<User>(toKey: (m) => m.id)],
+            observer: observer);
   Future<ModelGenTestData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -31,6 +31,7 @@ class ModelGenTestData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
   bool get isOpen => _ds.isOpen;
@@ -39,20 +40,23 @@ class ModelGenTestData {
       _ds.get<User>(id, orElse: orElse);
   Message? getMessage(ObjectId? id, {Message? Function()? orElse}) =>
       _ds.get<Message>(id, orElse: orElse);
-  Iterable<User> getUsers() => _ds.getAll<User>();
-  Iterable<Message> getMessages() => _ds.getAll<Message>();
-  Iterable<User> findUsers({String? name}) =>
-      _ds.getAll<User>().where((m) => (name == null || name == m.name));
-  Iterable<Message> findMessages({User? from, User? to, String? message}) =>
-      _ds.getAll<Message>().where((m) =>
-          (from == null || from == m.from) &&
-          (to == null || to == m.to) &&
-          (message == null || message == m.message));
+  List<User> getUsers({bool Function(User model)? where}) =>
+      _ds.getAll<User>(where: where);
+  List<Message> getMessages({bool Function(Message model)? where}) =>
+      _ds.getAll<Message>(where: where);
+  List<User> findUsers({String? name}) =>
+      _ds.getAll<User>(where: (m) => (name == null || name == m.name));
+  List<Message> findMessages({User? from, User? to, String? message}) =>
+      _ds.getAll<Message>(
+          where: (m) =>
+              (from == null || from == m.from) &&
+              (to == null || to == m.to) &&
+              (message == null || message == m.message));
   T put<T extends ModelGenTestModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends ModelGenTestModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
-  User putUser({required int id, String? name}) => _ds
-      .put(_ds.get<User>(id)?.copyWith(name: name) ?? User(id: id, name: name));
+  User putUser({required int id, String? name}) =>
+      _ds.put(User(id: id, name: name));
   Message putMessage({User? from, User? to, String? message}) =>
       _ds.put(Message(from: from, to: to, message: message));
   T remove<T extends ModelGenTestModel>(T model) => _ds.remove<T>(model);

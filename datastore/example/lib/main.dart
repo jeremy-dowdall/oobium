@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:example/main.schema.g.dart';
 import 'package:flutter/material.dart';
+import 'package:oobium_datastore/oobium_datastore.dart';
 import 'package:path_provider/path_provider.dart';
 
 
@@ -9,15 +10,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final dir = await getApplicationDocumentsDirectory();
   final path = '${dir.path}/demo-data';
-  runApp(MyApp(
-    ds: await MainData(path, isolate: 'll').open(),
-  ));
+  final dso = DataStoreObserver();
+  final ds = MainData(path, observer: dso);
+  await ds.reset();
+  runApp(MyApp(ds, dso));
 }
 
 class MyApp extends StatelessWidget {
 
   final MainData ds;
-  MyApp({required this.ds});
+  final DataStoreObserver dso;
+  MyApp(this.ds, this.dso);
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +31,8 @@ class MyApp extends StatelessWidget {
       ),
       home: MyHomePage(
         title: 'Oobium DataStore Demo',
-        ds: ds
+        ds: ds,
+        dso: dso
       ),
     );
   }
@@ -38,7 +42,12 @@ class MyHomePage extends StatefulWidget {
 
   final String title;
   final MainData ds;
-  MyHomePage({Key? key, required this.title, required this.ds}) : super(key: key);
+  final DataStoreObserver dso;
+  MyHomePage({Key? key,
+    required this.title,
+    required this.ds,
+    required this.dso,
+  }) : super(key: key);
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
@@ -49,21 +58,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   late final AnimationController controller;
   late final Animation<double> angleAnimation;
 
-  var streamNew = false;
-  var streamDup = false;
-  void stream() async {
-    if(streamNew) {
-      final author = widget.ds.getAuthors().first;
-      widget.ds.putAll(List.generate(100, (i) => Book(title: 'test-1-$i', author: author)));
-    }
-    if(streamDup) {
-      final book = widget.ds.getBooks().first;
-      widget.ds.putAll(List.generate(100, (i) => book.copyWith(title: 'test-1-$i')));
-    }
-    await Future.delayed(Duration(milliseconds: 1));
-    stream();
-  }
-
   @override
   void initState() {
     super.initState();
@@ -73,7 +67,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       setState(() {});
     });
     controller.repeat();
-    stream();
   }
 
   @override
@@ -105,11 +98,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(8),
-                        child: Text('Authors: ${widget.ds.getAuthors().length}', style: TextStyle(color: Colors.white)),
+                        child: Text('Model Count: ${widget.dso.modelCount}', style: TextStyle(color: Colors.white)),
                       ),
                       Padding(
                         padding: const EdgeInsets.all(8),
-                        child: Text('Books: ${widget.ds.getBooks().length}', style: TextStyle(color: Colors.white)),
+                        child: Text('Record Count: ${widget.dso.recordCount}', style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
@@ -118,71 +111,45 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             ),
             Padding(
               padding: const EdgeInsets.only(top: 100),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Authors'),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Add New'),
-                    onPressed: () {
-                      widget.ds.putAll(List.generate(100, (i) => Author(name: 'test-1-$i')));
-                    },
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        child: Text('Add'),
+                        onPressed: () {
+                          final l = widget.ds.getItems().length;
+                          widget.ds.putAll(List.generate(100, (i) => Item(id: i + l, name: 'item-1-$i')));
+                        },
+                      ),
+                      Container(width: 16,),
+                      ElevatedButton(
+                        child: Text('Update'),
+                        onPressed: widget.ds.getItems().isEmpty ? null : () {
+                          widget.ds.putAll(List.generate(100, (i) => Item(id: i, name: 'update-${++updateTaps}-$i')));
+                        },
+                      ),
+                      Container(width: 16,),
+                      ElevatedButton(
+                        child: Text('Remove'),
+                        onPressed: widget.ds.getItems().isEmpty ? null : () {
+                          widget.ds.removeAll(widget.ds.getItems().take(100).toList());
+                        },
+                      ),
+                    ],
                   ),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Add Dup'),
-                    onPressed: () {
-                      final model = widget.ds.getAuthors().first;
-                      widget.ds.putAll(List.generate(100, (i) => model.copyWith(name: '${model.name}/test-1-$i')));
-                    },
-                  ),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Reset'),
-                    onPressed: () {
-                      widget.ds.removeAll(widget.ds.getAuthors().toList());
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text('New Books'),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Start'),
-                    onPressed: () => streamNew = true,
-                  ),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Stop'),
-                    onPressed: () => streamNew = false,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text('Dup Books'),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Start'),
-                    onPressed: () => streamDup = true,
-                  ),
-                  Container(width: 16,),
-                  ElevatedButton(
-                    child: Text('Stop'),
-                    onPressed: () => streamDup = false,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        child: Text('Reset'),
+                        onPressed: () {
+                          widget.ds.reset();
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -193,3 +160,5 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 }
+
+int updateTaps = 0;

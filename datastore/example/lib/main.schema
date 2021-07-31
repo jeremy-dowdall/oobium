@@ -1,6 +1,3 @@
-Author
+Item
+  id int
   name String
-
-Book
-  title String
-  author Author

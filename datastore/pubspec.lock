@@ -261,7 +261,7 @@ packages:
     source: hosted
     version: "1.10.0"
   stream_channel:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: stream_channel
       url: "https://pub.dartlang.org"
@@ -315,7 +315,7 @@ packages:
       name: vm_service
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "7.1.1"
+    version: "7.2.0"
   watcher:
     dependency: transitive
     description:

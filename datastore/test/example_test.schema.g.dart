@@ -2,9 +2,8 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class ExampleTestData {
   final DataStore _ds;
-  ExampleTestData(String path, {String? isolate})
+  ExampleTestData(String path, {DataStoreObserver? observer})
       : _ds = DataStore('$path/example_test',
-            isolate: isolate,
             adapters: Adapters([
               Adapter<Inventory>(
                   decode: (m) {
@@ -34,7 +33,8 @@ class ExampleTestData {
               DataIndex<Inventory>(toKey: (m) => m.id),
               DataIndex<InventorySection>(toKey: (m) => m.id),
               DataIndex<InventoryItem>(toKey: (m) => m.id)
-            ]);
+            ],
+            observer: observer);
   Future<ExampleTestData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -42,8 +42,11 @@ class ExampleTestData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
   Inventory? getInventory(int? id, {Inventory? Function()? orElse}) =>
       _ds.get<Inventory>(id, orElse: orElse);
   InventorySection? getInventorySection(int? id,
@@ -52,24 +55,31 @@ class ExampleTestData {
   InventoryItem? getInventoryItem(int? id,
           {InventoryItem? Function()? orElse}) =>
       _ds.get<InventoryItem>(id, orElse: orElse);
-  Iterable<Inventory> getInventories() => _ds.getAll<Inventory>();
-  Iterable<InventorySection> getInventorySections() =>
-      _ds.getAll<InventorySection>();
-  Iterable<InventoryItem> getInventoryItems() => _ds.getAll<InventoryItem>();
-  Iterable<Inventory> findInventories({String? description, DateTime? date}) =>
-      _ds.getAll<Inventory>().where((m) =>
-          (description == null || description == m.description) &&
-          (date == null || date == m.date));
-  Iterable<InventorySection> findInventorySections(
+  List<Inventory> getInventories({bool Function(Inventory model)? where}) =>
+      _ds.getAll<Inventory>(where: where);
+  List<InventorySection> getInventorySections(
+          {bool Function(InventorySection model)? where}) =>
+      _ds.getAll<InventorySection>(where: where);
+  List<InventoryItem> getInventoryItems(
+          {bool Function(InventoryItem model)? where}) =>
+      _ds.getAll<InventoryItem>(where: where);
+  List<Inventory> findInventories({String? description, DateTime? date}) =>
+      _ds.getAll<Inventory>(
+          where: (m) =>
+              (description == null || description == m.description) &&
+              (date == null || date == m.date));
+  List<InventorySection> findInventorySections(
           {String? name, Inventory? inventory}) =>
-      _ds.getAll<InventorySection>().where((m) =>
-          (name == null || name == m.name) &&
-          (inventory == null || inventory == m.inventory));
-  Iterable<InventoryItem> findInventoryItems(
+      _ds.getAll<InventorySection>(
+          where: (m) =>
+              (name == null || name == m.name) &&
+              (inventory == null || inventory == m.inventory));
+  List<InventoryItem> findInventoryItems(
           {String? name, InventorySection? section}) =>
-      _ds.getAll<InventoryItem>().where((m) =>
-          (name == null || name == m.name) &&
-          (section == null || section == m.section));
+      _ds.getAll<InventoryItem>(
+          where: (m) =>
+              (name == null || name == m.name) &&
+              (section == null || section == m.section));
   T put<T extends ExampleTestModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends ExampleTestModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
@@ -77,25 +87,17 @@ class ExampleTestData {
           {required int id,
           required String description,
           required DateTime date}) =>
-      _ds.put(_ds
-              .get<Inventory>(id)
-              ?.copyWith(description: description, date: date) ??
-          Inventory(id: id, description: description, date: date));
+      _ds.put(Inventory(id: id, description: description, date: date));
   InventorySection putInventorySection(
           {required int id,
           required String name,
           required Inventory inventory}) =>
-      _ds.put(_ds
-              .get<InventorySection>(id)
-              ?.copyWith(name: name, inventory: inventory) ??
-          InventorySection(id: id, name: name, inventory: inventory));
+      _ds.put(InventorySection(id: id, name: name, inventory: inventory));
   InventoryItem putInventoryItem(
           {required int id,
           required String name,
           required InventorySection section}) =>
-      _ds.put(
-          _ds.get<InventoryItem>(id)?.copyWith(name: name, section: section) ??
-              InventoryItem(id: id, name: name, section: section));
+      _ds.put(InventoryItem(id: id, name: name, section: section));
   T remove<T extends ExampleTestModel>(T model) => _ds.remove<T>(model);
   List<T> removeAll<T extends ExampleTestModel>(Iterable<T> models) =>
       _ds.removeAll<T>(models);

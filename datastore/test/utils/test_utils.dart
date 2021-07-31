@@ -20,6 +20,11 @@ class TestType1 extends DataModel {
   TestType1 copyNew({String? name}) => TestType1.copyNew(this, name: name);
   TestType1 copyWith({String? name}) => TestType1.copyWith(this, name: name);
   TestType1 deleted() => TestType1.deleted(this);
+  static Adapter<TestType1> get adapter => Adapter<TestType1>(
+    decode: (m) => TestType1._(m),
+    encode: (k, v) => v,
+    fields: ['name']
+  );
 }
 
 class TestType2 extends DataModel {
@@ -34,6 +39,11 @@ class TestType2 extends DataModel {
   TestType2 copyNew({String? name, TestType1? type1}) => TestType2.copyNew(this, name: name, type1: type1);
   TestType2 copyWith({String? name, TestType1? type1}) => TestType2.copyWith(this, name: name, type1: type1);
   TestType2 deleted() => TestType2.deleted(this);
+  static Adapter<TestType2> get adapter => Adapter<TestType2>(
+    decode: (m) => TestType2._(m),
+    encode: (k, v) => v,
+    fields: ['name', 'type1']
+  );
 }
 
 DataStore createDatastore(String testFile, {
@@ -45,19 +55,7 @@ DataStore createDatastore(String testFile, {
 }) {
   final path = clone?.path ?? 'test-data/$testFile/test-ds-${datastores.length}';
   final ds = DataStore(path,
-    isolate: isolate,
-    adapters: Adapters([
-      Adapter<TestType1>(
-        decode: (map) => TestType1._(map),
-        encode: (k,v) => v,
-        fields: ['name']
-      ),
-      Adapter<TestType2>(
-        decode: (map) => TestType2._(map),
-        encode: (k,v) => v,
-        fields: ['name','type1']
-      )
-    ]),
+    adapters: Adapters([TestType1.adapter, TestType2.adapter]),
     indexes: indexes,
     compactionStrategy: compactionStrategy
   );

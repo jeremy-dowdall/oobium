@@ -31,7 +31,7 @@ void main() {
 
     final lines = await file.readAsLines();
 
-    expect(ds.size, 60001);
+    expect(ds.modelCount, 60001);
     expect(lines.length, 60001);
     // for(var i = 0; i < 6; i++) {
     //   expect(lines[i], contains('test-1-$i'));
@@ -59,7 +59,7 @@ void main() {
 
     final lines = await file.readAsLines();
 
-    expect(ds.size, 60001);
+    expect(ds.modelCount, 60001);
     expect(lines.length, 60001);
     // for(var i = 0; i < 6; i++) {
     //   expect(lines[i], contains('test-1-$i'));

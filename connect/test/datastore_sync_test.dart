@@ -62,7 +62,7 @@ Future<void> main() async {
     final ds = datastore(nextPath());
     await ds.reset(socket: await WebSocket().connect(port: port));
 
-    expect(ds.size, 1);
+    expect(ds.modelCount, 1);
     expect(ds.get<TestType1>(model.id)?.name, model.name);
   });
 
@@ -73,7 +73,7 @@ Future<void> main() async {
     final ds = await datastore(nextPath()).open();
     await ds.bind(await WebSocket().connect(port: port));
 
-    expect(ds.size, 0);
+    expect(ds.modelCount, 0);
   });
 
   test('test replication bind with server data', () async {
@@ -84,7 +84,7 @@ Future<void> main() async {
     final ds = await datastore(nextPath()).open();
     await ds.bind(await WebSocket().connect(port: port));
 
-    expect(ds.size, 1);
+    expect(ds.modelCount, 1);
     expect(ds.get<TestType1>(model.id)?.name, model.name);
   });
 
@@ -96,7 +96,7 @@ Future<void> main() async {
     final model = ds.put(TestType1(name: 'test-01'));
     await ds.bind(await WebSocket().connect(port: port));
 
-    expect(ds.size, 1);
+    expect(ds.modelCount, 1);
     expect(await server.dsModelCount, 1);
     expect((await server.dsGet(model.id))?.name, model.name);
   });
@@ -110,7 +110,7 @@ Future<void> main() async {
     final model2 = ds.put(TestType1(name: 'test-02'));
     await ds.bind(await WebSocket().connect(port: port));
 
-    expect(ds.size, 2);
+    expect(ds.modelCount, 2);
     expect(ds.get<TestType1>(model1.id)?.name, model1.name);
     expect(ds.get<TestType1>(model2.id)?.name, model2.name);
     expect(await server.dsModelCount, 2);
@@ -135,7 +135,7 @@ Future<void> main() async {
     await ds2.bind(client);
 
     expect(await server.dsModelCount, 2);
-    expect(await server.dsModelCount, ds2.size);
+    expect(await server.dsModelCount, ds2.modelCount);
     expect((await server.dsGet(m1.id))?.name, 'test01');
     expect((await server.dsGet(m2.id))?.name, 'test02');
     expect(ds2.get<TestType1>(m1.id)?.name, 'test01');
@@ -155,15 +155,15 @@ Future<void> main() async {
     final m1 = TestType1(name: 'test01');
     await server.dsPut(m1);
     expect(await server.dsModelCount, 1);
-    expect(ds.size, 1);
+    expect(ds.modelCount, 1);
     expect(ds.get(m1.id), isNotNull);
     expect(ds.get<TestType1>(m1.id)?.name, 'test01');
 
     final m2 = TestType1(name: 'test02');
     ds.put(m2);
     await ds.flush();
-    expect(ds.size, 2);
-    expect(await server.dsModelCount, ds.size);
+    expect(ds.modelCount, 2);
+    expect(await server.dsModelCount, ds.modelCount);
     expect((await server.dsGet(m2.id))?.name, 'test02');
   });
 
@@ -182,14 +182,14 @@ Future<void> main() async {
     await ds2.bind(client2);
 
     expect(await server.dsModelCount, 0);
-    expect(ds1.size, 0);
-    expect(ds2.size, 0);
+    expect(ds1.modelCount, 0);
+    expect(ds2.modelCount, 0);
 
     final m1 = TestType1(name: 'test01');
     await server.dsPut(m1);
     expect(await server.dsModelCount, 1);
-    expect(ds1.size, 1);
-    expect(ds2.size, 1);
+    expect(ds1.modelCount, 1);
+    expect(ds2.modelCount, 1);
     expect((await server.dsGet(m1.id))?.name, 'test01');
     expect(ds1.get<TestType1>(m1.id)?.name, 'test01');
     expect(ds2.get<TestType1>(m1.id)?.name, 'test01');
@@ -198,8 +198,8 @@ Future<void> main() async {
     ds1.put(m2);
     await ds1.flush();
     expect(await server.dsModelCount, 2);
-    expect(ds1.size, 2);
-    expect(ds2.size, 2);
+    expect(ds1.modelCount, 2);
+    expect(ds2.modelCount, 2);
     expect((await server.dsGet(m2.id))?.name, 'test02');
     expect(ds1.get<TestType1>(m2.id)?.name, 'test02');
     expect(ds2.get<TestType1>(m2.id)?.name, 'test02');
@@ -208,8 +208,8 @@ Future<void> main() async {
     ds2.put(m3);
     await ds2.flush();
     expect(await server.dsModelCount, 3);
-    expect(ds1.size, 3);
-    expect(ds2.size, 3);
+    expect(ds1.modelCount, 3);
+    expect(ds2.modelCount, 3);
     expect((await server.dsGet(m3.id))?.name, 'test03');
     expect(ds1.get<TestType1>(m3.id)?.name, 'test03');
     expect(ds2.get<TestType1>(m3.id)?.name, 'test03');

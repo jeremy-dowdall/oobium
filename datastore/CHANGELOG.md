@@ -1,3 +1,15 @@
+## 1.0.0-dev.4
+
+* allow adding models created with external ids to the system
+* handle putting models with unlimited depth of child models
+* expose reset method to generated datastore
+* remove experimental isolate functionality
+* added DataStoreObserver
+
+## 1.0.0-dev.3
+
+* generator updates only (see oobium_datastore_gen)
+
 ## 1.0.0-dev.2
 
 * add model.deleted method and private constructor

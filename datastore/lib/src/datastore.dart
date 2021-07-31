@@ -13,42 +13,47 @@ class DataStore {
   static Future<void> clean(String path) => Data(path).destroy();
 
   final String path;
-  final String? isolate;
   final Adapters _adapters;
   final List<DataIndex> _indexes;
   final CompactionStrategy? _compactionStrategy;
   final bool _persist;
   DataStore(this.path, {
-    this.isolate,
     required Adapters adapters,
     List<DataIndex> indexes = const[],
-    CompactionStrategy compactionStrategy = const DefaultCompactionStrategy()
+    CompactionStrategy compactionStrategy = const DefaultCompactionStrategy(),
+    DataStoreObserver? observer,
   }) :
     assert(path.isNotBlank, 'datastore path cannot be blank'),
     _adapters = adapters,
     _indexes = indexes,
     _compactionStrategy = compactionStrategy,
     _persist = true
-  ;
+  {
+    observer?._ds = this;
+  }
   DataStore.memory({
     required Adapters adapters,
     List<DataIndex> indexes = const[],
+    DataStoreObserver? observer,
   }) :
     path = '',
-    isolate = null,
     _adapters = adapters,
     _indexes = indexes,
     _compactionStrategy = null,
     _persist = false
-  ;
+  {
+    observer?._ds = this;
+  }
 
   Models? _models;
   DataWorker? _worker;
 
   int get version => _worker?.version ?? -1;
 
-  int get size => _models?.modelCount ?? 0;
-  bool get isEmpty => size == 0;
+  int get modelCount => _models?.modelCount ?? 0;
+  int get recordCount => _models?.recordCount ?? 0;
+
+  bool get isEmpty => modelCount == 0;
   bool get isNotEmpty => !isEmpty;
   
   bool _open = false;
@@ -60,7 +65,7 @@ class DataStore {
       _open = true;
       _models = Models(_indexes);
       final worker = _persist
-          ? await DataWorker(path, isolate: isolate).open(version: version, onUpgrade: onUpgrade)
+          ? await DataWorker(path).open(version: version, onUpgrade: onUpgrade)
           : null;
       if(worker != null) {
         _models = await _models!.load(worker.getData().map(_adapters.decodeRecord));
@@ -83,11 +88,15 @@ class DataStore {
   }
 
   Future<void> destroy() async {
-    _open = false;
-    await _worker?.destroy();
-    await _models?.close();
-    _worker = null;
-    _models = null;
+    if(_open) {
+      _open = false;
+      await _worker?.destroy();
+      await _models?.close();
+      _worker = null;
+      _models = null;
+    } else {
+      await clean(path);
+    }
   }
 
   Future<void> reset() async {
@@ -142,13 +151,10 @@ class DataStore {
     return batch.results;
   }
 
-  bool _shouldCompact() {
-    final models = _models;
-    if(models != null && models.modelCount > 0 && models.recordCount > 0) {
-      return _compactionStrategy?.shouldCompact(models.modelCount, models.recordCount) ?? false;
-    }
-    return false;
-  }
+  bool _shouldCompact() => _compactionStrategy?.shouldCompact(
+      _models?.modelCount ?? 0,
+      _models?.recordCount ?? 0
+  ) ?? false;
 }
 
 class DataRecord {
@@ -157,14 +163,11 @@ class DataRecord {
   final String updateId;
   final String type;
   final String? data;
-  // DataRecord(this.modelId, this.updateId, this.type, [Map? data]) :
-  //   _data = jsonEncode(data);
   DataRecord(this.modelId, this.updateId, this.type, [this.data]);
 
-  // factory DataRecord.delete(DataModel model) => model.toDataRecord(delete: true);
+  /// delete: <modelId>:<updateId>:<type>
+  /// normal: <modelId>:<updateId>:<type>{jsonData}
   factory DataRecord.fromLine(String line) {
-    // delete: <modelId>:<updateId>:<type>
-    // full: <modelId>:<updateId>:<type>{jsonData}
     final modelId = line.substring(0, 24);
     final updateId = line.substring(25, 49);
     int ix = line.indexOf('{', 50);
@@ -175,13 +178,6 @@ class DataRecord {
       return DataRecord(modelId, updateId, type, line.substring(ix));
     }
   }
-  // factory DataRecord.fromModel(DataModel model) => model.toDataRecord();
-
-  // Map<String, dynamic> get data => {
-  //   '_modelId': modelId,
-  //   '_updateId': updateId,
-  //   if(_data != null) ...jsonDecode(_data!)
-  // };
 
   bool get isDelete => (data == null);
   bool get isNotDelete => !isDelete;
@@ -213,11 +209,16 @@ class DefaultCompactionStrategy extends CompactionStrategy {
   const DefaultCompactionStrategy();
 
   @override
-  bool shouldCompact(int modelCount, int recordCount) {
-    if(recordCount <= 0) return false;
-    final diff = recordCount - modelCount;
-    final ratio = modelCount / recordCount;
-    // print('compactCheck(diff: $diff, ratio: $ratio, models: ${modelCount}, records: ${recordCount})');
+  bool shouldCompact(int itemCount, int recordCount) {
+    if(recordCount < 100) return false;
+    final diff = recordCount - itemCount;
+    final ratio = itemCount / recordCount;
     return (diff > 4 && ratio < .75);
   }
+}
+
+class DataStoreObserver {
+  late final DataStore _ds;
+  int get modelCount => _ds.modelCount;
+  int get recordCount => _ds.recordCount;
 }

@@ -273,7 +273,7 @@ packages:
       path: "../datastore"
       relative: true
     source: path
-    version: "1.0.0-dev.2"
+    version: "1.0.0-dev.3"
   package_config:
     dependency: transitive
     description:

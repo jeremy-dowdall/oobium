@@ -21,7 +21,7 @@ class Adapters {
     if(converter != null) {
       return converter;
     }
-    throw 'no adapter registered for $type';
+    throw MissingAdapterError(type);
   }
 
   DataModel decodeRecord(DataRecord record) {
@@ -88,4 +88,10 @@ class Adapter<T> {
 
   // T fromJson(Map<String, dynamic> data);
   // Map<String, dynamic> toJson(T object);
+}
+
+class MissingAdapterError extends Error {
+  final String message;
+  MissingAdapterError(String type) :
+        message = 'no adapter registered for $type';
 }

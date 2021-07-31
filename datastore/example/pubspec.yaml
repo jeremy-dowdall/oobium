@@ -23,7 +23,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   build_runner: ^2.0.4
-  oobium_datastore_gen: ^1.0.0-dev.1
+  oobium_datastore_gen: ^1.0.0-dev.4
 
 flutter:
   uses-material-design: true

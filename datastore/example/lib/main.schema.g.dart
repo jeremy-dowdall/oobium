@@ -2,23 +2,16 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class MainData {
   final DataStore _ds;
-  MainData(String path, {String? isolate})
+  MainData(String path, {DataStoreObserver? observer})
       : _ds = DataStore('$path/main',
-            isolate: isolate,
             adapters: Adapters([
-              Adapter<Author>(
-                  decode: (m) => Author._(m),
+              Adapter<Item>(
+                  decode: (m) => Item._(m),
                   encode: (k, v) => v,
-                  fields: ['name']),
-              Adapter<Book>(
-                  decode: (m) {
-                    m['author'] = DataId(m['author']);
-                    return Book._(m);
-                  },
-                  encode: (k, v) => v,
-                  fields: ['title', 'author'])
+                  fields: ['id', 'name'])
             ]),
-            indexes: []);
+            indexes: [DataIndex<Item>(toKey: (m) => m.id)],
+            observer: observer);
   Future<MainData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -26,37 +19,29 @@ class MainData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
-  Author? getAuthor(ObjectId? id, {Author? Function()? orElse}) =>
-      _ds.get<Author>(id, orElse: orElse);
-  Book? getBook(ObjectId? id, {Book? Function()? orElse}) =>
-      _ds.get<Book>(id, orElse: orElse);
-  Iterable<Author> getAuthors() => _ds.getAll<Author>();
-  Iterable<Book> getBooks() => _ds.getAll<Book>();
-  Iterable<Author> findAuthors({String? name}) =>
-      _ds.getAll<Author>().where((m) => (name == null || name == m.name));
-  Iterable<Book> findBooks({String? title, Author? author}) =>
-      _ds.getAll<Book>().where((m) =>
-          (title == null || title == m.title) &&
-          (author == null || author == m.author));
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
+  Item? getItem(int? id, {Item? Function()? orElse}) =>
+      _ds.get<Item>(id, orElse: orElse);
+  List<Item> getItems({bool Function(Item model)? where}) =>
+      _ds.getAll<Item>(where: where);
+  List<Item> findItems({String? name}) =>
+      _ds.getAll<Item>(where: (m) => (name == null || name == m.name));
   T put<T extends MainModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends MainModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
-  Author putAuthor({required String name}) => _ds.put(Author(name: name));
-  Book putBook({required String title, required Author author}) =>
-      _ds.put(Book(title: title, author: author));
+  Item putItem({required int id, required String name}) =>
+      _ds.put(Item(id: id, name: name));
   T remove<T extends MainModel>(T model) => _ds.remove<T>(model);
   List<T> removeAll<T extends MainModel>(Iterable<T> models) =>
       _ds.removeAll<T>(models);
-  Stream<Author?> streamAuthor(ObjectId id) => _ds.stream<Author>(id);
-  Stream<Book?> streamBook(ObjectId id) => _ds.stream<Book>(id);
-  Stream<DataModelEvent<Author>> streamAuthors(
-          {bool Function(Author model)? where}) =>
-      _ds.streamAll<Author>(where: where);
-  Stream<DataModelEvent<Book>> streamBooks(
-          {bool Function(Book model)? where}) =>
-      _ds.streamAll<Book>(where: where);
+  Stream<Item?> streamItem(int id) => _ds.stream<Item>(id);
+  Stream<DataModelEvent<Item>> streamItems(
+          {bool Function(Item model)? where}) =>
+      _ds.streamAll<Item>(where: where);
 }
 
 abstract class MainModel extends DataModel {
@@ -65,46 +50,30 @@ abstract class MainModel extends DataModel {
       : super.copyNew(original, fields);
   MainModel.copyWith(MainModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
+  MainModel.deleted(MainModel original) : super.deleted(original);
 }
 
-class Author extends MainModel {
-  ObjectId get id => this['_modelId'];
+class Item extends MainModel {
+  int get id => this['id'];
   String get name => this['name'];
 
-  Author({required String name}) : super({'name': name});
+  Item({required int id, required String name})
+      : super({'id': id, 'name': name});
 
-  Author._(map) : super(map);
+  Item._(map) : super(map);
 
-  Author._copyNew(Author original, {required String name})
-      : super.copyNew(original, {'name': name});
+  Item._copyNew(Item original, {required int id, required String name})
+      : super.copyNew(original, {'id': id, 'name': name});
 
-  Author._copyWith(Author original, {String? name})
+  Item._copyWith(Item original, {String? name})
       : super.copyWith(original, {'name': name});
 
-  Author copyNew({required String name}) => Author._copyNew(this, name: name);
+  Item._deleted(Item original) : super.deleted(original);
 
-  Author copyWith({String? name}) => Author._copyWith(this, name: name);
-}
+  Item copyNew({required int id, required String name}) =>
+      Item._copyNew(this, id: id, name: name);
 
-class Book extends MainModel {
-  ObjectId get id => this['_modelId'];
-  String get title => this['title'];
-  Author get author => this['author'];
+  Item copyWith({String? name}) => Item._copyWith(this, name: name);
 
-  Book({required String title, required Author author})
-      : super({'title': title, 'author': author});
-
-  Book._(map) : super(map);
-
-  Book._copyNew(Book original, {required String title, required Author author})
-      : super.copyNew(original, {'title': title, 'author': author});
-
-  Book._copyWith(Book original, {String? title, Author? author})
-      : super.copyWith(original, {'title': title, 'author': author});
-
-  Book copyNew({required String title, required Author author}) =>
-      Book._copyNew(this, title: title, author: author);
-
-  Book copyWith({String? title, Author? author}) =>
-      Book._copyWith(this, title: title, author: author);
+  Item deleted() => Item._deleted(this);
 }

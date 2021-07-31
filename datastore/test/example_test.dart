@@ -16,7 +16,7 @@ void main() async {
         name: 'section $i',
         inventory: inventory
       );
-      for(var j = 0; j < 1000; j++) {
+      for(var j = 0; j < 100; j++) {
         ds.putInventoryItem(
           id: j,
           name: 'item $i-$j',
@@ -27,11 +27,11 @@ void main() async {
     await ds.close();
     await ds.open();
     expect(ds.getInventories().length, 1);
-    expect(ds.getInventory(1)?.sections.toList().length, 10);
-    expect(ds.getInventorySections().length, 10);
+    expect(ds.getInventory(1)?.sections.toList().length, 100);
+    expect(ds.getInventorySections().length, 100);
     expect(ds.getInventoryItems().length, 100);
-    for(var i = 0; i < 10; i++) {
-      if(i < 9) {
+    for(var i = 0; i < 100; i++) {
+      if(i < 99) {
         expect(ds.getInventorySection(i)?.items.toList().length, 0);
       } else {
         expect(ds.getInventorySection(i)?.items.toList().length, 100);

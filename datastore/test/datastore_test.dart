@@ -65,7 +65,7 @@ Future<void> main() async {
     expect(m1['_updateId'], isNot(m2['_updateId']));
   });
 
-  test('test custom model without adapter', () async {
+  test('test model without adapter', () async {
     final ds = await DataStore('test-data/custom-model_no-adapter',
       adapters: Adapters([])
     ).open();
@@ -154,7 +154,7 @@ Future<void> main() async {
     expect(results[1].id, isA<ObjectId>());
     expect(results[2], initial[0]);
     expect(results[3], initial[1]);
-    expect(ds.size, 2);
+    expect(ds.modelCount, 2);
     await ds.close();
 
     final ds2 = createDatastore(testFile, clone: ds);
@@ -306,7 +306,7 @@ Future<void> main() async {
 
   test('test indexes', () async {
     final ds = DataStore('test-data/test-${datastores.length}',
-      adapters: Adapters([]),
+      adapters: Adapters([TestType1.adapter]),
       indexes: [DataIndex<TestType1>(toKey: (model) => model.name)]
     );
     await ds.reset();

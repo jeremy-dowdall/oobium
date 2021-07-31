@@ -1,3 +1,7 @@
+## 1.0.0-dev.4
+
+* updates for oobium_datastore 1.0.0-dev.4
+
 ## 1.0.0-dev.3
 
 * add reset method to generated datastore
