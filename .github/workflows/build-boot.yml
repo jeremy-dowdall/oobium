@@ -1,9 +1,10 @@
 name: Tools Host Build
 
 on:
-  push:
-    paths:
-      - 'tools/host/lib/boot/**'
+  push
+#  push:
+#    paths:
+#      - 'tools/host/lib/boot/**'
 
 jobs:
   build:
