@@ -13,6 +13,10 @@ jobs:
       - uses: dart-lang/setup-dart@v1
 
       - run: mkdir -p dist
+
+      - run: dart pub get
+        working-directory: tools/host
+
       - run: dart compile exe tools/host/lib/boot/main.dart -o dist/boot-linux.exe
 
       - uses: actions/upload-artifact@v2
