@@ -21,6 +21,7 @@ class AppRoutes<H extends AppRoute> {
 
   Type get _homeType => H;
   HomeRedirect? _homeRedirect;
+  AppRoute get _homeRoute => _homeRedirect?.call() ?? HomeRoute();
   late RouteDefinition<H> _homeDefinition;
   late RouteDefinition<NotFoundRoute> _notFoundDefinition;
   late RouteDefinition<ErrorRoute> _errorDefinition;
@@ -399,7 +400,11 @@ class AppRouterState extends ChangeNotifier {
   void set(AppRoute value) {
     final resolved = _resolved(value);
     if(resolved != null && (_stack.length != 1 || _stack[0] != resolved)) {
-      _stack = [resolved];
+      final home = _routes._homeRoute;
+      _stack = [
+        if(resolved != home) home,
+        resolved
+      ];
       _changed();
     }
   }
@@ -429,11 +434,11 @@ class AppRouterState extends ChangeNotifier {
   void _setNewRoutePath(AppRoute value) {
     final resolved = _resolved(value);
     if(resolved != _last) {
-      if(resolved == null) {
-        _stack = [];
-      } else {
-        _stack = [resolved];
-      }
+      final home = _routes._homeRoute;
+      _stack = [
+        if(resolved != home) home,
+        if(resolved != null) resolved
+      ];
       notifyListeners();
     }
     for(final child in _children) {
@@ -457,7 +462,7 @@ class PagesBuilder {
     final stack = state.stack;
     print('${state.name} stack: ${state._stack} -> $stack');
     try {
-      for(final route in state.stack) {
+      for(final route in stack) {
         final page = getPage(route, guard: true, cupertino: cupertino);
         if(keys.containsKey(page.key)) {
           throw DuplicateKeyException(

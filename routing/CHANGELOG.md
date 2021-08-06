@@ -1,3 +1,7 @@
+## 1.0.0-dev.3
+
+* add the home route during set(route) and setNewRoutePath(route)
+
 ## 1.0.0-dev.2
 
 * cleanup
