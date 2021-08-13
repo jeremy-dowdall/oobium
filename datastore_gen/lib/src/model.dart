@@ -133,6 +133,7 @@ class Model {
       
       $type copyWith($copyFields) => $type._copyWith(this, $copyParams);
       
+      @override
       $type deleted() => $type._deleted(this);
     }
   ''';

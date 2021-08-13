@@ -25,7 +25,7 @@ class InitCommand extends ProjectCommand {
     final config = oobium.config.copyWith(
         address:    promptFor('address', initial: oobium.config.address),
         host:       promptFor('host', initial: oobium.config.host),
-        subdomains: ['www', 'api'],
+        subdomains: promptFor('subdomain(s)', initial: oobium.config.subdomains.join(',')).split(','),
         email:      promptFor('email', initial: oobium.config.email)
     );
     if(!oobium.configFile.existsSync()) {

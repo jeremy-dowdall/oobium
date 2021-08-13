@@ -7,13 +7,13 @@ import 'commands/status.dart';
 import '../config.dart' as config;
 
 Future<void> start() async {
-  final server = await Server.config(ServerConfig(
+  final server = await Server.secure(
     address: config.address,
     port: config.port,
     certificate: config.certificate,
     privateKey: config.privateKey,
-    redirect: false,
-  ));
+    redirectInsecure: false,
+  );
 
   server.get('/', [
     (req) {

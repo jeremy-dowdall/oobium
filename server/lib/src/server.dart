@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File, Directory, ContentType, HttpRequest, HttpResponse, HttpServer, HttpStatus, HttpHeaders;
+import 'dart:io' show File, Directory, ContentType, HttpRequest, HttpResponse, HttpServer, HttpStatus, HttpHeaders, SecurityContext;
 import 'dart:math';
 
 import 'package:objectid/objectid.dart';
-import 'package:oobium_server/src/config/server_config.dart';
 import 'package:oobium_server/src/service.dart';
 import 'package:oobium_websocket/oobium_websocket.dart';
 import 'package:xstring/xstring.dart';
@@ -20,8 +19,6 @@ class Host {
   final _loggers = <String, Logger>{};
   ServiceRegistry? _registry;
   Host._(this.name, this._server);
-
-  ServerConfig get settings => _server.config;
 
   Logger? _logger;
   Logger get logger => _logger ?? _server.logger;
@@ -78,9 +75,9 @@ class Host {
     }
   }
 
-  void redirect(String from) => _server.hostRedirect(from: from, to: name);
-  void subdomain(String name) => _server.hostSubdomain(host: this.name, sub: name);
-  void subdomains(List<String> names) => _server.hostSubdomains(host: name, subs: names);
+  void redirect(String from) => _server.redirectHost(from, to: name);
+  void subdomain(String name) => _server.putSubdomain(host: this.name, sub: name);
+  void subdomains(List<String> names) => _server.putSubdomains(host: name, subs: names);
 
   Iterable<File> _getFiles(String? directoryPath, {optional = false}) {
     assert(directoryPath != null || optional, 'directoryPath cannot be null, unless optional is true');
@@ -181,19 +178,36 @@ class Host {
 
 class Server {
 
-  final ServerConfig config;
+  final String address;
+  final int port;
+  final SecurityContext? _securityContext;
+  final bool _redirectInsecure;
+  Server({
+    this.address='127.0.0.1',
+    this.port=8080,
+  }) : _securityContext = null, _redirectInsecure = false;
+  Server.secure({
+    this.address='127.0.0.1',
+    this.port=4430,
+    required String certificate,
+    required String privateKey,
+    String? clientAuthorities,
+    bool redirectInsecure=true,
+  }) : _securityContext = (() {
+    final context = SecurityContext.defaultContext
+      ..useCertificateChain(certificate)
+      ..usePrivateKey(privateKey)
+    ;
+    if(clientAuthorities.isNotBlank) {
+      context.setClientAuthorities(clientAuthorities!);
+    }
+    return context;
+  })(), _redirectInsecure = redirectInsecure;
+
+  Logger logger = Logger();
   final _hosts = <String, Host>{};
   final _redirects = <String, Redirect>{};
   final _subdomains = <String, String>{};
-  Server({
-    String address='127.0.0.1',
-    int port=8080,
-  }) : config = ServerConfig(address: address, port: port);
-  Server.config(this.config);
-  static Future<Server> fromEnv() => ServerConfig.fromEnv()
-      .then((config) => Server.config(config));
-
-  Logger logger = Logger();
 
   var _started = false;
   HttpServer? http;
@@ -202,19 +216,22 @@ class Server {
   StreamSubscription? httpsSubscription;
   StreamSubscription? watcherSubscription;
 
+  bool get isSecure => _securityContext != null;
+  bool get isNotSecure => !isSecure;
+
   Host host([String name='']) {
     return _hosts.putIfAbsent(name, () => Host._(name, this));
   }
 
-  void hostRedirect({required String from, required String to, bool temporary = false}) {
+  void redirectHost(String from, {required String to, bool temporary = false}) {
     _redirects[from] = Redirect(to, temporary);
   }
   
-  void hostSubdomain({required String host, required String sub}) {
+  void putSubdomain({required String host, required String sub}) {
     _subdomains['$sub.$host'] = host;
   }
 
-  void hostSubdomains({required String host, required List<String> subs}) {
+  void putSubdomains({required String host, required List<String> subs}) {
     for(var sub in subs) {
       _subdomains['$sub.$host'] = host;
     }
@@ -236,20 +253,20 @@ class Server {
     }
     _started = true;
     await _startServices();
-    if(config.isSecure) {
-      https = await HttpServer.bindSecure(config.address, config.port, config.securityContext,
+    if(isSecure) {
+      https = await HttpServer.bindSecure(address, port, _securityContext!,
         requestClientCertificate: true
       );
       httpsSubscription = https!.listen((httpRequest) async => await _handle(httpRequest));
-      if(config.redirect) {
-        http = await HttpServer.bind(config.address, 80);
+      if(_redirectInsecure) {
+        http = await HttpServer.bind(address, 80);
         httpSubscription = http!.listen((httpRequest) async => await _redirect(httpRequest, scheme: 'https'));
         print('Listening on https://${https!.address.host}:${https!.port}/ with redirect from http on port 80');
       } else {
         print('Listening on https://${https!.address.host}:${https!.port}/');
       }
     } else {
-      http = await HttpServer.bind(config.address, config.port);
+      http = await HttpServer.bind(address, port);
       httpSubscription = http!.listen((httpRequest) async => await _handle(httpRequest));
       print('Listening on http://${http!.address.host}:${http!.port}/');
     }

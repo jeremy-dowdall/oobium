@@ -1,0 +1,26 @@
+name: Tools Host Build
+
+on:
+  push
+#  push:
+#    paths:
+#      - 'tools/host/lib/host/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dart-lang/setup-dart@v1
+
+      - run: mkdir -p dist
+
+      - run: dart pub get
+        working-directory: tools/host
+
+      - run: dart compile exe tools/host/lib/boot/main.dart -o dist/boot-linux.exe
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: boot-linux.exe
+          path: dist/boot-linux.exe
