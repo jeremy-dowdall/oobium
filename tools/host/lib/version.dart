@@ -1,6 +1,4 @@
-import 'dart:io';
-
-import 'package:tools_host/installer.dart';
+import 'boot/boot.dart';
 
 const version = const String.fromEnvironment('version');
 const channel = const String.fromEnvironment('channel');

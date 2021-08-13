@@ -1,4 +1,5 @@
 *.ds
 *.ds.*
+dist/
 test-cache/
 test-data/
