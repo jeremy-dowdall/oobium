@@ -20,7 +20,5 @@ jobs:
 
       - run: dart compile exe tools/host/lib/boot/main.dart -o dist/boot-linux.exe
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: boot-linux.exe
-          path: dist/boot-linux.exe
+      - run: echo -e ${{ secrets.DEPLOY_SSH_KEY }} > _
+      - run: 'scp dist/boot-linux.exe root@oobium.download:/files/boot-linux.exe'
