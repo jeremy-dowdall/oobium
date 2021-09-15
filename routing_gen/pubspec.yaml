@@ -1,6 +1,6 @@
 name: oobium_routing_gen
 description: Generators for Oobium Routing, enabling compile-time safe routes
-version: 1.0.0-dev.2
+version: 1.0.0-dev.5
 repository: https://github.com/jeremy-dowdall/oobium
 
 environment:

@@ -2,11 +2,23 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class AuthClientData {
   final DataStore _ds;
-  AuthClientData(String path, {String? isolate})
+  AuthClientData(String path, {DataStoreObserver? observer})
       : _ds = DataStore('$path/auth_client',
-            isolate: isolate,
-            builders: [(data) => Account.fromJson(data)],
-            indexes: []);
+            adapters: Adapters([
+              Adapter<Account>(
+                  decode: (m) => Account._(m),
+                  encode: (k, v) => v,
+                  fields: [
+                    'uid',
+                    'token',
+                    'avatar',
+                    'description',
+                    'lastConnectedAt',
+                    'lastOpenedAt'
+                  ])
+            ]),
+            indexes: [],
+            observer: observer);
   Future<AuthClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -14,25 +26,31 @@ class AuthClientData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
   Account? getAccount(ObjectId? id, {Account? Function()? orElse}) =>
       _ds.get<Account>(id, orElse: orElse);
-  Iterable<Account> getAccounts() => _ds.getAll<Account>();
-  Iterable<Account> findAccounts(
+  List<Account> getAccounts({bool Function(Account model)? where}) =>
+      _ds.getAll<Account>(where: where);
+  List<Account> findAccounts(
           {String? uid,
           String? token,
           String? avatar,
           String? description,
           int? lastConnectedAt,
           int? lastOpenedAt}) =>
-      _ds.getAll<Account>().where((m) =>
-          (uid == null || uid == m.uid) &&
-          (token == null || token == m.token) &&
-          (avatar == null || avatar == m.avatar) &&
-          (description == null || description == m.description) &&
-          (lastConnectedAt == null || lastConnectedAt == m.lastConnectedAt) &&
-          (lastOpenedAt == null || lastOpenedAt == m.lastOpenedAt));
+      _ds.getAll<Account>(
+          where: (m) =>
+              (uid == null || uid == m.uid) &&
+              (token == null || token == m.token) &&
+              (avatar == null || avatar == m.avatar) &&
+              (description == null || description == m.description) &&
+              (lastConnectedAt == null ||
+                  lastConnectedAt == m.lastConnectedAt) &&
+              (lastOpenedAt == null || lastOpenedAt == m.lastOpenedAt));
   T put<T extends AuthClientModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends AuthClientModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
@@ -67,9 +85,7 @@ abstract class AuthClientModel extends DataModel {
   AuthClientModel.copyWith(
       AuthClientModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  AuthClientModel.fromJson(
-      data, Set<String> fields, Set<String> modelFields, bool newId)
-      : super.fromJson(data, fields, modelFields, newId);
+  AuthClientModel.deleted(AuthClientModel original) : super.deleted(original);
 }
 
 class Account extends AuthClientModel {
@@ -97,13 +113,15 @@ class Account extends AuthClientModel {
           'lastOpenedAt': lastOpenedAt
         });
 
-  Account.copyNew(Account original,
-      {String? uid,
+  Account._(map) : super(map);
+
+  Account._copyNew(Account original,
+      {required String uid,
       String? token,
       String? avatar,
       String? description,
-      int? lastConnectedAt,
-      int? lastOpenedAt})
+      int lastConnectedAt = 0,
+      int lastOpenedAt = 0})
       : super.copyNew(original, {
           'uid': uid,
           'token': token,
@@ -113,7 +131,7 @@ class Account extends AuthClientModel {
           'lastOpenedAt': lastOpenedAt
         });
 
-  Account.copyWith(Account original,
+  Account._copyWith(Account original,
       {String? uid,
       String? token,
       String? avatar,
@@ -129,28 +147,16 @@ class Account extends AuthClientModel {
           'lastOpenedAt': lastOpenedAt
         });
 
-  Account.fromJson(data, {bool newId = false})
-      : super.fromJson(
-            data,
-            {
-              'uid',
-              'token',
-              'avatar',
-              'description',
-              'lastConnectedAt',
-              'lastOpenedAt'
-            },
-            {},
-            newId);
+  Account._deleted(Account original) : super.deleted(original);
 
   Account copyNew(
-          {String? uid,
+          {required String uid,
           String? token,
           String? avatar,
           String? description,
-          int? lastConnectedAt,
-          int? lastOpenedAt}) =>
-      Account.copyNew(this,
+          int lastConnectedAt = 0,
+          int lastOpenedAt = 0}) =>
+      Account._copyNew(this,
           uid: uid,
           token: token,
           avatar: avatar,
@@ -165,11 +171,14 @@ class Account extends AuthClientModel {
           String? description,
           int? lastConnectedAt,
           int? lastOpenedAt}) =>
-      Account.copyWith(this,
+      Account._copyWith(this,
           uid: uid,
           token: token,
           avatar: avatar,
           description: description,
           lastConnectedAt: lastConnectedAt,
           lastOpenedAt: lastOpenedAt);
+
+  @override
+  Account deleted() => Account._deleted(this);
 }

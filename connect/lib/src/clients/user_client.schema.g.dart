@@ -2,12 +2,31 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class UserClientData {
   final DataStore _ds;
-  UserClientData(String path, {String? isolate})
-      : _ds = DataStore('$path/user_client', isolate: isolate, builders: [
-          (data) => User.fromJson(data),
-          (data) => Group.fromJson(data),
-          (data) => Membership.fromJson(data)
-        ], indexes: []);
+  UserClientData(String path, {DataStoreObserver? observer})
+      : _ds = DataStore('$path/user_client',
+            adapters: Adapters([
+              Adapter<User>(
+                  decode: (m) => User._(m),
+                  encode: (k, v) => v,
+                  fields: ['name', 'avatar']),
+              Adapter<Group>(
+                  decode: (m) {
+                    m['owner'] = DataId(m['owner']);
+                    return Group._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['name', 'owner']),
+              Adapter<Membership>(
+                  decode: (m) {
+                    m['user'] = DataId(m['user']);
+                    m['group'] = DataId(m['group']);
+                    return Membership._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['user', 'group'])
+            ]),
+            indexes: [],
+            observer: observer);
   Future<UserClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -15,33 +34,40 @@ class UserClientData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
   User? getUser(ObjectId? id, {User? Function()? orElse}) =>
       _ds.get<User>(id, orElse: orElse);
   Group? getGroup(ObjectId? id, {Group? Function()? orElse}) =>
       _ds.get<Group>(id, orElse: orElse);
   Membership? getMembership(ObjectId? id, {Membership? Function()? orElse}) =>
       _ds.get<Membership>(id, orElse: orElse);
-  Iterable<User> getUsers() => _ds.getAll<User>();
-  Iterable<Group> getGroups() => _ds.getAll<Group>();
-  Iterable<Membership> getMemberships() => _ds.getAll<Membership>();
-  Iterable<User> findUsers({String? name, String? avatar}) =>
-      _ds.getAll<User>().where((m) =>
+  List<User> getUsers({bool Function(User model)? where}) =>
+      _ds.getAll<User>(where: where);
+  List<Group> getGroups({bool Function(Group model)? where}) =>
+      _ds.getAll<Group>(where: where);
+  List<Membership> getMemberships({bool Function(Membership model)? where}) =>
+      _ds.getAll<Membership>(where: where);
+  List<User> findUsers({String? name, String? avatar}) => _ds.getAll<User>(
+      where: (m) =>
           (name == null || name == m.name) &&
           (avatar == null || avatar == m.avatar));
-  Iterable<Group> findGroups({String? name, User? owner}) =>
-      _ds.getAll<Group>().where((m) =>
+  List<Group> findGroups({String? name, User? owner}) => _ds.getAll<Group>(
+      where: (m) =>
           (name == null || name == m.name) &&
           (owner == null || owner == m.owner));
-  Iterable<Membership> findMemberships({User? user, Group? group}) =>
-      _ds.getAll<Membership>().where((m) =>
-          (user == null || user == m.user) &&
-          (group == null || group == m.group));
+  List<Membership> findMemberships({User? user, Group? group}) =>
+      _ds.getAll<Membership>(
+          where: (m) =>
+              (user == null || user == m.user) &&
+              (group == null || group == m.group));
   T put<T extends UserClientModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends UserClientModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
-  User putUser({required String name, required String avatar}) =>
+  User putUser({required String name, String? avatar}) =>
       _ds.put(User(name: name, avatar: avatar));
   Group putGroup({required String name, required User owner}) =>
       _ds.put(Group(name: name, owner: owner));
@@ -73,33 +99,35 @@ abstract class UserClientModel extends DataModel {
   UserClientModel.copyWith(
       UserClientModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  UserClientModel.fromJson(
-      data, Set<String> fields, Set<String> modelFields, bool newId)
-      : super.fromJson(data, fields, modelFields, newId);
+  UserClientModel.deleted(UserClientModel original) : super.deleted(original);
 }
 
 class User extends UserClientModel {
   ObjectId get id => this['_modelId'];
   String get name => this['name'];
-  String get avatar => this['avatar'];
+  String? get avatar => this['avatar'];
 
-  User({required String name, required String avatar})
+  User({required String name, String? avatar})
       : super({'name': name, 'avatar': avatar});
 
-  User.copyNew(User original, {String? name, String? avatar})
+  User._(map) : super(map);
+
+  User._copyNew(User original, {required String name, String? avatar})
       : super.copyNew(original, {'name': name, 'avatar': avatar});
 
-  User.copyWith(User original, {String? name, String? avatar})
+  User._copyWith(User original, {String? name, String? avatar})
       : super.copyWith(original, {'name': name, 'avatar': avatar});
 
-  User.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name', 'avatar'}, {}, newId);
+  User._deleted(User original) : super.deleted(original);
 
-  User copyNew({String? name, String? avatar}) =>
-      User.copyNew(this, name: name, avatar: avatar);
+  User copyNew({required String name, String? avatar}) =>
+      User._copyNew(this, name: name, avatar: avatar);
 
   User copyWith({String? name, String? avatar}) =>
-      User.copyWith(this, name: name, avatar: avatar);
+      User._copyWith(this, name: name, avatar: avatar);
+
+  @override
+  User deleted() => User._deleted(this);
 }
 
 class Group extends UserClientModel {
@@ -110,20 +138,24 @@ class Group extends UserClientModel {
   Group({required String name, required User owner})
       : super({'name': name, 'owner': owner});
 
-  Group.copyNew(Group original, {String? name, User? owner})
+  Group._(map) : super(map);
+
+  Group._copyNew(Group original, {required String name, required User owner})
       : super.copyNew(original, {'name': name, 'owner': owner});
 
-  Group.copyWith(Group original, {String? name, User? owner})
+  Group._copyWith(Group original, {String? name, User? owner})
       : super.copyWith(original, {'name': name, 'owner': owner});
 
-  Group.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name'}, {'owner'}, newId);
+  Group._deleted(Group original) : super.deleted(original);
 
-  Group copyNew({String? name, User? owner}) =>
-      Group.copyNew(this, name: name, owner: owner);
+  Group copyNew({required String name, required User owner}) =>
+      Group._copyNew(this, name: name, owner: owner);
 
   Group copyWith({String? name, User? owner}) =>
-      Group.copyWith(this, name: name, owner: owner);
+      Group._copyWith(this, name: name, owner: owner);
+
+  @override
+  Group deleted() => Group._deleted(this);
 }
 
 class Membership extends UserClientModel {
@@ -134,18 +166,23 @@ class Membership extends UserClientModel {
   Membership({required User user, required Group group})
       : super({'user': user, 'group': group});
 
-  Membership.copyNew(Membership original, {User? user, Group? group})
+  Membership._(map) : super(map);
+
+  Membership._copyNew(Membership original,
+      {required User user, required Group group})
       : super.copyNew(original, {'user': user, 'group': group});
 
-  Membership.copyWith(Membership original, {User? user, Group? group})
+  Membership._copyWith(Membership original, {User? user, Group? group})
       : super.copyWith(original, {'user': user, 'group': group});
 
-  Membership.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {}, {'user', 'group'}, newId);
+  Membership._deleted(Membership original) : super.deleted(original);
 
-  Membership copyNew({User? user, Group? group}) =>
-      Membership.copyNew(this, user: user, group: group);
+  Membership copyNew({required User user, required Group group}) =>
+      Membership._copyNew(this, user: user, group: group);
 
   Membership copyWith({User? user, Group? group}) =>
-      Membership.copyWith(this, user: user, group: group);
+      Membership._copyWith(this, user: user, group: group);
+
+  @override
+  Membership deleted() => Membership._deleted(this);
 }

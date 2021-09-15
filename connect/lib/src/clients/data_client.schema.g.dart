@@ -2,11 +2,16 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class DataClientData {
   final DataStore _ds;
-  DataClientData(String path, {String? isolate})
+  DataClientData(String path, {DataStoreObserver? observer})
       : _ds = DataStore('$path/data_client',
-            isolate: isolate,
-            builders: [(data) => Definition.fromJson(data)],
-            indexes: []);
+            adapters: Adapters([
+              Adapter<Definition>(
+                  decode: (m) => Definition._(m),
+                  encode: (k, v) => v,
+                  fields: ['name', 'access'])
+            ]),
+            indexes: [],
+            observer: observer);
   Future<DataClientData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -14,15 +19,20 @@ class DataClientData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
   Definition? getDefinition(ObjectId? id, {Definition? Function()? orElse}) =>
       _ds.get<Definition>(id, orElse: orElse);
-  Iterable<Definition> getDefinitions() => _ds.getAll<Definition>();
-  Iterable<Definition> findDefinitions({String? name, String? access}) =>
-      _ds.getAll<Definition>().where((m) =>
-          (name == null || name == m.name) &&
-          (access == null || access == m.access));
+  List<Definition> getDefinitions({bool Function(Definition model)? where}) =>
+      _ds.getAll<Definition>(where: where);
+  List<Definition> findDefinitions({String? name, String? access}) =>
+      _ds.getAll<Definition>(
+          where: (m) =>
+              (name == null || name == m.name) &&
+              (access == null || access == m.access));
   T put<T extends DataClientModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends DataClientModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
@@ -46,9 +56,7 @@ abstract class DataClientModel extends DataModel {
   DataClientModel.copyWith(
       DataClientModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  DataClientModel.fromJson(
-      data, Set<String> fields, Set<String> modelFields, bool newId)
-      : super.fromJson(data, fields, modelFields, newId);
+  DataClientModel.deleted(DataClientModel original) : super.deleted(original);
 }
 
 class Definition extends DataClientModel {
@@ -59,18 +67,23 @@ class Definition extends DataClientModel {
   Definition({required String name, String? access})
       : super({'name': name, 'access': access});
 
-  Definition.copyNew(Definition original, {String? name, String? access})
+  Definition._(map) : super(map);
+
+  Definition._copyNew(Definition original,
+      {required String name, String? access})
       : super.copyNew(original, {'name': name, 'access': access});
 
-  Definition.copyWith(Definition original, {String? name, String? access})
+  Definition._copyWith(Definition original, {String? name, String? access})
       : super.copyWith(original, {'name': name, 'access': access});
 
-  Definition.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name', 'access'}, {}, newId);
+  Definition._deleted(Definition original) : super.deleted(original);
 
-  Definition copyNew({String? name, String? access}) =>
-      Definition.copyNew(this, name: name, access: access);
+  Definition copyNew({required String name, String? access}) =>
+      Definition._copyNew(this, name: name, access: access);
 
   Definition copyWith({String? name, String? access}) =>
-      Definition.copyWith(this, name: name, access: access);
+      Definition._copyWith(this, name: name, access: access);
+
+  @override
+  Definition deleted() => Definition._deleted(this);
 }

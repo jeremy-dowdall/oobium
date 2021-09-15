@@ -164,6 +164,7 @@ class Inventory extends ExampleTestModel {
   Inventory copyWith({String? description, DateTime? date}) =>
       Inventory._copyWith(this, description: description, date: date);
 
+  @override
   Inventory deleted() => Inventory._deleted(this);
 }
 
@@ -205,6 +206,7 @@ class InventorySection extends ExampleTestModel {
   InventorySection copyWith({String? name, Inventory? inventory}) =>
       InventorySection._copyWith(this, name: name, inventory: inventory);
 
+  @override
   InventorySection deleted() => InventorySection._deleted(this);
 }
 
@@ -242,5 +244,6 @@ class InventoryItem extends ExampleTestModel {
   InventoryItem copyWith({String? name, InventorySection? section}) =>
       InventoryItem._copyWith(this, name: name, section: section);
 
+  @override
   InventoryItem deleted() => InventoryItem._deleted(this);
 }

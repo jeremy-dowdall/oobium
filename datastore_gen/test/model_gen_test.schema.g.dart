@@ -105,6 +105,7 @@ class User extends ModelGenTestModel {
 
   User copyWith({String? name}) => User._copyWith(this, name: name);
 
+  @override
   User deleted() => User._deleted(this);
 }
 
@@ -133,5 +134,6 @@ class Message extends ModelGenTestModel {
   Message copyWith({User? from, User? to, String? message}) =>
       Message._copyWith(this, from: from, to: to, message: message);
 
+  @override
   Message deleted() => Message._deleted(this);
 }

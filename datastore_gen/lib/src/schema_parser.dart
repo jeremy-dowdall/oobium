@@ -159,15 +159,13 @@ class SchemaElements {
   }
 
   static List<SchemaField> addField(String line, List<SchemaField> fields) {
-    final matches = RegExp(r"\s+(\w+)\s+([<\w, >]+)(\?)?(=[\w\[\]\{\}']+)?(\(([^\)]+)\))?").firstMatch(line);
+    final matches = RegExp(r"\s+(\w+)\s+([<\w, >]+)(\?)?(=.+)?").firstMatch(line);
     if(matches != null) {
       final name = matches.group(1)!;
       final type = matches.group(2)!;
       final nullable = matches.group(3) == '?';
       final initializer = matches.group(4);
-      fields.add(SchemaField(name, type, nullable, initializer,
-          (matches.group(6) ?? '').split(RegExp(r',\s*'))
-      ));
+      fields.add(SchemaField(name, type, nullable, initializer));
     }
     return fields;
   }
@@ -241,8 +239,8 @@ class SchemaField {
   final String type;
   final bool nullable;
   final String? initializer;
-  final List<String> options;
-  SchemaField(this.name, this.type, this.nullable, this.initializer, this.options);
+  final options = <String>[];
+  SchemaField(this.name, this.type, this.nullable, this.initializer);
 
   bool get isImportedType => importPackage != null;
   bool get isNotImportedType => !isImportedType;

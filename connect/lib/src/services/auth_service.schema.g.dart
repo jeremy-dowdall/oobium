@@ -2,14 +2,55 @@ import 'package:oobium_datastore/oobium_datastore.dart';
 
 class AuthServiceData {
   final DataStore _ds;
-  AuthServiceData(String path, {String? isolate})
-      : _ds = DataStore('$path/auth_service', isolate: isolate, builders: [
-          (data) => AuthUser.fromJson(data),
-          (data) => AuthToken.fromJson(data),
-          (data) => AuthLink.fromJson(data),
-          (data) => AuthGroup.fromJson(data),
-          (data) => AuthMembership.fromJson(data)
-        ], indexes: []);
+  AuthServiceData(String path, {DataStoreObserver? observer})
+      : _ds = DataStore('$path/auth_service',
+            adapters: Adapters([
+              Adapter<AuthUser>(
+                  decode: (m) {
+                    if (m['token'] != null) {
+                      m['token'] = DataId(m['token']);
+                    }
+                    if (m['referredBy'] != null) {
+                      m['referredBy'] = DataId(m['referredBy']);
+                    }
+                    return AuthUser._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['name', 'avatar', 'token', 'referredBy']),
+              Adapter<AuthToken>(
+                  decode: (m) {
+                    m['user'] = DataId(m['user']);
+                    return AuthToken._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['user']),
+              Adapter<AuthLink>(
+                  decode: (m) {
+                    m['user'] = DataId(m['user']);
+                    m['data'] = Map<String, String>.from(m['data'] ?? {});
+                    return AuthLink._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['user', 'type', 'code', 'data']),
+              Adapter<AuthGroup>(
+                  decode: (m) {
+                    m['owner'] = DataId(m['owner']);
+                    return AuthGroup._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['name', 'owner']),
+              Adapter<AuthMembership>(
+                  decode: (m) {
+                    m['user'] = DataId(m['user']);
+                    m['group'] = DataId(m['group']);
+                    m['invitedBy'] = DataId(m['invitedBy']);
+                    return AuthMembership._(m);
+                  },
+                  encode: (k, v) => v,
+                  fields: ['user', 'group', 'invitedBy'])
+            ]),
+            indexes: [],
+            observer: observer);
   Future<AuthServiceData> open(
           {int version = 1,
           Stream<DataRecord> Function(UpgradeEvent event)? onUpgrade}) =>
@@ -17,8 +58,11 @@ class AuthServiceData {
   Future<void> flush() => _ds.flush();
   Future<void> close() => _ds.close();
   Future<void> destroy() => _ds.destroy();
+  Future<void> reset() => _ds.reset();
   bool get isEmpty => _ds.isEmpty;
   bool get isNotEmpty => _ds.isNotEmpty;
+  bool get isOpen => _ds.isOpen;
+  bool get isNotOpen => _ds.isNotOpen;
   AuthUser? getAuthUser(ObjectId? id, {AuthUser? Function()? orElse}) =>
       _ds.get<AuthUser>(id, orElse: orElse);
   AuthToken? getAuthToken(ObjectId? id, {AuthToken? Function()? orElse}) =>
@@ -30,43 +74,53 @@ class AuthServiceData {
   AuthMembership? getAuthMembership(ObjectId? id,
           {AuthMembership? Function()? orElse}) =>
       _ds.get<AuthMembership>(id, orElse: orElse);
-  Iterable<AuthUser> getAuthUsers() => _ds.getAll<AuthUser>();
-  Iterable<AuthToken> getAuthTokens() => _ds.getAll<AuthToken>();
-  Iterable<AuthLink> getAuthLinks() => _ds.getAll<AuthLink>();
-  Iterable<AuthGroup> getAuthGroups() => _ds.getAll<AuthGroup>();
-  Iterable<AuthMembership> getAuthMemberships() => _ds.getAll<AuthMembership>();
-  Iterable<AuthUser> findAuthUsers(
+  List<AuthUser> getAuthUsers({bool Function(AuthUser model)? where}) =>
+      _ds.getAll<AuthUser>(where: where);
+  List<AuthToken> getAuthTokens({bool Function(AuthToken model)? where}) =>
+      _ds.getAll<AuthToken>(where: where);
+  List<AuthLink> getAuthLinks({bool Function(AuthLink model)? where}) =>
+      _ds.getAll<AuthLink>(where: where);
+  List<AuthGroup> getAuthGroups({bool Function(AuthGroup model)? where}) =>
+      _ds.getAll<AuthGroup>(where: where);
+  List<AuthMembership> getAuthMemberships(
+          {bool Function(AuthMembership model)? where}) =>
+      _ds.getAll<AuthMembership>(where: where);
+  List<AuthUser> findAuthUsers(
           {String? name,
           String? avatar,
           AuthToken? token,
           AuthUser? referredBy}) =>
-      _ds.getAll<AuthUser>().where((m) =>
-          (name == null || name == m.name) &&
-          (avatar == null || avatar == m.avatar) &&
-          (token == null || token == m.token) &&
-          (referredBy == null || referredBy == m.referredBy));
-  Iterable<AuthToken> findAuthTokens({AuthUser? user}) =>
-      _ds.getAll<AuthToken>().where((m) => (user == null || user == m.user));
-  Iterable<AuthLink> findAuthLinks(
+      _ds.getAll<AuthUser>(
+          where: (m) =>
+              (name == null || name == m.name) &&
+              (avatar == null || avatar == m.avatar) &&
+              (token == null || token == m.token) &&
+              (referredBy == null || referredBy == m.referredBy));
+  List<AuthToken> findAuthTokens({AuthUser? user}) =>
+      _ds.getAll<AuthToken>(where: (m) => (user == null || user == m.user));
+  List<AuthLink> findAuthLinks(
           {AuthUser? user,
           String? type,
           String? code,
           Map<String, String>? data}) =>
-      _ds.getAll<AuthLink>().where((m) =>
-          (user == null || user == m.user) &&
-          (type == null || type == m.type) &&
-          (code == null || code == m.code) &&
-          (data == null || data == m.data));
-  Iterable<AuthGroup> findAuthGroups({String? name, AuthUser? owner}) =>
-      _ds.getAll<AuthGroup>().where((m) =>
-          (name == null || name == m.name) &&
-          (owner == null || owner == m.owner));
-  Iterable<AuthMembership> findAuthMemberships(
+      _ds.getAll<AuthLink>(
+          where: (m) =>
+              (user == null || user == m.user) &&
+              (type == null || type == m.type) &&
+              (code == null || code == m.code) &&
+              (data == null || data == m.data));
+  List<AuthGroup> findAuthGroups({String? name, AuthUser? owner}) =>
+      _ds.getAll<AuthGroup>(
+          where: (m) =>
+              (name == null || name == m.name) &&
+              (owner == null || owner == m.owner));
+  List<AuthMembership> findAuthMemberships(
           {AuthUser? user, AuthGroup? group, AuthUser? invitedBy}) =>
-      _ds.getAll<AuthMembership>().where((m) =>
-          (user == null || user == m.user) &&
-          (group == null || group == m.group) &&
-          (invitedBy == null || invitedBy == m.invitedBy));
+      _ds.getAll<AuthMembership>(
+          where: (m) =>
+              (user == null || user == m.user) &&
+              (group == null || group == m.group) &&
+              (invitedBy == null || invitedBy == m.invitedBy));
   T put<T extends AuthServiceModel>(T model) => _ds.put<T>(model);
   List<T> putAll<T extends AuthServiceModel>(Iterable<T> models) =>
       _ds.putAll<T>(models);
@@ -126,9 +180,7 @@ abstract class AuthServiceModel extends DataModel {
   AuthServiceModel.copyWith(
       AuthServiceModel original, Map<String, dynamic>? fields)
       : super.copyWith(original, fields);
-  AuthServiceModel.fromJson(
-      data, Set<String> fields, Set<String> modelFields, bool newId)
-      : super.fromJson(data, fields, modelFields, newId);
+  AuthServiceModel.deleted(AuthServiceModel original) : super.deleted(original);
 }
 
 class AuthUser extends AuthServiceModel {
@@ -150,8 +202,13 @@ class AuthUser extends AuthServiceModel {
           'referredBy': referredBy
         });
 
-  AuthUser.copyNew(AuthUser original,
-      {String? name, String? avatar, AuthToken? token, AuthUser? referredBy})
+  AuthUser._(map) : super(map);
+
+  AuthUser._copyNew(AuthUser original,
+      {required String name,
+      String? avatar,
+      AuthToken? token,
+      AuthUser? referredBy})
       : super.copyNew(original, {
           'name': name,
           'avatar': avatar,
@@ -159,7 +216,7 @@ class AuthUser extends AuthServiceModel {
           'referredBy': referredBy
         });
 
-  AuthUser.copyWith(AuthUser original,
+  AuthUser._copyWith(AuthUser original,
       {String? name, String? avatar, AuthToken? token, AuthUser? referredBy})
       : super.copyWith(original, {
           'name': name,
@@ -168,16 +225,14 @@ class AuthUser extends AuthServiceModel {
           'referredBy': referredBy
         });
 
-  AuthUser.fromJson(data, {bool newId = false})
-      : super.fromJson(
-            data, {'name', 'avatar'}, {'token', 'referredBy'}, newId);
+  AuthUser._deleted(AuthUser original) : super.deleted(original);
 
   AuthUser copyNew(
-          {String? name,
+          {required String name,
           String? avatar,
           AuthToken? token,
           AuthUser? referredBy}) =>
-      AuthUser.copyNew(this,
+      AuthUser._copyNew(this,
           name: name, avatar: avatar, token: token, referredBy: referredBy);
 
   AuthUser copyWith(
@@ -185,8 +240,11 @@ class AuthUser extends AuthServiceModel {
           String? avatar,
           AuthToken? token,
           AuthUser? referredBy}) =>
-      AuthUser.copyWith(this,
+      AuthUser._copyWith(this,
           name: name, avatar: avatar, token: token, referredBy: referredBy);
+
+  @override
+  AuthUser deleted() => AuthUser._deleted(this);
 }
 
 class AuthToken extends AuthServiceModel {
@@ -195,18 +253,23 @@ class AuthToken extends AuthServiceModel {
 
   AuthToken({required AuthUser user}) : super({'user': user});
 
-  AuthToken.copyNew(AuthToken original, {AuthUser? user})
+  AuthToken._(map) : super(map);
+
+  AuthToken._copyNew(AuthToken original, {required AuthUser user})
       : super.copyNew(original, {'user': user});
 
-  AuthToken.copyWith(AuthToken original, {AuthUser? user})
+  AuthToken._copyWith(AuthToken original, {AuthUser? user})
       : super.copyWith(original, {'user': user});
 
-  AuthToken.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {}, {'user'}, newId);
+  AuthToken._deleted(AuthToken original) : super.deleted(original);
 
-  AuthToken copyNew({AuthUser? user}) => AuthToken.copyNew(this, user: user);
+  AuthToken copyNew({required AuthUser user}) =>
+      AuthToken._copyNew(this, user: user);
 
-  AuthToken copyWith({AuthUser? user}) => AuthToken.copyWith(this, user: user);
+  AuthToken copyWith({AuthUser? user}) => AuthToken._copyWith(this, user: user);
+
+  @override
+  AuthToken deleted() => AuthToken._deleted(this);
 }
 
 class AuthLink extends AuthServiceModel {
@@ -223,32 +286,39 @@ class AuthLink extends AuthServiceModel {
       Map<String, String> data = const {}})
       : super({'user': user, 'type': type, 'code': code, 'data': data});
 
-  AuthLink.copyNew(AuthLink original,
-      {AuthUser? user, String? type, String? code, Map<String, String>? data})
+  AuthLink._(map) : super(map);
+
+  AuthLink._copyNew(AuthLink original,
+      {required AuthUser user,
+      required String type,
+      required String code,
+      Map<String, String> data = const {}})
       : super.copyNew(
             original, {'user': user, 'type': type, 'code': code, 'data': data});
 
-  AuthLink.copyWith(AuthLink original,
+  AuthLink._copyWith(AuthLink original,
       {AuthUser? user, String? type, String? code, Map<String, String>? data})
       : super.copyWith(
             original, {'user': user, 'type': type, 'code': code, 'data': data});
 
-  AuthLink.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'type', 'code', 'data'}, {'user'}, newId);
+  AuthLink._deleted(AuthLink original) : super.deleted(original);
 
   AuthLink copyNew(
-          {AuthUser? user,
-          String? type,
-          String? code,
-          Map<String, String>? data}) =>
-      AuthLink.copyNew(this, user: user, type: type, code: code, data: data);
+          {required AuthUser user,
+          required String type,
+          required String code,
+          Map<String, String> data = const {}}) =>
+      AuthLink._copyNew(this, user: user, type: type, code: code, data: data);
 
   AuthLink copyWith(
           {AuthUser? user,
           String? type,
           String? code,
           Map<String, String>? data}) =>
-      AuthLink.copyWith(this, user: user, type: type, code: code, data: data);
+      AuthLink._copyWith(this, user: user, type: type, code: code, data: data);
+
+  @override
+  AuthLink deleted() => AuthLink._deleted(this);
 }
 
 class AuthGroup extends AuthServiceModel {
@@ -259,20 +329,25 @@ class AuthGroup extends AuthServiceModel {
   AuthGroup({required String name, required AuthUser owner})
       : super({'name': name, 'owner': owner});
 
-  AuthGroup.copyNew(AuthGroup original, {String? name, AuthUser? owner})
+  AuthGroup._(map) : super(map);
+
+  AuthGroup._copyNew(AuthGroup original,
+      {required String name, required AuthUser owner})
       : super.copyNew(original, {'name': name, 'owner': owner});
 
-  AuthGroup.copyWith(AuthGroup original, {String? name, AuthUser? owner})
+  AuthGroup._copyWith(AuthGroup original, {String? name, AuthUser? owner})
       : super.copyWith(original, {'name': name, 'owner': owner});
 
-  AuthGroup.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {'name'}, {'owner'}, newId);
+  AuthGroup._deleted(AuthGroup original) : super.deleted(original);
 
-  AuthGroup copyNew({String? name, AuthUser? owner}) =>
-      AuthGroup.copyNew(this, name: name, owner: owner);
+  AuthGroup copyNew({required String name, required AuthUser owner}) =>
+      AuthGroup._copyNew(this, name: name, owner: owner);
 
   AuthGroup copyWith({String? name, AuthUser? owner}) =>
-      AuthGroup.copyWith(this, name: name, owner: owner);
+      AuthGroup._copyWith(this, name: name, owner: owner);
+
+  @override
+  AuthGroup deleted() => AuthGroup._deleted(this);
 }
 
 class AuthMembership extends AuthServiceModel {
@@ -287,26 +362,34 @@ class AuthMembership extends AuthServiceModel {
       required AuthUser invitedBy})
       : super({'user': user, 'group': group, 'invitedBy': invitedBy});
 
-  AuthMembership.copyNew(AuthMembership original,
-      {AuthUser? user, AuthGroup? group, AuthUser? invitedBy})
+  AuthMembership._(map) : super(map);
+
+  AuthMembership._copyNew(AuthMembership original,
+      {required AuthUser user,
+      required AuthGroup group,
+      required AuthUser invitedBy})
       : super.copyNew(
             original, {'user': user, 'group': group, 'invitedBy': invitedBy});
 
-  AuthMembership.copyWith(AuthMembership original,
+  AuthMembership._copyWith(AuthMembership original,
       {AuthUser? user, AuthGroup? group, AuthUser? invitedBy})
       : super.copyWith(
             original, {'user': user, 'group': group, 'invitedBy': invitedBy});
 
-  AuthMembership.fromJson(data, {bool newId = false})
-      : super.fromJson(data, {}, {'user', 'group', 'invitedBy'}, newId);
+  AuthMembership._deleted(AuthMembership original) : super.deleted(original);
 
   AuthMembership copyNew(
-          {AuthUser? user, AuthGroup? group, AuthUser? invitedBy}) =>
-      AuthMembership.copyNew(this,
+          {required AuthUser user,
+          required AuthGroup group,
+          required AuthUser invitedBy}) =>
+      AuthMembership._copyNew(this,
           user: user, group: group, invitedBy: invitedBy);
 
   AuthMembership copyWith(
           {AuthUser? user, AuthGroup? group, AuthUser? invitedBy}) =>
-      AuthMembership.copyWith(this,
+      AuthMembership._copyWith(this,
           user: user, group: group, invitedBy: invitedBy);
+
+  @override
+  AuthMembership deleted() => AuthMembership._deleted(this);
 }

@@ -75,5 +75,6 @@ class Item extends MainModel {
 
   Item copyWith({String? name}) => Item._copyWith(this, name: name);
 
+  @override
   Item deleted() => Item._deleted(this);
 }

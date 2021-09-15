@@ -1,6 +1,6 @@
 name: oobium_datastore
 description: Persistent DataStore for Dart applications.
-version: 1.0.0-dev.4
+version: 1.0.0-dev.5
 repository: https://github.com/jeremy-dowdall/oobium
 
 environment:

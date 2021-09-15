@@ -548,10 +548,12 @@ class AppRouteParser extends RouteInformationParser<AppRoute> {
       return false;
     }
     for(var i = 0; i < parts.length && i < segments.length; i++) {
-      if(parts[i] == segments[i]) continue;
-      if(parts[i] == '<>') continue;
-      if(parts[i] == '<bool>' && (segments[i] == 'true' || segments[i] == 'false')) continue;
-      if(parts[i] == '<int>' && int.tryParse(segments[i]) != null) continue;
+      String p = parts[i], s = segments[i];
+      if(p == s) continue;
+      if(p == '<>') continue;
+      if(p == '<bool>' && (s == 'true' || s == 'false')) continue;
+      if(p == '<int>' && int.tryParse(s) != null) continue;
+      return false;
     }
     return true;
   }

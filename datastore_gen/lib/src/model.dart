@@ -163,6 +163,7 @@ class Model {
     decoder ??= f.isHasMany ? "${f.type}(key: '${f.hasManyKey}')" : null;
     decoder ??= f.isDateTime ? "DateTime.fromMillisecondsSinceEpoch(m['${f.name}'])" : null;
     decoder ??= f.jsonDecode?.replaceAll('\$', "m['${f.name}']");
+    decoder ??= f.isCollection ? f.from("m['${f.name}']") : null;
     if(decoder != null) {
       if(f.isNullable) {
         return "if(m['${f.name}'] != null) { m['${f.name}'] = $decoder; }\n";
@@ -187,8 +188,13 @@ class Model {
     String? encoder;
     encoder ??= f.jsonEncode?.replaceAll('\$', 'v');
     encoder ??= _imports.firstWhereOrNull((i) => i.encodes(f.type))?.encoder?.replaceAll('\$', 'v');
-    if(encoder != null) {
-      return "if(k == '${f.name}' && v is ${f.type}) return $encoder;\n";
+    if(encoder != null) { return
+      "if(k == '${f.name}'${f.isRequired ? '' : '&& v != null'}) {"
+      '  if(v is ${f.type}) {'
+      '    return $encoder;'
+      '  }'
+      '  throw InvalidTypeException.value(v, type: ${f.type});'
+      '}';
     }
     return null;
   }
@@ -231,8 +237,14 @@ class ModelField {
   bool get isNotString => !isString;
   bool get isIterable => _type == 'Iterable' || _type.startsWith('Iterable<');
   bool get isNotIterable => !isIterable;
+  bool get isCollection => isList || isIterable || isSet || isMap;
+  bool get isNotCollection => !isCollection;
   bool get isList => _type == 'List' || _type.startsWith('List<');
   bool get isNotList => !isList;
+  bool get isSet => _type == 'Set' || _type.startsWith('Set<');
+  bool get isNotSet => !isSet;
+  bool get isMap => _type == 'Map' || _type.startsWith('Map<');
+  bool get isNotMap => !isMap;
   bool get isBool => _type == 'bool';
   bool get isNotBool => !isBool;
   bool get isInt => _type == 'int';
@@ -257,10 +269,10 @@ class ModelField {
 
   bool get isGeneric => model.isGeneric && rawTypeArgument == model.typeParameter;
   bool get isNotGeneric => !isGeneric;
-  String? get typeParameter => isGeneric ? model.typeParameter : null;
 
   bool get isParameterized => isNotGeneric && _type.contains('<');
   bool get isNotParameterized => !isParameterized;
+  String? get parameter => _type.substring(_type.indexOf('<') + 1, _type.length-1);
 
   String? meta(String key) => metadata.firstWhereOrNull((m) => m.startsWith('$key:'))?.substring('$key:'.length).trim();
 
@@ -281,6 +293,14 @@ class ModelField {
     if(isGeneric) return null;
     final index = _type.indexOf('<');
     return (index != -1) ? _type.substring(index + 1, _type.length - 1) : null;
+  }
+
+  String from(String value) {
+    if(isIterable) return 'List<${parameter}>.from($value ?? [])';
+    if(isList) return 'List<${parameter}>.from($value ?? [])';
+    if(isSet) return 'Set<${parameter}>.from($value ?? {})';
+    if(isMap) return 'Map<${parameter}>.from($value ?? {})';
+    throw '$this is not a collection';
   }
 
   @override

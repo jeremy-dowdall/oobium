@@ -1,3 +1,7 @@
+## 1.0.0-dev.5
+
+* add errors.dart
+
 ## 1.0.0-dev.4
 
 * allow adding models created with external ids to the system

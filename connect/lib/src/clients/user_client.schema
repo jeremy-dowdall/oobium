@@ -1,11 +1,11 @@
 User
-  name String(required)
-  avatar String
+  name String
+  avatar String?
 
 Group
-  name String(required)
-  owner User(required)
+  name String
+  owner User
 
 Membership
-  user User(required)
-  group Group(required)
+  user User
+  group Group
